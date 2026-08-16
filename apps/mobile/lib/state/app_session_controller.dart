@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../domain/devices/device_adapters.dart';
+import '../../devices/adapters/demo_adapter.dart';
+import '../../devices/adapters/qring_adapter.dart';
+import '../../devices/adapters/unpaired_adapter.dart';
 import '../../domain/devices/device_capabilities.dart';
 import '../../domain/devices/device_connection_state.dart';
 import '../../domain/devices/wearable_device.dart';
@@ -45,8 +47,11 @@ class AppSession {
   final DeviceConnectionState connectionState;
   final WearableDeviceInfo? pairedDevice;
 
-  DeviceCapabilities get capabilities =>
-      pairedDevice == null ? DeviceCapabilities.none : DeviceCapabilities.unknownPendingSdk;
+  DeviceCapabilities get capabilities {
+    if (pairedDevice == null) return DeviceCapabilities.none;
+    if (pairedDevice!.isDemo) return DemoWearableAdapter.demoCapabilities;
+    return DeviceCapabilities.unknownPendingSdk;
+  }
 
   AppSession copyWith({
     bool? hasCompletedFirstLaunch,
@@ -108,17 +113,7 @@ class AppSession {
         'profile': profile.toJson(),
         'baselineState': baselineState.name,
         'connectionState': connectionState.name,
-        'pairedDevice': pairedDevice == null
-            ? null
-            : {
-                'id': pairedDevice!.id,
-                'displayName': pairedDevice!.displayName,
-                'kind': pairedDevice!.kind.name,
-                'model': pairedDevice!.model,
-                'firmwareVersion': pairedDevice!.firmwareVersion,
-                'batteryPercent': pairedDevice!.batteryPercent,
-                'lastSyncAt': pairedDevice!.lastSyncAt?.toIso8601String(),
-              },
+        'pairedDevice': pairedDevice?.toJson(),
       };
 
   factory AppSession.fromJson(Map<String, dynamic> json) {
@@ -154,22 +149,7 @@ class AppSession {
         (e) => e.name == json['connectionState'],
         orElse: () => DeviceConnectionState.unpaired,
       ),
-      pairedDevice: paired == null
-          ? null
-          : WearableDeviceInfo(
-              id: paired['id'] as String,
-              displayName: paired['displayName'] as String? ?? 'Vytal Device',
-              kind: VytalDeviceKind.values.firstWhere(
-                (e) => e.name == paired['kind'],
-                orElse: () => VytalDeviceKind.unknown,
-              ),
-              model: paired['model'] as String?,
-              firmwareVersion: paired['firmwareVersion'] as String?,
-              batteryPercent: paired['batteryPercent'] as int?,
-              lastSyncAt: paired['lastSyncAt'] == null
-                  ? null
-                  : DateTime.tryParse(paired['lastSyncAt'] as String),
-            ),
+      pairedDevice: paired == null ? null : WearableDeviceInfo.fromJson(paired),
     );
   }
 }
@@ -198,10 +178,13 @@ final appSessionProvider =
 
 final wearableDeviceProvider = Provider<WearableDevice>((ref) {
   final session = ref.watch(appSessionProvider);
-  if (session.operatingMode == OperatingMode.connected &&
-      session.pairedDevice != null) {
-    // Phase 2 will swap in the real QRing adapter instance.
-    return QRingWearableAdapter();
+  final paired = session.pairedDevice;
+  if (paired == null) return UnpairedWearableDevice();
+  if (paired.isDemo || paired.adapterId == DemoWearableAdapter.adapterKey) {
+    return DemoWearableAdapter(knownDevice: paired);
+  }
+  if (paired.adapterId == 'qring') {
+    return QRingWearableAdapter(knownDevice: paired);
   }
   return UnpairedWearableDevice();
 });
@@ -216,7 +199,6 @@ class AppSessionController extends StateNotifier<AppSession> {
     try {
       state = AppSession.fromJson(jsonDecode(raw) as Map<String, dynamic>);
     } catch (_) {
-      // Corrupted local session — keep defaults without crashing.
       state = AppSession.initial();
     }
   }
@@ -227,13 +209,10 @@ class AppSessionController extends StateNotifier<AppSession> {
   }
 
   Future<void> completeFirstLaunch(DeviceArrivalChoice choice) async {
-    final mode = choice == DeviceArrivalChoice.alreadyHaveDevice
-        ? OperatingMode.appOnly // still app-only until actually paired
-        : OperatingMode.appOnly;
     state = state.copyWith(
       hasCompletedFirstLaunch: true,
       deviceArrivalChoice: choice,
-      operatingMode: mode,
+      operatingMode: OperatingMode.appOnly,
     );
     await _persist();
   }
@@ -263,24 +242,42 @@ class AppSessionController extends StateNotifier<AppSession> {
     await _persist();
   }
 
+  Future<void> setConnectionState(DeviceConnectionState connectionState) async {
+    state = state.copyWith(connectionState: connectionState);
+    await _persist();
+  }
+
+  Future<void> updatePairedDevice(WearableDeviceInfo device) async {
+    state = state.copyWith(
+      pairedDevice: device,
+      operatingMode: OperatingMode.connected,
+    );
+    await _persist();
+  }
+
   /// Transition to Connected Mode without resetting profile/history.
   Future<void> markDevicePaired(WearableDeviceInfo device) async {
     state = state.copyWith(
       pairedDevice: device,
       operatingMode: OperatingMode.connected,
       connectionState: DeviceConnectionState.connected,
-      baselineState: BaselineCalibrationState.learning,
+      baselineState: device.isDemo
+          ? BaselineCalibrationState.notStarted
+          : BaselineCalibrationState.learning,
     );
     await _persist();
   }
 
   Future<void> disconnectDevice({bool remove = false}) async {
     state = state.copyWith(
-      operatingMode: OperatingMode.appOnly,
-      connectionState: DeviceConnectionState.unpaired,
-      baselineState: BaselineCalibrationState.notStarted,
+      operatingMode: remove ? OperatingMode.appOnly : OperatingMode.appOnly,
+      connectionState: remove
+          ? DeviceConnectionState.unpaired
+          : DeviceConnectionState.disconnected,
+      baselineState: remove
+          ? BaselineCalibrationState.notStarted
+          : state.baselineState,
       clearPairedDevice: remove,
-      pairedDevice: remove ? null : state.pairedDevice,
     );
     await _persist();
   }

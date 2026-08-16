@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../devices/connection/device_connection_controller.dart';
 import '../../domain/devices/device_connection_state.dart';
 import '../../domain/models/monitoring_mode.dart';
 import '../../domain/models/operating_mode.dart';
@@ -15,8 +16,10 @@ class TodayScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(appSessionProvider);
+    final connection = ref.watch(deviceConnectionProvider);
     final name = session.profile.displayName?.trim();
     final greeting = (name == null || name.isEmpty) ? 'Welcome' : 'Hello, $name';
+    final device = connection.activeDevice ?? session.pairedDevice;
 
     return SectionScaffold(
       title: 'Today',
@@ -53,9 +56,11 @@ class TodayScreen extends ConsumerWidget {
           const SizedBox(height: 12),
           EmptyMetricCard(
             title: 'Device',
-            message: session.pairedDevice == null
+            message: device == null
                 ? 'No device paired. Connect My Vytal when your wearable arrives — your goals and history stay.'
-                : '${session.pairedDevice!.displayName} · ${session.connectionState.label}',
+                : '${device.displayName} · ${connection.state.label}'
+                    '${device.isDemo ? ' · Demo' : ''}'
+                    '${connection.battery?.value != null ? ' · Battery ${connection.battery!.value}%' : ''}',
           ),
           const SizedBox(height: 12),
           EmptyMetricCard(

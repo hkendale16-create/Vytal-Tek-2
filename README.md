@@ -13,8 +13,9 @@ apps/mobile/     Flutter app (iOS, Android, web shell)
 | Phase | Status |
 |---|---|
 | 0 Audit | Complete — repo was greenfield |
-| 1 Foundation | In progress on this branch |
-| 2+ Wearable / monitoring / AI / billing | Not started |
+| 1 Foundation | Complete on branch history |
+| 2 Wearable connection | In progress — lifecycle + demo adapter; QRing SDK pending vendor binaries |
+| 3+ Monitoring / health UI / AI / billing | Not started |
 
 ## Run (mobile)
 
