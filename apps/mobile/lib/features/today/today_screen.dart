@@ -37,24 +37,16 @@ class TodayScreen extends ConsumerWidget {
       },
       child: Stack(
         children: [
-          const AmbientCanvasGlow(intensity: 0.55),
+          const AmbientCanvasGlow(intensity: 1.05),
           CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverAppBar(
                 pinned: true,
-                title: const Text('Home'),
+                backgroundColor: Colors.transparent,
+                surfaceTintColor: Colors.transparent,
+                title: Text(greeting),
                 actions: [
-                  IconButton(
-                    tooltip: 'Body overview',
-                    onPressed: () => context.push('/body'),
-                    icon: const Icon(Icons.accessibility_new_outlined),
-                  ),
-                  IconButton(
-                    tooltip: 'Coach Vital',
-                    onPressed: () => context.push('/ask'),
-                    icon: const Icon(Icons.auto_awesome_outlined),
-                  ),
                   IconButton(
                     tooltip: 'Devices',
                     onPressed: () => context.push('/devices'),
@@ -63,7 +55,7 @@ class TodayScreen extends ConsumerWidget {
                 ],
               ),
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
                 sliver: SliverToBoxAdapter(
                   child: healthAsync.when(
                     loading: () => const Center(
@@ -77,24 +69,24 @@ class TodayScreen extends ConsumerWidget {
                       message: 'Could not load health surface. Pull to retry.',
                     ),
                     data: (health) {
-                      final monitoringCaption = session.automaticMonitoringEnabled
-                          ? 'Monitoring · Automatic — ${monitoring.mode.label}'
-                          : 'Monitoring · ${monitoring.mode.label}';
+                      final monitoringCaption =
+                          session.automaticMonitoringEnabled
+                              ? 'Automatic — ${monitoring.mode.label}'
+                              : monitoring.mode.label;
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Text(greeting, style: theme.textTheme.headlineMedium),
-                          const SizedBox(height: 4),
                           Text(
                             'How am I doing today?',
-                            style: theme.textTheme.bodyMedium?.copyWith(
+                            style: theme.textTheme.titleMedium?.copyWith(
                               color: extras.textMuted,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 6),
                           Wrap(
                             spacing: 8,
-                            runSpacing: 8,
+                            runSpacing: 6,
                             crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
                               StatusPill(
@@ -114,18 +106,19 @@ class TodayScreen extends ConsumerWidget {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 4),
                           SizedBox(
-                            height: 340,
+                            height: 420,
                             child: Stack(
                               clipBehavior: Clip.none,
                               children: [
-                                Center(
+                                Align(
+                                  alignment: Alignment.center,
                                   child: FloatingHud(
-                                    amplitude: 4,
+                                    amplitude: 5,
                                     child: ReadinessGauge(
                                       score: health.readinessScore,
-                                      size: 196,
+                                      size: 248,
                                       label: 'READINESS',
                                       subtitle: health.readinessScore == null
                                           ? null
@@ -140,102 +133,74 @@ class TodayScreen extends ConsumerWidget {
                                     ),
                                   ),
                                 ),
-                                Positioned(
-                                  left: 0,
-                                  top: 8,
+                                Align(
+                                  alignment: const Alignment(-1.0, -0.82),
                                   child: FloatingHud(
-                                    delay: const Duration(milliseconds: 180),
-                                    child: SizedBox(
-                                      width: 128,
-                                      child: MetricHudTile(
-                                        compact: true,
-                                        title: 'Heart Rate',
-                                        value: health.heartRate.hasValue
-                                            ? '${health.heartRate.value}'
-                                            : null,
-                                        unit: 'BPM',
-                                        icon: Icons.favorite_outline,
-                                        provenance: health.heartRate.provenance,
-                                        emptyMessage:
-                                            health.heartRate.statusLabel ??
-                                                health.heartRate.freshness.label,
-                                        onTap: () => context.push(
-                                          '/vitals/${HealthMetricKeys.heartRate}',
-                                        ),
+                                    delay: const Duration(milliseconds: 160),
+                                    child: HudMetricChip(
+                                      label: 'Heart Rate',
+                                      value: health.heartRate.hasValue
+                                          ? '${health.heartRate.value}'
+                                          : null,
+                                      unit: 'BPM',
+                                      icon: Icons.favorite_outline,
+                                      provenance: health.heartRate.provenance,
+                                      onTap: () => context.push(
+                                        '/vitals/${HealthMetricKeys.heartRate}',
                                       ),
                                     ),
                                   ),
                                 ),
-                                Positioned(
-                                  right: 0,
-                                  top: 28,
+                                Align(
+                                  alignment: const Alignment(1.0, -0.48),
                                   child: FloatingHud(
-                                    delay: const Duration(milliseconds: 420),
-                                    child: SizedBox(
-                                      width: 128,
-                                      child: MetricHudTile(
-                                        compact: true,
-                                        title: 'SpO₂',
-                                        value: health.spo2.hasValue
-                                            ? '${health.spo2.value}'
-                                            : null,
-                                        unit: '%',
-                                        icon: Icons.water_drop_outlined,
-                                        provenance: health.spo2.provenance,
-                                        emptyMessage: health.spo2.statusLabel ??
-                                            health.spo2.freshness.label,
-                                        onTap: () => context.push(
-                                          '/vitals/${HealthMetricKeys.spo2}',
-                                        ),
+                                    delay: const Duration(milliseconds: 380),
+                                    child: HudMetricChip(
+                                      label: 'SpO₂',
+                                      value: health.spo2.hasValue
+                                          ? '${health.spo2.value}'
+                                          : null,
+                                      unit: '%',
+                                      icon: Icons.water_drop_outlined,
+                                      provenance: health.spo2.provenance,
+                                      onTap: () => context.push(
+                                        '/vitals/${HealthMetricKeys.spo2}',
                                       ),
                                     ),
                                   ),
                                 ),
-                                Positioned(
-                                  left: 0,
-                                  bottom: 4,
+                                Align(
+                                  alignment: const Alignment(-1.0, 0.78),
                                   child: FloatingHud(
-                                    delay: const Duration(milliseconds: 640),
-                                    child: SizedBox(
-                                      width: 128,
-                                      child: MetricHudTile(
-                                        compact: true,
-                                        title: 'Steps',
-                                        value: health.steps?.toString(),
-                                        unit: '',
-                                        icon: Icons.directions_walk,
-                                        provenance: health.steps == null
-                                            ? null
-                                            : health.provenance,
-                                        emptyMessage: 'No step total yet',
-                                        onTap: () => context.push(
-                                          '/vitals/${HealthMetricKeys.steps}',
-                                        ),
+                                    delay: const Duration(milliseconds: 620),
+                                    child: HudMetricChip(
+                                      label: 'Steps',
+                                      value: health.steps?.toString(),
+                                      unit: '',
+                                      icon: Icons.directions_walk,
+                                      provenance: health.steps == null
+                                          ? null
+                                          : health.provenance,
+                                      onTap: () => context.push(
+                                        '/vitals/${HealthMetricKeys.steps}',
                                       ),
                                     ),
                                   ),
                                 ),
-                                Positioned(
-                                  right: 0,
-                                  bottom: 16,
+                                Align(
+                                  alignment: const Alignment(1.0, 0.62),
                                   child: FloatingHud(
-                                    delay: const Duration(milliseconds: 880),
-                                    child: SizedBox(
-                                      width: 128,
-                                      child: MetricHudTile(
-                                        compact: true,
-                                        title: 'HRV',
-                                        value: health.hrv.hasValue
-                                            ? '${health.hrv.value}'
-                                            : null,
-                                        unit: 'ms',
-                                        icon: Icons.graphic_eq,
-                                        provenance: health.hrv.provenance,
-                                        emptyMessage: health.hrv.statusLabel ??
-                                            health.hrv.freshness.label,
-                                        onTap: () => context.push(
-                                          '/vitals/${HealthMetricKeys.hrv}',
-                                        ),
+                                    delay: const Duration(milliseconds: 840),
+                                    child: HudMetricChip(
+                                      label: 'HRV',
+                                      value: health.hrv.hasValue
+                                          ? '${health.hrv.value}'
+                                          : null,
+                                      unit: 'ms',
+                                      icon: Icons.graphic_eq,
+                                      provenance: health.hrv.provenance,
+                                      onTap: () => context.push(
+                                        '/vitals/${HealthMetricKeys.hrv}',
                                       ),
                                     ),
                                   ),
@@ -243,7 +208,6 @@ class TodayScreen extends ConsumerWidget {
                               ],
                             ),
                           ),
-                          const SizedBox(height: 8),
                           Text(
                             health.readinessMessage,
                             textAlign: TextAlign.center,
@@ -251,7 +215,7 @@ class TodayScreen extends ConsumerWidget {
                               color: extras.textMuted,
                             ),
                           ),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 18),
                           HudActionRail(
                             actions: [
                               HudAction(
@@ -275,9 +239,9 @@ class TodayScreen extends ConsumerWidget {
                                 onTap: () => context.push('/ask'),
                               ),
                               HudAction(
-                                icon: Icons.note_alt_outlined,
-                                label: 'Note',
-                                onTap: () => context.push('/notes'),
+                                icon: Icons.accessibility_new_outlined,
+                                label: 'Body',
+                                onTap: () => context.push('/body'),
                               ),
                             ],
                           ),
@@ -302,10 +266,10 @@ class TodayScreen extends ConsumerWidget {
                                     ),
                                   )
                                 : IconButton(
-                                    tooltip: 'Live Body',
-                                    onPressed: () => context.push('/body'),
+                                    tooltip: 'Notes',
+                                    onPressed: () => context.push('/notes'),
                                     icon: const Icon(
-                                      Icons.accessibility_new_outlined,
+                                      Icons.note_alt_outlined,
                                       size: 18,
                                     ),
                                   ),

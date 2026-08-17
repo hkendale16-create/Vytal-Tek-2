@@ -27,11 +27,12 @@ class RecoveryScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Center(
-            child: FloatingHud(
-              amplitude: 4,
-              child: ReadinessGauge(
-                score: score,
-                label: 'READINESS',
+              child: FloatingHud(
+                amplitude: 4,
+                child: ReadinessGauge(
+                  score: score,
+                  size: 248,
+                  label: 'READINESS',
                 subtitle: score == null
                     ? null
                     : demo
