@@ -135,7 +135,7 @@ class _LiveBodyStageState extends State<LiveBodyStage>
                       ..setEntry(3, 2, 0.0016)
                       ..rotateY(yaw)
                       ..rotateX(pitch)
-                      ..scale(scale),
+                      ..scaleByDouble(scale, scale, scale, 1),
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
