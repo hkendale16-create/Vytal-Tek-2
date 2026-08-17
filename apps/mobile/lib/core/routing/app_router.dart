@@ -17,6 +17,7 @@ import '../../features/settings/permissions_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/shell/app_shell.dart';
 import '../../features/sleep/sleep_screen.dart';
+import '../../features/more/more_screen.dart';
 import '../../features/subscription/plans_screen.dart';
 import '../../features/subscription/subscription_screen.dart';
 import '../../features/notes/notes_screen.dart';
@@ -66,44 +67,56 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/activity',
-                builder: (context, state) => const ActivityScreen(),
+                path: '/vitals',
+                builder: (context, state) => const VitalsScreen(),
               ),
             ],
           ),
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/sleep',
-                builder: (context, state) => const SleepScreen(),
+                path: '/workouts',
+                builder: (context, state) => const WorkoutsScreen(),
               ),
             ],
           ),
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/analytics',
-                builder: (context, state) => const AnalyticsScreen(),
+                path: '/ask',
+                builder: (context, state) => const AiCoachScreen(),
               ),
             ],
           ),
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/profile',
-                builder: (context, state) => const ProfileScreen(),
+                path: '/more',
+                builder: (context, state) => const MoreScreen(),
               ),
             ],
           ),
         ],
       ),
       GoRoute(
-        path: '/body',
-        builder: (context, state) => const BodyScreen(),
+        path: '/activity',
+        builder: (context, state) => const ActivityScreen(),
       ),
       GoRoute(
-        path: '/ask',
-        builder: (context, state) => const AiCoachScreen(),
+        path: '/sleep',
+        builder: (context, state) => const SleepScreen(),
+      ),
+      GoRoute(
+        path: '/analytics',
+        builder: (context, state) => const AnalyticsScreen(),
+      ),
+      GoRoute(
+        path: '/profile',
+        builder: (context, state) => const ProfileScreen(),
+      ),
+      GoRoute(
+        path: '/body',
+        builder: (context, state) => const BodyScreen(),
       ),
       GoRoute(
         path: '/notes',
@@ -116,10 +129,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/battery',
         builder: (context, state) => const BatteryScreen(),
-      ),
-      GoRoute(
-        path: '/vitals',
-        builder: (context, state) => const VitalsScreen(),
       ),
       GoRoute(
         path: '/vitals/:key',
@@ -146,10 +155,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/timers/interval',
         builder: (context, state) => const IntervalTimerScreen(),
-      ),
-      GoRoute(
-        path: '/workouts',
-        builder: (context, state) => const WorkoutsScreen(),
       ),
       GoRoute(
         path: '/workouts/start',

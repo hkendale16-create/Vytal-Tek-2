@@ -82,6 +82,43 @@ class SettingsScreen extends ConsumerWidget {
                 ),
                 const Divider(height: 1),
                 ListTile(
+                  leading: const Icon(Icons.notifications_outlined),
+                  title: const Text('Notifications'),
+                  subtitle: const Text('Reminders stay local until OS push'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/reminders'),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.lock_outline),
+                  title: const Text('Security'),
+                  subtitle: const Text('Secure storage, verified purchases'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    showModalBottomSheet<void>(
+                      context: context,
+                      builder: (context) => const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text(
+                          'Session and entitlement state use device secure storage. '
+                          'Marketplace purchases are verified server-side. The client '
+                          'never grants production premium on its own. Biometric app '
+                          'lock is planned.',
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.person_outline),
+                  title: const Text('Account'),
+                  subtitle: const Text('Profile, goals, onboarding details'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/profile'),
+                ),
+                const Divider(height: 1),
+                ListTile(
                   leading: const Icon(Icons.watch_outlined),
                   title: const Text('Devices'),
                   trailing: const Icon(Icons.chevron_right),

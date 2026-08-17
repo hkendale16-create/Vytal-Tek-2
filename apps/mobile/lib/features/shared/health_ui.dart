@@ -224,16 +224,32 @@ class HudActionRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+    final rows = <List<HudAction>>[];
+    for (var i = 0; i < actions.length; i += 3) {
+      rows.add(
+        actions.sublist(i, i + 3 > actions.length ? actions.length : i + 3),
+      );
+    }
+    return Column(
       children: [
-        for (final action in actions)
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              child: _HudOrb(action: action),
-            ),
+        for (var r = 0; r < rows.length; r++) ...[
+          if (r > 0) const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              for (final action in rows[r])
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: _HudOrb(action: action),
+                  ),
+                ),
+              if (rows[r].length < 3)
+                for (var i = rows[r].length; i < 3; i++)
+                  const Expanded(child: SizedBox()),
+            ],
           ),
+        ],
       ],
     );
   }
@@ -606,6 +622,8 @@ class MetricHudTile extends StatelessWidget {
     this.icon,
     this.provenance,
     this.emptyMessage,
+    this.status,
+    this.timestampLabel,
     this.onTap,
     this.compact = false,
     this.accent,
@@ -617,6 +635,9 @@ class MetricHudTile extends StatelessWidget {
   final IconData? icon;
   final DataProvenance? provenance;
   final String? emptyMessage;
+  /// Live / Last synced (or similar). Omit when the empty message already covers it.
+  final String? status;
+  final String? timestampLabel;
   final VoidCallback? onTap;
   final bool compact;
   final Color? accent;
@@ -693,6 +714,18 @@ class MetricHudTile extends StatelessWidget {
                 fontSize: compact ? 10 : 12,
               ),
             ),
+          if (hasValue && (status != null || timestampLabel != null)) ...[
+            SizedBox(height: compact ? 4 : 6),
+            Text(
+              [status, timestampLabel].whereType<String>().join(' · '),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: context.vytalExtras.textMuted,
+                fontSize: compact ? 9 : 11,
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -8,6 +8,7 @@ import '../../core/time/duration_format.dart';
 import '../../domain/models/entitlements.dart';
 import '../../domain/models/workout_models.dart';
 import '../../state/app_session_controller.dart';
+import '../../timers/clock_controllers.dart';
 import '../../workouts/workout_controllers.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
@@ -153,11 +154,47 @@ class WorkoutsScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 8),
                 TextButton(
-                  onPressed: () => context.push('/ask'),
+                  onPressed: () => context.go('/ask'),
                   child: const Text('Ask Vytal to build a workout'),
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 8),
+          Text('Workout Tools', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          HudStrip(
+            icon: Icons.timer_outlined,
+            title: 'Timer',
+            subtitle: 'Countdown that keeps running if you leave',
+            onTap: () => context.push('/timers/countdown'),
+          ),
+          const SizedBox(height: 8),
+          HudStrip(
+            icon: Icons.timer_outlined,
+            title: 'Stopwatch',
+            subtitle: 'Laps without a separate tab',
+            onTap: () => context.push('/timers/stopwatch'),
+          ),
+          const SizedBox(height: 8),
+          HudStrip(
+            icon: Icons.av_timer,
+            title: 'Interval timer',
+            subtitle: 'Work / rest rounds',
+            onTap: () => context.push('/timers/interval'),
+          ),
+          const SizedBox(height: 8),
+          HudStrip(
+            icon: Icons.self_improvement_outlined,
+            title: 'Rest timer',
+            subtitle: '1:30 rest preset',
+            onTap: () {
+              final clock = ref.read(countdownProvider.notifier);
+              clock.setHours(0);
+              clock.setMinutes(1);
+              clock.setSeconds(30);
+              context.push('/timers/countdown');
+            },
           ),
           if (history.entries.isNotEmpty) ...[
             const SizedBox(height: 16),
@@ -299,7 +336,7 @@ class ActiveWorkoutScreen extends ConsumerWidget {
         title: 'Workout',
         child: EmptyMetricCard(
           title: 'No active workout',
-          message: 'Start a workout from Home or Workouts.',
+          message: 'Start a workout from Today or Workouts.',
         ),
       );
     }

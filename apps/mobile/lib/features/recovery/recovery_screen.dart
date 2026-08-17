@@ -85,7 +85,7 @@ class RecoveryScreen extends ConsumerWidget {
                     ),
                   )
                 : null,
-            onTap: () => context.go('/sleep'),
+            onTap: () => context.push('/sleep'),
           ),
           const SizedBox(height: 10),
           const HudStrip(
