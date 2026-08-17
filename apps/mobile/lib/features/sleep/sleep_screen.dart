@@ -7,6 +7,8 @@ import '../../core/theme/vytal_theme.dart';
 import '../../domain/models/data_provenance.dart';
 import '../../domain/models/entitlements.dart';
 import '../../domain/models/health_metric.dart';
+import '../../health/daily_summary_analytics.dart';
+import '../../health/daily_summary_store.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
 import '../subscription/soft_paywall.dart';
@@ -37,16 +39,26 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
   @override
   Widget build(BuildContext context) {
     final health = ref.watch(todayHealthProvider).valueOrNull;
+    final summaries = ref.watch(dailySummaryStoreProvider);
+    final daySummary = summaries.forDay(_day);
+    final analytics = const DailySummaryAnalytics();
     final theme = Theme.of(context);
     final extras = context.vytalExtras;
     final sleep = health?.sleep;
     final isDemo = health?.provenance == DataProvenance.demo && _isToday;
     final score = isDemo ? 87 : null;
-    final durationLabel = !_isToday
-        ? null
-        : sleep?.hasValue == true
-            ? _formatDuration(sleep!.value!)
+    final durationLabel = _isToday && sleep?.hasValue == true
+        ? _formatDuration(sleep!.value!)
+        : daySummary?.sleepMinutes != null
+            ? _formatDuration(Duration(minutes: daySummary!.sleepMinutes!))
             : (isDemo ? '7h 12m' : null);
+    final overnightHrv = _isToday && health?.hrv.hasValue == true
+        ? '${health!.hrv.value} ms'
+        : daySummary?.hrv != null
+            ? '${daySummary!.hrv} ms'
+            : 'No recent reading';
+    final debt = analytics.sleepDebtMinutes(summaries.sorted);
+    final consistency = analytics.sleepConsistency(summaries.sorted);
 
     return SectionScaffold(
       title: 'Sleep',
@@ -103,7 +115,7 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        !_isToday
+                        !_isToday && durationLabel == null
                             ? 'No sleep record for this day.'
                             : score == null
                                 ? (sleep?.freshness.label ??
@@ -154,9 +166,7 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
             icon: Icons.graphic_eq,
             accent: VytalColors.violet,
             title: 'Overnight HRV',
-            subtitle: health?.hrv.hasValue == true && _isToday
-                ? '${health!.hrv.value} ms'
-                : 'No recent reading',
+            subtitle: overnightHrv,
             onTap: () => context.push('/vitals/${HealthMetricKeys.hrv}'),
           ),
           const SizedBox(height: 8),
@@ -174,11 +184,19 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
             subtitle: 'Not supported by this device',
           ),
           const SizedBox(height: 8),
-          const HudStrip(
+          HudStrip(
             icon: Icons.nights_stay_outlined,
             accent: VytalColors.violet,
             title: 'Sleep debt / consistency',
-            subtitle: 'No recent reading',
+            subtitle: debt == null && consistency == null
+                ? 'Needs a few nights of summaries — not estimated from thin air.'
+                : [
+                    if (debt != null)
+                      debt >= 0
+                          ? 'Debt ${debt}m vs recent nights'
+                          : 'Ahead ${-debt}m vs recent nights',
+                    if (consistency != null) 'Consistency $consistency',
+                  ].join(' · '),
           ),
           const SizedBox(height: 16),
           EntitlementGate(

@@ -50,12 +50,12 @@ class _LiveBodyStageState extends State<LiveBodyStage>
       vsync: this,
       duration: Duration(milliseconds: 12000 ~/ math.max(1, widget.ambientMotionLevel)),
     );
-    if (widget.ambientMotionLevel > 0) {
-      _breath.repeat(reverse: true);
-      if (widget.ambientMotionLevel >= 2) {
-        _spin.repeat();
-      }
-    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncMotion();
   }
 
   @override
@@ -65,16 +65,23 @@ class _LiveBodyStageState extends State<LiveBodyStage>
       _spin.duration = Duration(
         milliseconds: 12000 ~/ math.max(1, widget.ambientMotionLevel),
       );
-      if (widget.ambientMotionLevel <= 0) {
-        _breath.stop();
-        _spin.stop();
-      } else {
-        if (!_breath.isAnimating) _breath.repeat(reverse: true);
-        if (widget.ambientMotionLevel >= 2 && !_spin.isAnimating) {
-          _spin.repeat();
-        }
-        if (widget.ambientMotionLevel < 2) _spin.stop();
-      }
+    }
+    _syncMotion();
+  }
+
+  void _syncMotion() {
+    final animate =
+        widget.ambientMotionLevel > 0 && VytalMotion.hudMotionEnabled(context);
+    if (!animate) {
+      _breath.stop();
+      _spin.stop();
+      return;
+    }
+    if (!_breath.isAnimating) _breath.repeat(reverse: true);
+    if (widget.ambientMotionLevel >= 2) {
+      if (!_spin.isAnimating) _spin.repeat();
+    } else {
+      _spin.stop();
     }
   }
 
@@ -87,7 +94,7 @@ class _LiveBodyStageState extends State<LiveBodyStage>
 
   @override
   Widget build(BuildContext context) {
-    final animate = VytalMotion.shouldAnimate(context);
+    final animate = VytalMotion.hudMotionEnabled(context);
     return LayoutBuilder(
       builder: (context, constraints) {
         return GestureDetector(

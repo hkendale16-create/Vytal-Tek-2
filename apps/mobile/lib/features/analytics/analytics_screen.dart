@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/vytal_theme.dart';
 import '../../domain/models/data_provenance.dart';
 import '../../domain/models/entitlements.dart';
+import '../../health/daily_summary_analytics.dart';
+import '../../health/daily_summary_store.dart';
 import '../../state/app_session_controller.dart';
 import '../../subscription/subscription_controller.dart';
 import '../shared/health_ui.dart';
@@ -21,42 +23,47 @@ class AnalyticsScreen extends ConsumerStatefulWidget {
 class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   String _range = '7D';
   String _metric = 'Heart Rate';
+  final _analytics = const DailySummaryAnalytics();
 
   static const _basicRanges = {'7D', '30D'};
   static const _advancedRanges = {'90D', '1Y'};
-  static const _metrics = [
-    'Heart Rate',
-    'HRV',
-    'Sleep',
-    'Activity',
-    'Recovery',
-    'Workout Load',
-  ];
 
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(appSessionProvider);
     final entitlements = ref.watch(entitlementServiceProvider);
     final health = ref.watch(todayHealthProvider).valueOrNull;
-    final demo = health?.provenance == DataProvenance.demo;
+    final summaries = ref.watch(dailySummaryStoreProvider).sorted;
+    final demo = health?.provenance == DataProvenance.demo ||
+        summaries.any((s) => s.provenance == DataProvenance.demo);
     final theme = Theme.of(context);
     final extras = context.vytalExtras;
     final canAdvanced = entitlements.canUse(EntitlementKeys.analyticsAdvanced);
     final canHistory = entitlements.canUse(EntitlementKeys.historyExtended);
+    final cached = _analytics.series(
+      summaries: summaries,
+      metric: _metric,
+      range: _range,
+      now: DateTime.now(),
+    );
+    final usingDemoFallback = cached.length < 2 && demo;
+    final values = cached.length >= 2
+        ? cached
+        : (usingDemoFallback ? _demoSeries(_metric, _range) : const <double>[]);
 
     return SectionScaffold(
-      title: 'Insights',
-      subtitle: 'Aggregated trends — not every raw sample.',
+      title: 'Analytics',
+      subtitle: 'Daily totals — not raw sensor samples.',
       child: Column(
         children: [
           SizedBox(
             height: 40,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              itemCount: _metrics.length,
+              itemCount: DailySummaryAnalytics.metrics.length,
               separatorBuilder: (_, __) => const SizedBox(width: 8),
               itemBuilder: (context, index) {
-                final metric = _metrics[index];
+                final metric = DailySummaryAnalytics.metrics[index];
                 return ChoiceChip(
                   label: Text(metric),
                   selected: _metric == metric,
@@ -90,7 +97,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             )
           else
             GlassPanel(
-              glow: true,
+              glow: values.length >= 2,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -101,15 +108,13 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                   const SizedBox(height: 16),
                   SizedBox(
                     height: 160,
-                    child: demo
-                        ? VitalSparkline(
-                            values: _demoSeries(_metric, _range),
-                          )
+                    child: values.length >= 2
+                        ? VitalSparkline(values: values)
                         : Center(
                             child: Text(
                               session.demoModeEnabled
                                   ? 'Pair a demo device to preview labeled trend charts.'
-                                  : 'Charts appear when wearable or manual history exists.',
+                                  : 'Charts appear after a few days of summaries. Vytal does not download raw sample history for this view.',
                               textAlign: TextAlign.center,
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: extras.textMuted,
@@ -117,9 +122,17 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                             ),
                           ),
                   ),
-                  if (demo) ...[
+                  if (usingDemoFallback) ...[
                     const SizedBox(height: 8),
                     const ProvenanceCaption(provenance: DataProvenance.demo),
+                  ] else if (values.length >= 2) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      '${values.length} aggregated point${values.length == 1 ? '' : 's'} from local daily summaries.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: extras.textMuted,
+                      ),
+                    ),
                   ],
                   if (_basicRanges.contains(_range) &&
                       !entitlements.canUse(EntitlementKeys.analyticsBasic))
@@ -158,7 +171,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     );
   }
 
-  /// Labeled Demo series only — length follows the selected range.
+  /// Labeled Demo series only — used when Demo is on and the cache is still empty.
   List<double> _demoSeries(String metric, String range) {
     final n = switch (range) {
       '7D' => 7,
