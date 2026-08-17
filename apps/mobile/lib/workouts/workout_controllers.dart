@@ -135,6 +135,22 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
   Timer? _tick;
 
   void startRoutine(WorkoutRoutine routine) {
+    final phases = buildPhases(routine);
+    _tick?.cancel();
+    state = WorkoutSessionState(
+      routine: routine,
+      phases: phases,
+      phaseIndex: 0,
+      remainingSeconds: phases.isEmpty ? 0 : phases.first.seconds,
+      running: true,
+      completed: phases.isEmpty,
+    );
+    _ref.read(monitoringControllerProvider.notifier).setWorkoutActive(true);
+    _arm();
+  }
+
+  /// Expand a routine into ordered exercise / rest phases (min 5s work).
+  static List<TimerPhase> buildPhases(WorkoutRoutine routine) {
     final phases = <TimerPhase>[];
     for (final exercise in routine.exercises) {
       for (var set = 1; set <= exercise.sets; set++) {
@@ -158,17 +174,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
         }
       }
     }
-    _tick?.cancel();
-    state = WorkoutSessionState(
-      routine: routine,
-      phases: phases,
-      phaseIndex: 0,
-      remainingSeconds: phases.isEmpty ? 0 : phases.first.seconds,
-      running: true,
-      completed: phases.isEmpty,
-    );
-    _ref.read(monitoringControllerProvider.notifier).setWorkoutActive(true);
-    _arm();
+    return phases;
   }
 
   void startStopwatch() {

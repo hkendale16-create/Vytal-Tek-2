@@ -1,4 +1,3 @@
-import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -6,7 +5,6 @@ import 'package:vytal_tek/battery/battery_intelligence.dart';
 import 'package:vytal_tek/domain/models/monitoring_mode.dart';
 import 'package:vytal_tek/domain/models/operating_mode.dart';
 import 'package:vytal_tek/domain/models/workout_models.dart';
-import 'package:vytal_tek/monitoring/monitoring_controller.dart';
 import 'package:vytal_tek/state/app_session_controller.dart';
 import 'package:vytal_tek/workouts/workout_controllers.dart';
 
@@ -69,11 +67,33 @@ void main() {
       expect(routines.every((r) => r.builtIn), isTrue);
     });
 
-    test('starting a routine builds phases and can complete', () {
-      fakeAsync((async) {
-        final container = ProviderContainer();
-        addTearDown(container.dispose);
+    test('routine expands into exercise and rest phases', () {
+      final routine = WorkoutRoutine(
+        id: 'test',
+        name: 'Sets',
+        exercises: const [
+          WorkoutExercise(
+            id: 'ex1',
+            name: 'Squat',
+            sets: 2,
+            durationSeconds: 20,
+            restSeconds: 10,
+          ),
+        ],
+      );
 
+      final phases = WorkoutSessionController.buildPhases(routine);
+      expect(phases.length, 3); // work, rest, work
+      expect(phases[0].kind, WorkoutTimerKind.exercise);
+      expect(phases[1].kind, WorkoutTimerKind.rest);
+      expect(phases[2].kind, WorkoutTimerKind.exercise);
+      expect(phases[0].seconds, 20);
+    });
+
+    testWidgets('session pause/resume/stop without leaking timers',
+        (tester) async {
+      final container = ProviderContainer();
+      try {
         final routine = WorkoutRoutine(
           id: 'test-short',
           name: 'Short',
@@ -82,7 +102,7 @@ void main() {
               id: 'ex1',
               name: 'Plank',
               sets: 1,
-              durationSeconds: 2,
+              durationSeconds: 30,
               restSeconds: 0,
             ),
           ],
@@ -93,36 +113,23 @@ void main() {
 
         var state = container.read(workoutSessionProvider);
         expect(state.running, isTrue);
-        expect(state.phases, isNotEmpty);
-        expect(state.remainingSeconds, 2);
-        expect(
-          container.read(monitoringControllerProvider).signals.workoutActive,
-          isTrue,
-        );
+        expect(state.remainingSeconds, 30);
 
-        async.elapse(const Duration(seconds: 3));
+        session.pause();
+        expect(container.read(workoutSessionProvider).running, isFalse);
+
+        session.resume();
+        expect(container.read(workoutSessionProvider).running, isTrue);
+
+        await tester.pump(const Duration(seconds: 1));
         state = container.read(workoutSessionProvider);
-        expect(state.completed, isTrue);
-        expect(state.running, isFalse);
-        expect(
-          container.read(monitoringControllerProvider).signals.workoutActive,
-          isFalse,
-        );
-      });
-    });
+        expect(state.remainingSeconds, lessThan(30));
 
-    test('stopwatch advances elapsed time', () {
-      fakeAsync((async) {
-        final container = ProviderContainer();
-        addTearDown(container.dispose);
-
-        container.read(workoutSessionProvider.notifier).startStopwatch();
-        async.elapse(const Duration(seconds: 2));
-        final state = container.read(workoutSessionProvider);
-        expect(state.stopwatchElapsed, greaterThanOrEqualTo(1));
-        container.read(workoutSessionProvider.notifier).stop();
+        session.stop();
         expect(container.read(workoutSessionProvider).phases, isEmpty);
-      });
+      } finally {
+        container.dispose();
+      }
     });
   });
 

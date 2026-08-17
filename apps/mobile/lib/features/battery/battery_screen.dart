@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../battery/battery_intelligence.dart';
 import '../../battery/battery_providers.dart';
 import '../../core/theme/vytal_colors.dart';
+import '../../domain/models/monitoring_mode.dart';
 import '../../monitoring/monitoring_controller.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
