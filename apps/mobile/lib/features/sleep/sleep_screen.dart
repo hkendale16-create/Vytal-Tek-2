@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/vytal_colors.dart';
+import '../../core/theme/vytal_theme.dart';
 import '../../domain/models/data_provenance.dart';
 import '../../domain/models/entitlements.dart';
 import '../../domain/models/health_metric.dart';
@@ -37,6 +38,7 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
   Widget build(BuildContext context) {
     final health = ref.watch(todayHealthProvider).valueOrNull;
     final theme = Theme.of(context);
+    final extras = context.vytalExtras;
     final sleep = health?.sleep;
     final isDemo = health?.provenance == DataProvenance.demo && _isToday;
     final score = isDemo ? 87 : null;
@@ -48,12 +50,13 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
 
     return SectionScaffold(
       title: 'Sleep',
-      subtitle: 'Calmer surface — purple/blue accents from the approved boards.',
+      violetGlow: true,
       child: Column(
         children: [
           Row(
             children: [
               IconButton(
+                visualDensity: VisualDensity.compact,
                 onPressed: () => setState(
                   () => _day = _day.subtract(const Duration(days: 1)),
                 ),
@@ -64,10 +67,14 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
                   '${_day.year}-${_day.month.toString().padLeft(2, '0')}-${_day.day.toString().padLeft(2, '0')}'
                   '${_isToday ? ' · Today' : ''}',
                   textAlign: TextAlign.center,
-                  style: theme.textTheme.titleMedium,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: extras.textMuted,
+                    letterSpacing: 0.6,
+                  ),
                 ),
               ),
               IconButton(
+                visualDensity: VisualDensity.compact,
                 onPressed: _isToday
                     ? null
                     : () => setState(
@@ -77,58 +84,111 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
               ),
             ],
           ),
-          GlassPanel(
-            accent: VytalColors.violet,
-            glow: true,
-            child: Column(
+          SizedBox(
+            height: 300,
+            child: Stack(
+              clipBehavior: Clip.none,
               children: [
-                ReadinessGauge(
-                  score: score,
-                  label: 'SLEEP SCORE',
-                  subtitle: durationLabel,
-                  provenance: score == null ? null : DataProvenance.demo,
-                  onTap: () => context.push('/ask'),
+                Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ReadinessGauge(
+                        score: score,
+                        size: 196,
+                        label: 'SLEEP SCORE',
+                        provenance: score == null ? null : DataProvenance.demo,
+                        onTap: () => context.push('/ask'),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        !_isToday
+                            ? 'No sleep record for this day.'
+                            : score == null
+                                ? (sleep?.freshness.label ??
+                                    'Sleep score appears after wearable sleep sync.')
+                                : 'Demo sleep presentation for UI review.',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: extras.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  !_isToday
-                      ? 'No sleep record for this day.'
-                      : score == null
-                          ? (sleep?.freshness.label ??
-                              'Sleep score appears after wearable sleep sync.')
-                          : 'Demo sleep presentation for UI review.',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall,
+                Positioned(
+                  left: 0,
+                  top: 12,
+                  child: FloatingHud(
+                    child: SizedBox(
+                      width: 124,
+                      child: MetricHudTile(
+                        compact: true,
+                        accent: VytalColors.violet,
+                        title: 'Duration',
+                        value: durationLabel,
+                        unit: '',
+                        emptyMessage: 'No recent reading',
+                        provenance: durationLabel != null && isDemo
+                            ? DataProvenance.demo
+                            : sleep?.provenance,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 0,
+                  top: 36,
+                  child: FloatingHud(
+                    delay: const Duration(milliseconds: 420),
+                    child: SizedBox(
+                      width: 132,
+                      child: MetricHudTile(
+                        compact: true,
+                        accent: VytalColors.violet,
+                        title: 'Bedtime',
+                        value: isDemo ? '23:12' : null,
+                        unit: isDemo ? '→ 06:24' : '',
+                        emptyMessage: 'No recent reading',
+                        provenance:
+                            isDemo ? DataProvenance.demo : null,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          _SleepMetric(
-            title: 'Duration',
-            value: durationLabel ?? 'No recent reading',
-          ),
-          _SleepMetric(
-            title: 'Bedtime / wake',
-            value: isDemo ? '23:12 → 06:24 (Demo)' : 'No recent reading',
-          ),
-          _SleepMetric(
+          const SizedBox(height: 8),
+          HudStrip(
+            icon: Icons.graphic_eq,
+            accent: VytalColors.violet,
             title: 'Overnight HRV',
-            value: health?.hrv.hasValue == true && _isToday
+            subtitle: health?.hrv.hasValue == true && _isToday
                 ? '${health!.hrv.value} ms'
                 : 'No recent reading',
+            onTap: () => context.push('/vitals/${HealthMetricKeys.hrv}'),
           ),
-          _SleepMetric(
+          const SizedBox(height: 8),
+          const HudStrip(
+            icon: Icons.monitor_heart_outlined,
+            accent: VytalColors.violet,
             title: 'Resting HR',
-            value: 'Not supported by this device',
+            subtitle: 'Not supported by this device',
           ),
-          _SleepMetric(
+          const SizedBox(height: 8),
+          const HudStrip(
+            icon: Icons.air,
+            accent: VytalColors.violet,
             title: 'Respiratory rate',
-            value: 'Not supported by this device',
+            subtitle: 'Not supported by this device',
           ),
-          _SleepMetric(
+          const SizedBox(height: 8),
+          const HudStrip(
+            icon: Icons.nights_stay_outlined,
+            accent: VytalColors.violet,
             title: 'Sleep debt / consistency',
-            value: 'No recent reading',
+            subtitle: 'No recent reading',
           ),
           const SizedBox(height: 16),
           EntitlementGate(
@@ -136,6 +196,7 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
             compactPaywall: true,
             child: GlassPanel(
               accent: const Color(0xFF3D6BFF),
+              glow: true,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -157,8 +218,8 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
+          const SizedBox(height: 8),
+          TextButton.icon(
             onPressed: () => context.push('/ask'),
             icon: const Icon(Icons.auto_awesome_outlined),
             label: const Text('Ask Vytal about my sleep'),
@@ -172,34 +233,5 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
     final h = d.inHours;
     final m = d.inMinutes.remainder(60);
     return '${h}h ${m.toString().padLeft(2, '0')}m';
-  }
-}
-
-class _SleepMetric extends StatelessWidget {
-  const _SleepMetric({required this.title, required this.value});
-
-  final String title;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: GlassPanel(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            Expanded(child: Text(title)),
-            Flexible(
-              child: Text(
-                value,
-                textAlign: TextAlign.right,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

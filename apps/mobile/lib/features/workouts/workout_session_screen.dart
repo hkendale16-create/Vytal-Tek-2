@@ -38,7 +38,7 @@ class WorkoutSessionScreen extends ConsumerWidget {
 
     return SectionScaffold(
       title: session.routine?.name ?? 'Timer',
-      subtitle: session.completed ? 'Session complete' : 'Timer engine',
+      subtitle: session.completed ? 'Session complete' : 'In progress',
       child: Column(
         children: [
           GlassPanel(

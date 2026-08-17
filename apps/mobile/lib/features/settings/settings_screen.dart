@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/theme_mode_controller.dart';
 import '../../domain/models/monitoring_mode.dart';
 import '../../state/app_session_controller.dart';
+import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -17,10 +18,11 @@ class SettingsScreen extends ConsumerWidget {
 
     return SectionScaffold(
       title: 'Settings',
-      subtitle: 'Appearance, monitoring, permissions, privacy, and subscription.',
+      subtitle: 'Appearance, monitoring, privacy, and subscription.',
       child: Column(
         children: [
-          Card(
+          GlassPanel(
+            padding: EdgeInsets.zero,
             child: Column(
               children: [
                 ListTile(
@@ -59,7 +61,8 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Card(
+          GlassPanel(
+            padding: EdgeInsets.zero,
             child: Column(
               children: [
                 ListTile(
@@ -88,7 +91,8 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Card(
+          GlassPanel(
+            padding: EdgeInsets.zero,
             child: SwitchListTile(
               title: const Text('Demo mode'),
               subtitle: const Text(
@@ -100,7 +104,8 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Card(
+          GlassPanel(
+            padding: EdgeInsets.zero,
             child: ListTile(
               leading: const Icon(Icons.workspace_premium_outlined),
               title: const Text('Subscription'),
@@ -110,7 +115,8 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Card(
+          GlassPanel(
+            padding: EdgeInsets.zero,
             child: ListTile(
               title: const Text('Privacy & Data'),
               subtitle: const Text(

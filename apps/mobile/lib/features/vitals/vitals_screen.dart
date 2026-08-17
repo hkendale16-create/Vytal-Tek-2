@@ -25,7 +25,7 @@ class VitalsScreen extends ConsumerWidget {
 
     return SectionScaffold(
       title: 'Vitals',
-      subtitle: 'Inspect available measurements. Missing values stay missing.',
+      subtitle: 'Missing values stay missing.',
       child: healthAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => EmptyMetricCard(
@@ -46,18 +46,28 @@ class VitalsScreen extends ConsumerWidget {
                         'Your readings will appear here after a measurement or device sync.',
                   ),
                 ),
-              for (final item in items) ...[
-                MetricHudTile(
-                  title: item.title,
-                  value: item.value,
-                  unit: item.unit,
-                  icon: item.icon,
-                  provenance: item.provenance,
-                  emptyMessage: item.empty,
-                  onTap: () => context.push('/vitals/${item.key}'),
-                ),
-                const SizedBox(height: 10),
-              ],
+              GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                childAspectRatio: 1.28,
+                children: [
+                  for (final item in items)
+                    MetricHudTile(
+                      compact: true,
+                      title: item.title,
+                      value: item.value,
+                      unit: item.unit,
+                      icon: item.icon,
+                      provenance: item.provenance,
+                      emptyMessage: item.empty,
+                      onTap: () => context.push('/vitals/${item.key}'),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
               Text(
                 'Tap a vital for timeline, status, and Coach context.',
                 style: theme.textTheme.bodySmall,

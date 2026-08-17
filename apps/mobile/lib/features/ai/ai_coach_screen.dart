@@ -54,7 +54,7 @@ class _AiCoachScreenState extends ConsumerState<AiCoachScreen> {
 
     return SectionScaffold(
       title: 'Coach Vital',
-      subtitle: 'Wellness coach grounded in your data — not a physician.',
+      subtitle: 'Grounded in your data — not a physician.',
       actions: [
         IconButton(
           tooltip: 'Clear chat',

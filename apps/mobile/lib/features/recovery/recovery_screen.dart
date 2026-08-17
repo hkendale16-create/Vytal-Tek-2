@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/vytal_colors.dart';
+import '../../core/theme/vytal_theme.dart';
 import '../../domain/models/data_provenance.dart';
 import '../../domain/models/health_metric.dart';
 import '../shared/health_ui.dart';
@@ -16,25 +17,28 @@ class RecoveryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final health = ref.watch(todayHealthProvider).valueOrNull;
     final theme = Theme.of(context);
+    final extras = context.vytalExtras;
     final score = health?.readinessScore;
     final demo = health?.provenance == DataProvenance.demo;
 
     return SectionScaffold(
       title: 'Recovery',
-      subtitle: 'Readiness is derived from verified summaries only.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Center(
-            child: ReadinessGauge(
-              score: score,
-              label: 'READINESS',
-              subtitle: score == null
-                  ? null
-                  : demo
-                      ? 'Demo presentation'
-                      : 'Baseline learning',
-              provenance: score == null ? null : health?.provenance,
+            child: FloatingHud(
+              amplitude: 4,
+              child: ReadinessGauge(
+                score: score,
+                label: 'READINESS',
+                subtitle: score == null
+                    ? null
+                    : demo
+                        ? 'Demo presentation'
+                        : 'Baseline learning',
+                provenance: score == null ? null : health?.provenance,
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -47,35 +51,58 @@ class RecoveryScreen extends ConsumerWidget {
             style: theme.textTheme.titleMedium,
           ),
           const SizedBox(height: 16),
-          _Factor(
+          HudStrip(
+            icon: Icons.graphic_eq,
             title: 'HRV',
-            detail: health?.hrv.hasValue == true
+            subtitle: health?.hrv.hasValue == true
                 ? '${health!.hrv.value} ${health.hrv.unit ?? 'ms'} · ${health.hrv.freshness.label}'
                 : (health?.hrv.freshness.label ?? 'No recent reading'),
-            demo: health?.hrv.provenance == DataProvenance.demo,
+            trailing: health?.hrv.provenance == DataProvenance.demo
+                ? Text(
+                    'Demo',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: VytalColors.caution,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  )
+                : null,
+            onTap: () => context.push('/vitals/${HealthMetricKeys.hrv}'),
           ),
           const SizedBox(height: 10),
-          _Factor(
+          HudStrip(
+            icon: Icons.bedtime_outlined,
             title: 'Sleep',
-            detail: health?.sleep.hasValue == true
+            subtitle: health?.sleep.hasValue == true
                 ? '${health!.sleep.value!.inHours}h ${health.sleep.value!.inMinutes.remainder(60)}m'
                 : (health?.sleep.freshness.label ?? 'No recent reading'),
-            demo: health?.sleep.provenance == DataProvenance.demo,
+            trailing: health?.sleep.provenance == DataProvenance.demo
+                ? Text(
+                    'Demo',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: VytalColors.caution,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  )
+                : null,
+            onTap: () => context.go('/sleep'),
           ),
           const SizedBox(height: 10),
-          const _Factor(
+          const HudStrip(
+            icon: Icons.monitor_heart_outlined,
             title: 'Resting HR',
-            detail: 'Not supported by this device',
+            subtitle: 'Not supported by this device',
           ),
           const SizedBox(height: 10),
-          const _Factor(
+          const HudStrip(
+            icon: Icons.fitness_center_outlined,
             title: 'Training load',
-            detail: 'No recent reading',
+            subtitle: 'No recent reading',
           ),
           const SizedBox(height: 10),
-          const _Factor(
+          const HudStrip(
+            icon: Icons.timeline,
             title: 'Personal baseline',
-            detail: 'Baseline learning starts after enough verified days.',
+            subtitle: 'Baseline learning starts after enough verified days.',
           ),
           const SizedBox(height: 16),
           GlassPanel(
@@ -84,55 +111,17 @@ class RecoveryScreen extends ConsumerWidget {
                   ? 'Demo: this score is a labeled UI stand-in — not a clinical recovery index.'
                   : (health?.readinessMessage ??
                       'Vytal will not invent a recovery score. Contributing metrics stay blank until they sync.'),
-              style: theme.textTheme.bodyMedium,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: extras.textMuted,
+              ),
             ),
           ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
+          const SizedBox(height: 8),
+          TextButton.icon(
             onPressed: () => context.push('/ask'),
             icon: const Icon(Icons.auto_awesome_outlined),
             label: const Text('Ask Vytal about my recovery'),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Factor extends StatelessWidget {
-  const _Factor({
-    required this.title,
-    required this.detail,
-    this.demo = false,
-  });
-
-  final String title;
-  final String detail;
-  final bool demo;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassPanel(
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 4),
-                Text(detail, style: Theme.of(context).textTheme.bodySmall),
-              ],
-            ),
-          ),
-          if (demo)
-            Text(
-              'Demo',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: VytalColors.caution,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
         ],
       ),
     );

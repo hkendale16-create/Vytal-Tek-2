@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/vytal_colors.dart';
 import '../../core/theme/vytal_theme.dart';
+import 'health_ui.dart';
 
 class SectionScaffold extends StatelessWidget {
   const SectionScaffold({
@@ -10,17 +11,22 @@ class SectionScaffold extends StatelessWidget {
     required this.child,
     this.subtitle,
     this.actions,
+    this.glow = true,
+    this.violetGlow = false,
   });
 
   final String title;
   final String? subtitle;
   final Widget child;
   final List<Widget>? actions;
+  final bool glow;
+  final bool violetGlow;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return CustomScrollView(
+    final extras = context.vytalExtras;
+    final scroll = CustomScrollView(
       slivers: [
         SliverAppBar(
           pinned: true,
@@ -33,7 +39,9 @@ class SectionScaffold extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
               child: Text(
                 subtitle!,
-                style: theme.textTheme.bodyMedium,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: extras.textMuted,
+                ),
               ),
             ),
           ),
@@ -41,6 +49,13 @@ class SectionScaffold extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
           sliver: SliverToBoxAdapter(child: child),
         ),
+      ],
+    );
+    if (!glow) return scroll;
+    return Stack(
+      children: [
+        AmbientCanvasGlow(includeViolet: violetGlow),
+        scroll,
       ],
     );
   }
