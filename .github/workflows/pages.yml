@@ -19,15 +19,32 @@ concurrency:
 
 jobs:
   deploy:
+    runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
-    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+
+      # GITHUB_TOKEN cannot create a Pages site. If Settings → Pages is still
+      # off, this step fails; we skip deploy instead of failing the run.
+      - id: configure
+        continue-on-error: true
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - if: steps.configure.outcome == 'success'
+        uses: actions/upload-pages-artifact@v3
         with:
           path: site
-      - id: deploy
+
+      - if: steps.configure.outcome == 'success'
+        id: deploy
         uses: actions/deploy-pages@v4
+
+      - if: steps.configure.outcome != 'success'
+        name: Pages is not enabled yet
+        run: |
+          echo "::notice title=Enable GitHub Pages::Open Settings → Pages → Build and deployment → Source: GitHub Actions, then re-run this workflow (or push to site/)."
+          echo "Until then, open site/index.html locally or connect Netlify (publish directory: site)."
