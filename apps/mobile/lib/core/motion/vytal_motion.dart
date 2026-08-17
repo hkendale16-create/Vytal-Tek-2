@@ -34,11 +34,11 @@ abstract final class VytalMotion {
     return !MediaQuery.disableAnimationsOf(context);
   }
 
-  /// Expensive HUD / 3D motion. Off when the screen is hidden, the app is
-  /// backgrounded, Standby is active, battery saver is on, or Reduce Motion.
+  /// Expensive HUD / 3D motion. Off when the app is backgrounded, Standby is
+  /// active, battery saver is on, or Reduce Motion. Off-stage routes are
+  /// muted by Flutter's [TickerMode] on the animation controllers themselves.
   static bool hudMotionEnabled(BuildContext context) {
     if (!shouldAnimate(context)) return false;
-    if (!TickerMode.of(context)) return false;
     return HudMotionScope.enabledOf(context);
   }
 }
