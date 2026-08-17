@@ -120,6 +120,7 @@ class DeviceConnectionController
 
   Future<void> _bootstrap() async {
     final registry = await _registryStore.load();
+    if (_disposed) return;
     final session = _ref.read(appSessionProvider);
     _setState(state.copyWith(
       registry: registry,

@@ -240,8 +240,8 @@ class _RingPainter extends CustomPainter {
     for (final q in quads) {
       final lit = (0.22 + 0.78 * q.shade).clamp(0.18, 1.0);
       final metal = Color.lerp(
-        const Color(0xFF1A2433),
-        connected ? VytalColors.teal : const Color(0xFF8BA3B8),
+        VytalColors.darkElevated,
+        connected ? VytalColors.teal : VytalColors.darkTextSecondary,
         0.25 + lit * 0.45,
       )!;
       final path = Path()

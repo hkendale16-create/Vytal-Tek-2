@@ -5,10 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
+import '../devices/connection/device_connection_controller.dart';
+import '../domain/devices/device_connection_state.dart';
 import '../domain/models/entitlements.dart';
 import '../domain/models/workout_models.dart';
 import '../monitoring/monitoring_controller.dart';
 import '../state/app_session_controller.dart';
+import 'workout_gps.dart';
 import 'workout_metrics.dart';
 
 const _routinesKey = 'vytal.workouts.routines.v1';
@@ -186,6 +189,14 @@ class WorkoutSessionState {
     this.hiitRestSeconds = 20,
     this.hiitRounds = 8,
     this.baselineSteps,
+    this.enabledMetrics,
+    this.distanceMeters = 0,
+    this.currentSpeedMps,
+    this.gpsActive = false,
+    this.gpsDenied = false,
+    this.cadenceRpm,
+    this.sessionSteps,
+    this.routePoints = const [],
   });
 
   final WorkoutRoutine? routine;
@@ -206,12 +217,32 @@ class WorkoutSessionState {
   final int hiitRestSeconds;
   final int hiitRounds;
   final int? baselineSteps;
+  final List<WorkoutMetricId>? enabledMetrics;
+  final double distanceMeters;
+  final double? currentSpeedMps;
+  final bool gpsActive;
+  final bool gpsDenied;
+  final int? cadenceRpm;
+  final int? sessionSteps;
+  final List<({double x, double y})> routePoints;
 
   bool get hasProgress =>
       elapsedSeconds() > 0 ||
       phaseIndex > 0 ||
       hrSamples.isNotEmpty ||
+      distanceMeters > 0 ||
       completed;
+
+  List<WorkoutMetricId> get visibleMetrics {
+    final kind = activityKind ?? WorkoutActivityKind.custom;
+    return WorkoutMetricCatalog.visible(
+      kind: kind,
+      enabled: enabledMetrics,
+      gpsActive: gpsActive || distanceMeters > 0,
+      distanceMeters: distanceMeters,
+      cadenceRpm: cadenceRpm,
+    );
+  }
 
   TimerPhase? get currentPhase =>
       phases.isEmpty || phaseIndex >= phases.length ? null : phases[phaseIndex];
@@ -263,8 +294,12 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
 
   final Ref _ref;
   Timer? _tick;
+  Timer? _hrPoll;
+  StreamSubscription<GpsFix>? _gpsSub;
+  final _gps = WorkoutGpsTracker();
 
   void startRoutine(WorkoutRoutine routine) {
+    _resetSensors();
     final phases = buildPhases(routine);
     _tick?.cancel();
     state = WorkoutSessionState(
@@ -280,6 +315,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
     );
     _ref.read(monitoringControllerProvider.notifier).setWorkoutActive(true);
     _arm();
+    unawaited(_setDeviceWorkoutMonitoring(true));
   }
 
   void startActivity(
@@ -289,6 +325,9 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
     int hiitWorkSeconds = 40,
     int hiitRestSeconds = 20,
     int hiitRounds = 8,
+    List<WorkoutMetricId>? enabledMetrics,
+    int? baselineSteps,
+    bool gpsDenied = false,
   }) {
     _tick?.cancel();
     final label = name ?? kind.label;
@@ -305,6 +344,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
       startStrengthDraft(name: label);
       return;
     }
+    _resetSensors();
     state = WorkoutSessionState(
       routine: WorkoutRoutine(
         id: 'activity-${kind.name}',
@@ -328,9 +368,13 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
       activityKind: kind,
       runningSince: DateTime.now(),
       elapsedAtResumeSeconds: initialElapsedSeconds,
+      enabledMetrics: enabledMetrics,
+      baselineSteps: baselineSteps,
+      gpsDenied: gpsDenied,
     );
     _ref.read(monitoringControllerProvider.notifier).setWorkoutActive(true);
     _arm();
+    unawaited(_setDeviceWorkoutMonitoring(true));
   }
 
   void startHiit({
@@ -339,7 +383,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
     int restSeconds = 20,
     int rounds = 8,
   }) {
-    _tick?.cancel();
+    _resetSensors();
     final phases = <TimerPhase>[];
     for (var round = 1; round <= rounds; round++) {
       phases.add(
@@ -385,10 +429,11 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
     );
     _ref.read(monitoringControllerProvider.notifier).setWorkoutActive(true);
     _arm();
+    unawaited(_setDeviceWorkoutMonitoring(true));
   }
 
   void startStrengthDraft({String name = 'Strength'}) {
-    _tick?.cancel();
+    _resetSensors();
     state = WorkoutSessionState(
       routine: WorkoutRoutine(
         id: 'activity-strength',
@@ -408,6 +453,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
     );
     _ref.read(monitoringControllerProvider.notifier).setWorkoutActive(true);
     _arm();
+    unawaited(_setDeviceWorkoutMonitoring(true));
   }
 
   void addExerciseToSession(WorkoutExercise exercise) {
@@ -443,16 +489,108 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
     final routine = state.routine;
     final phase = state.currentPhase;
     if (routine == null || phase?.exerciseId == null) return;
+    final id = phase!.exerciseId!;
     final exercises = [
       for (final ex in routine.exercises)
-        if (ex.id == phase!.exerciseId) ex.copyWith(sets: ex.sets + 1) else ex,
+        if (ex.id == id) ex.copyWith(sets: ex.sets + 1) else ex,
     ];
-    final updated = routine.copyWith(exercises: exercises);
-    final phases = buildPhases(updated);
+    final updatedEx = exercises.firstWhere((e) => e.id == id);
+    final newSet = updatedEx.sets;
+    final phases = [
+      for (final p in state.phases)
+        if (p.exerciseId == id)
+          p.copyWith(
+            setsTotal: newSet,
+            label: p.kind == WorkoutTimerKind.exercise && p.setNumber != null
+                ? '${p.exerciseName} · set ${p.setNumber}/$newSet'
+                : p.label,
+          )
+        else
+          p,
+    ];
+    var lastIndex = phases.lastIndexWhere((p) => p.exerciseId == id);
+    if (lastIndex < 0) lastIndex = phases.length - 1;
+    final workSeconds =
+        updatedEx.durationSeconds ?? ((updatedEx.reps ?? 10) * 3);
+    final insert = <TimerPhase>[
+      TimerPhase(
+        kind: WorkoutTimerKind.exercise,
+        label: '${updatedEx.name} · set $newSet/$newSet',
+        seconds: workSeconds.clamp(5, 600),
+        exerciseId: id,
+        exerciseName: updatedEx.name,
+        setNumber: newSet,
+        setsTotal: newSet,
+        reps: updatedEx.reps,
+        weightKg: updatedEx.weightKg,
+        muscleGroup: updatedEx.muscleGroup,
+        equipment: updatedEx.equipment,
+      ),
+    ];
+    if (updatedEx.restSeconds > 0) {
+      insert.add(
+        TimerPhase(
+          kind: WorkoutTimerKind.rest,
+          label: 'Rest',
+          seconds: updatedEx.restSeconds,
+          exerciseId: id,
+          exerciseName: updatedEx.name,
+          setNumber: newSet,
+          setsTotal: newSet,
+          muscleGroup: updatedEx.muscleGroup,
+          equipment: updatedEx.equipment,
+        ),
+      );
+    }
+    phases.insertAll(lastIndex + 1, insert);
     state = _copy(
-      routine: updated,
+      routine: routine.copyWith(exercises: exercises),
       phases: phases,
-      remainingSeconds: state.remainingSeconds,
+      phaseIndex: state.phaseIndex.clamp(0, phases.length - 1),
+    );
+  }
+
+  void updateCurrentSet({int? reps, double? weightKg, int? restSeconds}) {
+    if (state.phases.isEmpty) return;
+    final i = state.phaseIndex.clamp(0, state.phases.length - 1);
+    final phase = state.phases[i];
+    final phases = [...state.phases];
+    phases[i] = phase.copyWith(
+      reps: reps,
+      weightKg: weightKg,
+      clearReps: reps != null && reps <= 0,
+      clearWeight: weightKg != null && weightKg <= 0,
+    );
+    if (restSeconds != null) {
+      for (var j = i + 1; j < phases.length; j++) {
+        if (phases[j].kind == WorkoutTimerKind.rest &&
+            phases[j].exerciseId == phase.exerciseId) {
+          phases[j] = phases[j].copyWith(seconds: restSeconds);
+          break;
+        }
+      }
+    }
+    var routine = state.routine;
+    if (routine != null && phase.exerciseId != null) {
+      routine = routine.copyWith(
+        exercises: [
+          for (final ex in routine.exercises)
+            if (ex.id == phase.exerciseId)
+              ex.copyWith(
+                reps: reps,
+                weightKg: weightKg,
+                restSeconds: restSeconds,
+                clearReps: reps != null && reps <= 0,
+                clearWeight: weightKg != null && weightKg <= 0,
+              )
+            else
+              ex,
+        ],
+      );
+    }
+    state = _copy(
+      routine: routine,
+      phases: phases,
     );
   }
 
@@ -526,6 +664,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
 
   void pause() {
     _tick?.cancel();
+    _hrPoll?.cancel();
     state = _copy(
       running: false,
       clearRunningSince: true,
@@ -593,6 +732,8 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
 
   void finish() {
     _tick?.cancel();
+    _hrPoll?.cancel();
+    unawaited(_setDeviceWorkoutMonitoring(false));
     _ref.read(monitoringControllerProvider.notifier).setWorkoutActive(false);
     state = _copy(
       running: false,
@@ -642,6 +783,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
       routineId: state.routine?.id,
       playMode: state.playMode,
       trainingVolumeKg: volume == 0 ? null : volume,
+      distanceMeters: state.distanceMeters <= 0 ? null : state.distanceMeters,
     );
     await _ref.read(workoutHistoryProvider.notifier).add(entry);
     stop();
@@ -664,8 +806,107 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
 
   void stop() {
     _tick?.cancel();
+    _hrPoll?.cancel();
+    unawaited(_gpsSub?.cancel());
+    _gpsSub = null;
+    _gps.reset();
+    unawaited(_setDeviceWorkoutMonitoring(false));
     _ref.read(monitoringControllerProvider.notifier).setWorkoutActive(false);
     state = WorkoutSessionState.idle;
+  }
+
+  void _arm() {
+    _tick?.cancel();
+    _hrPoll?.cancel();
+    if (!state.running) return;
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) => _onTick());
+    _hrPoll = Timer.periodic(const Duration(seconds: 5), (_) {
+      unawaited(_pollHeartRate());
+    });
+  }
+
+  void ingestGpsFix(GpsFix fix) {
+    if (!state.running || state.completed) return;
+    _gps.add(fix);
+    final kind = state.activityKind;
+    final gpsSteps = (kind == WorkoutActivityKind.running ||
+            kind == WorkoutActivityKind.walking)
+        ? estimatedStepsFromDistance(
+            meters: _gps.distanceMeters,
+            running: kind == WorkoutActivityKind.running,
+          )
+        : null;
+    state = _copy(
+      distanceMeters: _gps.distanceMeters,
+      currentSpeedMps: _gps.currentSpeedMps,
+      gpsActive: true,
+      routePoints: _gps.normalizedRoute,
+      sessionSteps: gpsSteps == 0 ? state.sessionSteps : gpsSteps,
+    );
+  }
+
+  Future<void> listenGps(Stream<GpsFix> stream) async {
+    await _gpsSub?.cancel();
+    state = _copy(gpsActive: true, gpsDenied: false);
+    _gpsSub = stream.listen(
+      ingestGpsFix,
+      onError: (_) => state = _copy(gpsActive: false),
+    );
+  }
+
+  void markGpsDenied() {
+    state = _copy(gpsDenied: true, gpsActive: false);
+  }
+
+  void recordCadence(int? rpm) {
+    if (rpm == null || rpm <= 0) return;
+    state = _copy(cadenceRpm: rpm);
+  }
+
+  void refreshSessionSteps(int? dailySteps) {
+    final baseline = state.baselineSteps;
+    if (baseline == null || dailySteps == null) return;
+    final delta = dailySteps - baseline;
+    if (delta <= 0) return;
+    state = _copy(sessionSteps: delta);
+  }
+
+  void _resetSensors() {
+    _tick?.cancel();
+    _hrPoll?.cancel();
+    unawaited(_gpsSub?.cancel());
+    _gpsSub = null;
+    _gps.reset();
+  }
+
+  Future<void> _setDeviceWorkoutMonitoring(bool active) async {
+    if (!mounted) return;
+    try {
+      final connection = _ref.read(deviceConnectionProvider);
+      if (!mounted) return;
+      if (connection.state != DeviceConnectionState.connected && active) {
+        return;
+      }
+      final adapter = _ref.read(deviceConnectionProvider.notifier).adapter;
+      if (active) {
+        await adapter.startWorkoutMonitoring();
+      } else {
+        await adapter.stopWorkoutMonitoring();
+      }
+    } catch (_) {
+      // App-only and unsupported devices keep the workout running.
+    }
+  }
+
+  Future<void> _pollHeartRate() async {
+    if (!mounted || !state.running) return;
+    try {
+      final reading =
+          await _ref.read(deviceConnectionProvider.notifier).adapter.getHeartRate();
+      if (reading.hasValue && reading.value != null) {
+        recordHeartRate(reading.value);
+      }
+    } catch (_) {}
   }
 
   void _goToPhase(int index) {
@@ -684,12 +925,6 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
       runningSince: DateTime.now(),
     );
     _arm();
-  }
-
-  void _arm() {
-    _tick?.cancel();
-    if (!state.running) return;
-    _tick = Timer.periodic(const Duration(seconds: 1), (_) => _onTick());
   }
 
   void _onTick() {
@@ -744,6 +979,16 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
     int? hiitRestSeconds,
     int? hiitRounds,
     int? baselineSteps,
+    List<WorkoutMetricId>? enabledMetrics,
+    double? distanceMeters,
+    double? currentSpeedMps,
+    bool? gpsActive,
+    bool? gpsDenied,
+    int? cadenceRpm,
+    int? sessionSteps,
+    List<({double x, double y})>? routePoints,
+    bool clearSpeed = false,
+    bool clearCadence = false,
   }) {
     return WorkoutSessionState(
       routine: routine ?? state.routine,
@@ -765,12 +1010,23 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
       hiitRestSeconds: hiitRestSeconds ?? state.hiitRestSeconds,
       hiitRounds: hiitRounds ?? state.hiitRounds,
       baselineSteps: baselineSteps ?? state.baselineSteps,
+      enabledMetrics: enabledMetrics ?? state.enabledMetrics,
+      distanceMeters: distanceMeters ?? state.distanceMeters,
+      currentSpeedMps:
+          clearSpeed ? null : (currentSpeedMps ?? state.currentSpeedMps),
+      gpsActive: gpsActive ?? state.gpsActive,
+      gpsDenied: gpsDenied ?? state.gpsDenied,
+      cadenceRpm: clearCadence ? null : (cadenceRpm ?? state.cadenceRpm),
+      sessionSteps: sessionSteps ?? state.sessionSteps,
+      routePoints: routePoints ?? state.routePoints,
     );
   }
 
   @override
   void dispose() {
     _tick?.cancel();
+    _hrPoll?.cancel();
+    unawaited(_gpsSub?.cancel());
     super.dispose();
   }
 }

@@ -77,14 +77,14 @@ abstract final class PermissionCatalog {
     platformPermission: ph.Permission.sensors,
   );
 
-  /// Required by the official QRing Android SDK for BLE scanning.
+  /// BLE scan on Android, plus outdoor workout distance when the user starts one.
   static const location = PermissionDescriptor(
     id: 'location',
     title: 'Location',
     whyNeeded:
-        'Android requires location permission for Bluetooth scanning when pairing a Vytal wearable. Vytal does not use your location for tracking.',
+        'Android needs location to scan for a Vytal wearable. Running, walking, and cycling can also use on-device GPS for distance, pace, and a route sketch. Tracks stay on this phone.',
     affectedWhenDenied:
-        'Vytal cannot discover nearby wearables to pair on Android.',
+        'Wearable discovery on Android and outdoor distance/pace/route are unavailable.',
     platformPermission: ph.Permission.locationWhenInUse,
   );
 
@@ -111,7 +111,10 @@ abstract final class PermissionCatalog {
         activity,
       ],
       notifications,
-      if (defaultTargetPlatform == TargetPlatform.iOS) sensors,
+      if (defaultTargetPlatform == TargetPlatform.iOS) ...[
+        sensors,
+        location,
+      ],
     ];
   }
 }

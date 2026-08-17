@@ -88,22 +88,36 @@ class RecoveryScreen extends ConsumerWidget {
             onTap: () => context.push('/sleep'),
           ),
           const SizedBox(height: 10),
-          const HudStrip(
+          HudStrip(
             icon: Icons.monitor_heart_outlined,
             title: 'Resting HR',
             subtitle: 'Not supported by this device',
+            onTap: () => context.push(
+              '/ask?prompt=${Uri.encodeQueryComponent("Why is my heart rate higher?")}',
+            ),
           ),
           const SizedBox(height: 10),
-          const HudStrip(
+          HudStrip(
             icon: Icons.fitness_center_outlined,
             title: 'Training load',
             subtitle: 'No recent reading',
+            onTap: () => context.push('/workouts'),
           ),
           const SizedBox(height: 10),
-          const HudStrip(
+          HudStrip(
             icon: Icons.timeline,
             title: 'Personal baseline',
             subtitle: 'Baseline learning starts after enough verified days.',
+            onTap: () => context.push(
+              '/ask?prompt=${Uri.encodeQueryComponent("How is my recovery?")}',
+            ),
+          ),
+          const SizedBox(height: 10),
+          HudStrip(
+            icon: Icons.note_alt_outlined,
+            title: 'Add recovery note',
+            subtitle: 'Soreness, stress, caffeine, rest…',
+            onTap: () => context.push('/notes?category=recovery'),
           ),
           const SizedBox(height: 16),
           Material(

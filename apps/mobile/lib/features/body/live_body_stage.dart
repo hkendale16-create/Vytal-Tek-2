@@ -14,7 +14,10 @@ enum BodyRegion { chest, legs, head, shoulders, core }
 class LiveBodyStage extends StatefulWidget {
   const LiveBodyStage({
     super.key,
-    required this.highlightHeart,
+    this.highlightHeart = false,
+    this.highlightShoulders = false,
+    this.highlightLegs = false,
+    this.highlightCore = false,
     this.ambientMotionLevel = 2,
     this.showRing = true,
     this.childOverlay,
@@ -22,6 +25,9 @@ class LiveBodyStage extends StatefulWidget {
   });
 
   final bool highlightHeart;
+  final bool highlightShoulders;
+  final bool highlightLegs;
+  final bool highlightCore;
   final int ambientMotionLevel;
   final bool showRing;
   final Widget? childOverlay;
@@ -178,6 +184,9 @@ class _LiveBodyStageState extends State<LiveBodyStage>
                             pitch: pitch,
                             breath: breath,
                             highlightHeart: widget.highlightHeart,
+                            highlightShoulders: widget.highlightShoulders,
+                            highlightLegs: widget.highlightLegs,
+                            highlightCore: widget.highlightCore,
                           ),
                         ),
                         if (widget.showRing)
@@ -246,12 +255,18 @@ class _HumanMeshPainter extends CustomPainter {
     required this.pitch,
     required this.breath,
     required this.highlightHeart,
+    required this.highlightShoulders,
+    required this.highlightLegs,
+    required this.highlightCore,
   });
 
   final double yaw;
   final double pitch;
   final double breath;
   final bool highlightHeart;
+  final bool highlightShoulders;
+  final bool highlightLegs;
+  final bool highlightCore;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -277,8 +292,9 @@ class _HumanMeshPainter extends CustomPainter {
 
     final sway = math.sin(yaw) * 10;
     final lift = breath * 4;
-    final skin = const Color(0xFF7FD3C7).withValues(alpha: 0.55);
-    final limb = VytalColors.teal.withValues(alpha: 0.42);
+    final skin = VytalColors.teal.withValues(alpha: 0.38);
+    final limb = VytalColors.cyan.withValues(alpha: 0.32);
+    final load = VytalColors.green.withValues(alpha: 0.55);
 
     ellipsoid(
       Offset(cx + sway * 0.15, cy - size.height * 0.32 + lift),
@@ -286,30 +302,35 @@ class _HumanMeshPainter extends CustomPainter {
       26,
       skin,
     );
-    ellipsoid(Offset(cx + sway, cy - size.height * 0.08 + lift), 48, 70, skin);
+    ellipsoid(
+      Offset(cx + sway, cy - size.height * 0.08 + lift),
+      48,
+      70,
+      highlightCore ? load : skin,
+    );
     ellipsoid(
       Offset(cx - 58 + sway, cy - size.height * 0.12 + lift),
       16,
       48,
-      limb,
+      highlightShoulders ? load : limb,
     );
     ellipsoid(
       Offset(cx + 58 + sway, cy - size.height * 0.12 + lift),
       16,
       48,
-      limb,
+      highlightShoulders ? load : limb,
     );
     ellipsoid(
       Offset(cx - 18 + sway * 0.4, cy + size.height * 0.22 + lift * 0.4),
       18,
       70,
-      limb,
+      highlightLegs ? load : limb,
     );
     ellipsoid(
       Offset(cx + 18 + sway * 0.4, cy + size.height * 0.22 + lift * 0.4),
       18,
       70,
-      limb,
+      highlightLegs ? load : limb,
     );
     if (highlightHeart) {
       canvas.drawCircle(
@@ -326,5 +347,8 @@ class _HumanMeshPainter extends CustomPainter {
   bool shouldRepaint(covariant _HumanMeshPainter oldDelegate) =>
       oldDelegate.yaw != yaw ||
       oldDelegate.breath != breath ||
-      oldDelegate.highlightHeart != highlightHeart;
+      oldDelegate.highlightHeart != highlightHeart ||
+      oldDelegate.highlightShoulders != highlightShoulders ||
+      oldDelegate.highlightLegs != highlightLegs ||
+      oldDelegate.highlightCore != highlightCore;
 }

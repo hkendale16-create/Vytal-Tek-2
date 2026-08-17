@@ -12,6 +12,7 @@ import 'package:vytal_tek/notes/notes_controller.dart';
 import 'package:vytal_tek/state/app_session_controller.dart';
 import 'package:vytal_tek/workouts/exercise_library.dart';
 import 'package:vytal_tek/workouts/workout_controllers.dart';
+import 'package:vytal_tek/workouts/workout_gps.dart';
 import 'package:vytal_tek/workouts/workout_metrics.dart';
 
 void main() {
@@ -135,13 +136,104 @@ void main() {
       }
     });
 
-    test('running metrics are unique from strength', () {
-      expect(
-        WorkoutMetricCatalog.forKind(WorkoutActivityKind.running),
-        isNot(equals(
-          WorkoutMetricCatalog.forKind(WorkoutActivityKind.strength),
-        )),
+    test('GPS tracker accumulates distance and pace from samples', () {
+      final tracker = WorkoutGpsTracker();
+      final t0 = DateTime.utc(2026, 8, 17, 14);
+      tracker.add(
+        GpsFix(latitude: 37.7749, longitude: -122.4194, at: t0),
       );
+      tracker.add(
+        GpsFix(
+          latitude: 37.7753,
+          longitude: -122.4194,
+          at: t0.add(const Duration(seconds: 12)),
+        ),
+      );
+      expect(tracker.distanceMeters, greaterThan(30));
+      expect(tracker.normalizedRoute, isNotEmpty);
+      expect(formatPace(tracker.distanceMeters, 12), isNotNull);
+    });
+
+    test('running GPS ingest updates session distance', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final n = container.read(workoutSessionProvider.notifier);
+      n.startActivity(WorkoutActivityKind.running);
+      final t0 = DateTime.utc(2026, 8, 17, 14);
+      n.ingestGpsFix(GpsFix(latitude: 40.0, longitude: -74.0, at: t0));
+      n.ingestGpsFix(
+        GpsFix(
+          latitude: 40.0004,
+          longitude: -74.0,
+          at: t0.add(const Duration(seconds: 10)),
+        ),
+      );
+      final state = container.read(workoutSessionProvider);
+      expect(state.distanceMeters, greaterThan(40));
+      expect(state.visibleMetrics, contains(WorkoutMetricId.distance));
+      expect(state.sessionSteps, greaterThan(0));
+      n.stop();
+    });
+
+    test('denied GPS hides distance tiles', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container.read(workoutSessionProvider.notifier).startActivity(
+            WorkoutActivityKind.running,
+            gpsDenied: true,
+          );
+      final state = container.read(workoutSessionProvider);
+      expect(state.visibleMetrics, isNot(contains(WorkoutMetricId.distance)));
+      expect(state.visibleMetrics, contains(WorkoutMetricId.elapsed));
+      container.read(workoutSessionProvider.notifier).stop();
+    });
+
+    test('HIIT setup values flow into session', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container.read(workoutSessionProvider.notifier).startHiit(
+            workSeconds: 30,
+            restSeconds: 15,
+            rounds: 4,
+          );
+      final state = container.read(workoutSessionProvider);
+      expect(state.hiitWorkSeconds, 30);
+      expect(state.hiitRestSeconds, 15);
+      expect(state.hiitRounds, 4);
+      expect(state.phases.length, 7);
+      container.read(workoutSessionProvider.notifier).stop();
+    });
+
+    test('cardio custom metrics stay on the session', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container.read(workoutSessionProvider.notifier).startActivity(
+            WorkoutActivityKind.cardio,
+            enabledMetrics: const [
+              WorkoutMetricId.elapsed,
+              WorkoutMetricId.calories,
+              WorkoutMetricId.activeMinutes,
+            ],
+          );
+      final state = container.read(workoutSessionProvider);
+      expect(state.visibleMetrics, contains(WorkoutMetricId.calories));
+      expect(state.visibleMetrics, isNot(contains(WorkoutMetricId.heartRate)));
+      container.read(workoutSessionProvider.notifier).stop();
+    });
+
+    test('strength live set editor updates current phase', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final n = container.read(workoutSessionProvider.notifier);
+      n.startActivity(WorkoutActivityKind.strength);
+      n.addExerciseToSession(
+        ExerciseLibrary.byName('Bench Press')!.toExercise(weightKg: 61),
+      );
+      n.updateCurrentSet(reps: 8, weightKg: WorkoutMetricCatalog.lbToKg(145));
+      final phase = container.read(workoutSessionProvider).currentPhase;
+      expect(phase?.reps, 8);
+      expect(phase?.weightKg, closeTo(WorkoutMetricCatalog.lbToKg(145), 0.2));
+      n.stop();
     });
   });
 

@@ -1035,7 +1035,7 @@ class SleepStageLegend extends StatelessWidget {
                 ),
                 Expanded(
                   flex: (deep * 100).round().clamp(1, 100),
-                  child: Container(color: const Color(0xFF3D6BFF)),
+                  child: Container(color: VytalColors.info),
                 ),
                 Expanded(
                   flex: (light * 100).round().clamp(1, 100),
@@ -1051,7 +1051,7 @@ class SleepStageLegend extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         row('REM', rem, VytalColors.violet),
-        row('Deep', deep, const Color(0xFF3D6BFF)),
+        row('Deep', deep, VytalColors.info),
         row('Light', light, VytalColors.cyan),
         row('Awake', awake, VytalColors.caution),
       ],

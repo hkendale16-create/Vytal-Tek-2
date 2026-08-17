@@ -23,9 +23,31 @@ enum WorkoutMetricId {
   restInterval,
   round,
   intervalTimer,
+  route,
 }
 
 abstract final class WorkoutMetricCatalog {
+  static List<WorkoutMetricId> visible({
+    required WorkoutActivityKind kind,
+    List<WorkoutMetricId>? enabled,
+    required bool gpsActive,
+    required double distanceMeters,
+    int? cadenceRpm,
+  }) {
+    final ids = List<WorkoutMetricId>.from(enabled ?? forKind(kind));
+    if (!ids.contains(WorkoutMetricId.elapsed)) {
+      ids.insert(0, WorkoutMetricId.elapsed);
+    }
+    final gpsOk = gpsActive || distanceMeters > 0;
+    if (!gpsOk) {
+      ids.removeWhere(needsGps);
+    }
+    if (cadenceRpm == null) {
+      ids.removeWhere((id) => id == WorkoutMetricId.cadence);
+    }
+    return ids;
+  }
+
   static List<WorkoutMetricId> forKind(WorkoutActivityKind kind) =>
       switch (kind) {
         WorkoutActivityKind.running => const [
@@ -35,8 +57,8 @@ abstract final class WorkoutMetricCatalog {
             WorkoutMetricId.heartRate,
             WorkoutMetricId.hrZone,
             WorkoutMetricId.calories,
-            WorkoutMetricId.cadence,
             WorkoutMetricId.steps,
+            WorkoutMetricId.route,
           ],
         WorkoutActivityKind.walking => const [
             WorkoutMetricId.elapsed,
@@ -54,7 +76,6 @@ abstract final class WorkoutMetricCatalog {
             WorkoutMetricId.heartRate,
             WorkoutMetricId.hrZone,
             WorkoutMetricId.calories,
-            WorkoutMetricId.cadence,
           ],
         WorkoutActivityKind.strength => const [
             WorkoutMetricId.exercise,
@@ -84,6 +105,58 @@ abstract final class WorkoutMetricCatalog {
             WorkoutMetricId.steps,
           ],
       };
+
+  static const outdoorKinds = {
+    WorkoutActivityKind.running,
+    WorkoutActivityKind.walking,
+    WorkoutActivityKind.cycling,
+  };
+
+  static bool usesPhoneGps(WorkoutActivityKind kind) =>
+      outdoorKinds.contains(kind);
+
+  /// Metrics the user can toggle for Cardio / Custom.
+  static const configurableIds = <WorkoutMetricId>[
+    WorkoutMetricId.heartRate,
+    WorkoutMetricId.hrZone,
+    WorkoutMetricId.calories,
+    WorkoutMetricId.steps,
+    WorkoutMetricId.distance,
+    WorkoutMetricId.pace,
+    WorkoutMetricId.speed,
+    WorkoutMetricId.activeMinutes,
+  ];
+
+  static String labelFor(WorkoutMetricId id) => switch (id) {
+        WorkoutMetricId.elapsed => 'Elapsed',
+        WorkoutMetricId.distance => 'Distance',
+        WorkoutMetricId.pace => 'Pace',
+        WorkoutMetricId.speed => 'Speed',
+        WorkoutMetricId.heartRate => 'Heart rate',
+        WorkoutMetricId.hrZone => 'HR zone',
+        WorkoutMetricId.calories => 'Calories',
+        WorkoutMetricId.cadence => 'Cadence',
+        WorkoutMetricId.steps => 'Steps',
+        WorkoutMetricId.activeMinutes => 'Active minutes',
+        WorkoutMetricId.exercise => 'Exercise',
+        WorkoutMetricId.muscleGroup => 'Muscle group',
+        WorkoutMetricId.sets => 'Sets',
+        WorkoutMetricId.reps => 'Reps',
+        WorkoutMetricId.weight => 'Weight',
+        WorkoutMetricId.rest => 'Rest',
+        WorkoutMetricId.volume => 'Volume',
+        WorkoutMetricId.workInterval => 'Work interval',
+        WorkoutMetricId.restInterval => 'Rest interval',
+        WorkoutMetricId.round => 'Round',
+        WorkoutMetricId.intervalTimer => 'Interval timer',
+        WorkoutMetricId.route => 'Route',
+      };
+
+  static bool needsGps(WorkoutMetricId id) =>
+      id == WorkoutMetricId.distance ||
+      id == WorkoutMetricId.pace ||
+      id == WorkoutMetricId.speed ||
+      id == WorkoutMetricId.route;
 
   static double metFor(WorkoutActivityKind kind) => switch (kind) {
         WorkoutActivityKind.running => 9.8,

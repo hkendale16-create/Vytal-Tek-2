@@ -1,8 +1,13 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/permissions/permission_catalog.dart';
+import '../../core/permissions/permission_prompt.dart';
 import '../../core/theme/vytal_colors.dart';
 import '../../core/time/duration_format.dart';
 import '../../domain/models/data_provenance.dart';
@@ -11,7 +16,9 @@ import '../../domain/models/workout_models.dart';
 import '../../state/app_session_controller.dart';
 import '../../timers/clock_controllers.dart';
 import '../../workouts/exercise_library.dart';
+import '../../workouts/phone_gps.dart';
 import '../../workouts/workout_controllers.dart';
+import '../../workouts/workout_gps.dart';
 import '../../workouts/workout_metrics.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
@@ -302,14 +309,7 @@ class ActivityPickerScreen extends ConsumerWidget {
                 color: Colors.transparent,
                 child: InkWell(
                   borderRadius: BorderRadius.circular(20),
-                  onTap: () {
-                    if (kind == WorkoutActivityKind.strength) {
-                      context.push('/workouts/muscles');
-                      return;
-                    }
-                    ref.read(workoutSessionProvider.notifier).startActivity(kind);
-                    context.push('/workouts/active');
-                  },
+                  onTap: () => startChosenWorkout(context, ref, kind),
                   child: GlassPanel(
                     child: Row(
                       children: [
@@ -347,9 +347,208 @@ class ActivityPickerScreen extends ConsumerWidget {
         WorkoutActivityKind.cycling => 'Speed, HR zones, cadence when available',
         WorkoutActivityKind.strength => 'Sets, reps, muscle groups, rest timer',
         WorkoutActivityKind.hiit => 'Work / rest intervals and rounds',
-        WorkoutActivityKind.cardio => 'Configurable cardio metrics',
+        WorkoutActivityKind.cardio => 'Choose which metrics to show',
         WorkoutActivityKind.custom => 'Build your own metric mix',
       };
+}
+
+Future<void> startChosenWorkout(
+  BuildContext context,
+  WidgetRef ref,
+  WorkoutActivityKind kind,
+) async {
+  if (kind == WorkoutActivityKind.strength) {
+    context.push('/workouts/muscles');
+    return;
+  }
+  if (kind == WorkoutActivityKind.hiit) {
+    final config = await _showHiitSetupSheet(context);
+    if (config == null || !context.mounted) return;
+    ref.read(workoutSessionProvider.notifier).startHiit(
+          workSeconds: config.work,
+          restSeconds: config.rest,
+          rounds: config.rounds,
+        );
+    context.push('/workouts/active');
+    return;
+  }
+  List<WorkoutMetricId>? metrics;
+  if (kind == WorkoutActivityKind.cardio ||
+      kind == WorkoutActivityKind.custom) {
+    metrics = await showMetricPickerSheet(context, kind);
+    if (metrics == null || !context.mounted) return;
+  }
+  var gpsDenied = false;
+  final wantsGps = WorkoutMetricCatalog.usesPhoneGps(kind) ||
+      (metrics?.any(WorkoutMetricCatalog.needsGps) ?? false);
+  if (wantsGps && PhoneGps.supported && context.mounted) {
+    final explained = await ensureVytalPermission(
+      context: context,
+      ref: ref,
+      item: PermissionCatalog.location,
+      headline: 'Use location for this workout?',
+      explanation:
+          'Vytal can measure distance, pace, and a local route sketch from this phone. The track stays on-device and is not uploaded.',
+    );
+    var granted = explained;
+    if (granted) {
+      granted = await PhoneGps.requestPermission();
+    }
+    gpsDenied = !granted;
+  }
+  if (!context.mounted) return;
+  if (!kIsWeb &&
+      defaultTargetPlatform == TargetPlatform.android &&
+      (kind == WorkoutActivityKind.walking ||
+          kind == WorkoutActivityKind.running)) {
+    unawaited(
+      ensureVytalPermission(
+        context: context,
+        ref: ref,
+        item: PermissionCatalog.activity,
+        headline: 'Allow activity for step tracking?',
+        explanation:
+            'Physical activity permission helps session steps where Android requires it. You can skip this and still run the workout.',
+      ),
+    );
+  }
+  final steps = ref.read(todayHealthProvider).valueOrNull?.steps;
+  ref.read(workoutSessionProvider.notifier).startActivity(
+        kind,
+        enabledMetrics: metrics,
+        baselineSteps: steps,
+        gpsDenied: gpsDenied,
+      );
+  if (!gpsDenied && wantsGps && PhoneGps.supported) {
+    unawaited(
+      ref.read(workoutSessionProvider.notifier).listenGps(PhoneGps.watch()),
+    );
+  }
+  if (context.mounted) context.push('/workouts/active');
+}
+
+class _HiitSetup {
+  const _HiitSetup({
+    required this.work,
+    required this.rest,
+    required this.rounds,
+  });
+  final int work;
+  final int rest;
+  final int rounds;
+}
+
+Future<_HiitSetup?> _showHiitSetupSheet(BuildContext context) async {
+  var work = 40;
+  var rest = 20;
+  var rounds = 8;
+  return showModalBottomSheet<_HiitSetup>(
+    context: context,
+    showDragHandle: true,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setSheet) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('HIIT setup', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 12),
+                _Num(
+                  label: 'Work sec',
+                  value: work,
+                  onChanged: (v) => setSheet(() => work = v.clamp(5, 180)),
+                ),
+                _Num(
+                  label: 'Rest sec',
+                  value: rest,
+                  onChanged: (v) => setSheet(() => rest = v.clamp(5, 180)),
+                ),
+                _Num(
+                  label: 'Rounds',
+                  value: rounds,
+                  onChanged: (v) => setSheet(() => rounds = v.clamp(1, 30)),
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () => Navigator.pop(
+                    context,
+                    _HiitSetup(work: work, rest: rest, rounds: rounds),
+                  ),
+                  child: const Text('Start HIIT'),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
+Future<List<WorkoutMetricId>?> showMetricPickerSheet(
+  BuildContext context,
+  WorkoutActivityKind kind,
+) async {
+  final selected = {
+    WorkoutMetricId.elapsed,
+    ...WorkoutMetricCatalog.forKind(kind),
+  };
+  return showModalBottomSheet<List<WorkoutMetricId>>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setSheet) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  '${kind.label} metrics',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Elapsed is always shown. Distance, pace, and speed need phone GPS.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                for (final id in WorkoutMetricCatalog.configurableIds)
+                  CheckboxListTile(
+                    value: selected.contains(id),
+                    title: Text(WorkoutMetricCatalog.labelFor(id)),
+                    onChanged: (v) {
+                      setSheet(() {
+                        if (v == true) {
+                          selected.add(id);
+                        } else {
+                          selected.remove(id);
+                        }
+                      });
+                    },
+                  ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(
+                    context,
+                    [
+                      WorkoutMetricId.elapsed,
+                      ...selected.where((id) => id != WorkoutMetricId.elapsed),
+                    ],
+                  ),
+                  child: Text('Start ${kind.label}'),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    },
+  );
 }
 
 class ActiveWorkoutScreen extends ConsumerStatefulWidget {
@@ -361,6 +560,28 @@ class ActiveWorkoutScreen extends ConsumerStatefulWidget {
 }
 
 class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureGps());
+  }
+
+  Future<void> _ensureGps() async {
+    final session = ref.read(workoutSessionProvider);
+    final kind = session.activityKind;
+    if (kind == null || session.gpsDenied || session.gpsActive) return;
+    final wantsGps = WorkoutMetricCatalog.usesPhoneGps(kind) ||
+        (session.enabledMetrics?.any(WorkoutMetricCatalog.needsGps) ?? false);
+    if (!wantsGps || !PhoneGps.supported) return;
+    final granted = await PhoneGps.requestPermission();
+    if (!mounted) return;
+    if (!granted) {
+      ref.read(workoutSessionProvider.notifier).markGpsDenied();
+      return;
+    }
+    await ref.read(workoutSessionProvider.notifier).listenGps(PhoneGps.watch());
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(workoutSessionProvider);
@@ -447,11 +668,16 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
             hr: hr,
             hrProvenance: health?.heartRate.provenance,
             calories: calories,
-            steps: health?.steps,
             phase: phase,
           ),
+          if (session.routePoints.length >= 2) ...[
+            const SizedBox(height: 8),
+            _RouteSketch(points: session.routePoints),
+          ],
           const SizedBox(height: 12),
           if (kind == WorkoutActivityKind.strength) ...[
+            if (phase != null && phase.kind == WorkoutTimerKind.exercise)
+              _LiveSetEditor(phase: phase),
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -584,6 +810,123 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
   }
 }
 
+class _LiveSetEditor extends ConsumerWidget {
+  const _LiveSetEditor({required this.phase});
+
+  final TimerPhase phase;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lb = phase.weightKg == null
+        ? 0
+        : WorkoutMetricCatalog.kgToLb(phase.weightKg!).round();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: GlassPanel(
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            _Num(
+              label: 'Reps',
+              value: phase.reps ?? 0,
+              onChanged: (v) => ref
+                  .read(workoutSessionProvider.notifier)
+                  .updateCurrentSet(reps: v),
+            ),
+            _Num(
+              label: 'lb',
+              value: lb,
+              onChanged: (v) => ref
+                  .read(workoutSessionProvider.notifier)
+                  .updateCurrentSet(
+                    weightKg:
+                        v <= 0 ? 0 : WorkoutMetricCatalog.lbToKg(v.toDouble()),
+                  ),
+            ),
+            _Num(
+              label: 'Rest',
+              value: phase.kind == WorkoutTimerKind.rest
+                  ? phase.seconds
+                  : (ref.watch(workoutSessionProvider).nextPhase?.kind ==
+                          WorkoutTimerKind.rest
+                      ? ref.watch(workoutSessionProvider).nextPhase!.seconds
+                      : 60),
+              onChanged: (v) => ref
+                  .read(workoutSessionProvider.notifier)
+                  .updateCurrentSet(restSeconds: v.clamp(0, 300)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RouteSketch extends StatelessWidget {
+  const _RouteSketch({required this.points});
+
+  final List<({double x, double y})> points;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Route', style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 120,
+            width: double.infinity,
+            child: CustomPaint(
+              painter: _RoutePainter(points: points, color: VytalColors.teal),
+            ),
+          ),
+          Text(
+            'On-device sketch · not shared',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RoutePainter extends CustomPainter {
+  _RoutePainter({required this.points, required this.color});
+
+  final List<({double x, double y})> points;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.length < 2) return;
+    final path = Path();
+    for (var i = 0; i < points.length; i++) {
+      final offset = Offset(points[i].x * size.width, points[i].y * size.height);
+      if (i == 0) {
+        path.moveTo(offset.dx, offset.dy);
+      } else {
+        path.lineTo(offset.dx, offset.dy);
+      }
+    }
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..strokeWidth = 2.4
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _RoutePainter oldDelegate) =>
+      oldDelegate.points != points;
+}
+
 class _WorkoutMetricsGrid extends StatelessWidget {
   const _WorkoutMetricsGrid({
     required this.kind,
@@ -591,7 +934,6 @@ class _WorkoutMetricsGrid extends StatelessWidget {
     required this.hr,
     required this.hrProvenance,
     required this.calories,
-    required this.steps,
     required this.phase,
   });
 
@@ -600,12 +942,11 @@ class _WorkoutMetricsGrid extends StatelessWidget {
   final int? hr;
   final DataProvenance? hrProvenance;
   final int calories;
-  final int? steps;
   final TimerPhase? phase;
 
   @override
   Widget build(BuildContext context) {
-    final ids = WorkoutMetricCatalog.forKind(kind);
+    final ids = session.visibleMetrics;
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -628,19 +969,26 @@ class _WorkoutMetricsGrid extends StatelessWidget {
           emptyMessage: '0:00',
         );
       case WorkoutMetricId.distance:
-        return const MetricHudTile(
+        return MetricHudTile(
           title: 'Distance',
-          emptyMessage: 'Unavailable without GPS',
+          value: session.gpsActive || session.distanceMeters > 0
+              ? formatDistanceKm(session.distanceMeters)
+              : null,
+          emptyMessage: session.gpsDenied
+              ? 'Location off'
+              : 'Waiting for GPS',
         );
       case WorkoutMetricId.pace:
-        return const MetricHudTile(
+        return MetricHudTile(
           title: 'Pace',
+          value: formatPace(session.distanceMeters, session.elapsedSeconds()),
           emptyMessage: 'Needs distance',
         );
       case WorkoutMetricId.speed:
-        return const MetricHudTile(
+        return MetricHudTile(
           title: 'Speed',
-          emptyMessage: 'Needs distance',
+          value: formatSpeedKmh(session.currentSpeedMps),
+          emptyMessage: 'Needs GPS',
         );
       case WorkoutMetricId.heartRate:
         return MetricHudTile(
@@ -664,15 +1012,28 @@ class _WorkoutMetricsGrid extends StatelessWidget {
           emptyMessage: 'Estimate after you start',
         );
       case WorkoutMetricId.cadence:
-        return const MetricHudTile(
+        return MetricHudTile(
           title: 'Cadence',
+          value: session.cadenceRpm?.toString(),
+          unit: 'rpm',
           emptyMessage: 'Not reported by this device',
         );
       case WorkoutMetricId.steps:
+        final steps = session.sessionSteps;
+        final fromGps = session.distanceMeters > 0 &&
+            (kind == WorkoutActivityKind.running ||
+                kind == WorkoutActivityKind.walking);
         return MetricHudTile(
           title: 'Steps',
           value: steps?.toString(),
+          unit: fromGps && steps != null ? 'est.' : '',
           emptyMessage: 'No step reading',
+        );
+      case WorkoutMetricId.route:
+        return MetricHudTile(
+          title: 'Route',
+          value: session.routePoints.length >= 2 ? 'On device' : null,
+          emptyMessage: session.gpsDenied ? 'Location off' : 'Waiting for GPS',
         );
       case WorkoutMetricId.activeMinutes:
         return MetricHudTile(
@@ -814,7 +1175,8 @@ class _WorkoutSummaryScreenState extends ConsumerState<WorkoutSummaryScreen> {
                   ),
                 ),
                 Text(
-                  'Avg HR ${session.averageHr ?? '—'} · Max HR ${session.maxHr ?? '—'}',
+                  'Avg HR ${session.averageHr ?? '—'} · Max HR ${session.maxHr ?? '—'}'
+                  '${session.distanceMeters > 0 ? ' · ${formatDistanceKm(session.distanceMeters)}' : ''}',
                   style: theme.textTheme.bodySmall,
                 ),
                 Text(
@@ -896,7 +1258,8 @@ class WorkoutHistoryScreen extends ConsumerWidget {
                           Text(entry.name,
                               style: Theme.of(context).textTheme.titleMedium),
                           Text(
-                            '${entry.activityKind.label} · ${formatClock(entry.durationSeconds)}',
+                            '${entry.activityKind.label} · ${formatClock(entry.durationSeconds)}'
+                            '${entry.distanceMeters != null ? ' · ${formatDistanceKm(entry.distanceMeters!)}' : ''}',
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                           if (entry.notes != null) Text(entry.notes!),

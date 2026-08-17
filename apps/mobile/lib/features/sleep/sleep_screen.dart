@@ -172,18 +172,24 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
             onTap: () => context.push('/vitals/${HealthMetricKeys.hrv}'),
           ),
           const SizedBox(height: 8),
-          const HudStrip(
+          HudStrip(
             icon: Icons.monitor_heart_outlined,
             accent: VytalColors.violet,
             title: 'Resting HR',
             subtitle: 'Not supported by this device',
+            onTap: () => context.push(
+              '/ask?prompt=${Uri.encodeQueryComponent("Why is my resting heart rate missing?")}',
+            ),
           ),
           const SizedBox(height: 8),
-          const HudStrip(
+          HudStrip(
             icon: Icons.air,
             accent: VytalColors.violet,
             title: 'Respiratory rate',
             subtitle: 'Not supported by this device',
+            onTap: () => context.push(
+              '/ask?prompt=${Uri.encodeQueryComponent("Do you have a respiratory rate reading?")}',
+            ),
           ),
           const SizedBox(height: 8),
           HudStrip(
@@ -199,13 +205,24 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
                           : 'Ahead ${-debt}m vs recent nights',
                     if (consistency != null) 'Consistency $consistency',
                   ].join(' · '),
+            onTap: () => context.push(
+              '/ask?prompt=${Uri.encodeQueryComponent("How did I sleep?")}',
+            ),
+          ),
+          const SizedBox(height: 8),
+          HudStrip(
+            icon: Icons.note_alt_outlined,
+            accent: VytalColors.violet,
+            title: 'Add sleep note',
+            subtitle: 'Slept poorly, caffeine, restlessness…',
+            onTap: () => context.push('/notes?category=sleep'),
           ),
           const SizedBox(height: 16),
           EntitlementGate(
             entitlementKey: EntitlementKeys.sleepAdvanced,
             compactPaywall: true,
             child: GlassPanel(
-              accent: const Color(0xFF3D6BFF),
+              accent: VytalColors.info,
               glow: true,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

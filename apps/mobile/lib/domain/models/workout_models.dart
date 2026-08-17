@@ -329,6 +329,36 @@ class TimerPhase {
   final double? weightKg;
   final MuscleGroup? muscleGroup;
   final String? equipment;
+
+  TimerPhase copyWith({
+    WorkoutTimerKind? kind,
+    String? label,
+    int? seconds,
+    String? exerciseId,
+    String? exerciseName,
+    int? setNumber,
+    int? setsTotal,
+    int? reps,
+    double? weightKg,
+    MuscleGroup? muscleGroup,
+    String? equipment,
+    bool clearReps = false,
+    bool clearWeight = false,
+  }) {
+    return TimerPhase(
+      kind: kind ?? this.kind,
+      label: label ?? this.label,
+      seconds: seconds ?? this.seconds,
+      exerciseId: exerciseId ?? this.exerciseId,
+      exerciseName: exerciseName ?? this.exerciseName,
+      setNumber: setNumber ?? this.setNumber,
+      setsTotal: setsTotal ?? this.setsTotal,
+      reps: clearReps ? null : (reps ?? this.reps),
+      weightKg: clearWeight ? null : (weightKg ?? this.weightKg),
+      muscleGroup: muscleGroup ?? this.muscleGroup,
+      equipment: equipment ?? this.equipment,
+    );
+  }
 }
 
 class WorkoutHistoryEntry {

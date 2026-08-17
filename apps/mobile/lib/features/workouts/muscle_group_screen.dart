@@ -85,20 +85,98 @@ class _MuscleExercisesScreenState
 
   Future<void> _saveRoutine() async {
     final picked = _items.where((e) => _selected.contains(e.name)).toList();
-    if (picked.isEmpty) return;
-    await ref.read(workoutLibraryProvider.notifier).addCustom(
-          name: '${widget.group.label} routine',
-          exercises: picked.map((e) => e.toExercise()).toList(),
+    if (picked.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Choose at least one exercise.')),
+      );
+      return;
+    }
+    final nameController = TextEditingController(
+      text: '${widget.group.label} routine',
+    );
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Save as routine'),
+        content: TextField(
+          controller: nameController,
+          decoration: const InputDecoration(labelText: 'Routine name'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, nameController.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    nameController.dispose();
+    if (name == null || !mounted) return;
+    final saved = await ref.read(workoutLibraryProvider.notifier).addCustomRoutine(
+          WorkoutRoutine(
+            id: '',
+            name: name.isEmpty ? '${widget.group.label} routine' : name,
+            exercises: picked.map((e) => e.toExercise()).toList(),
+            activityKind: WorkoutActivityKind.strength,
+            source: 'user',
+          ),
         );
     if (!mounted) return;
+    if (saved == null) {
+      context.push('/settings/subscription');
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Saved to My Routines.')),
     );
   }
 
   Future<void> _askVytal() async {
+    var minutes = 40;
+    final confirmed = await showDialog<int>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('${widget.group.label} workout'),
+          content: StatefulBuilder(
+            builder: (context, setDialog) {
+              return Row(
+                children: [
+                  const Text('Minutes'),
+                  IconButton(
+                    onPressed: () => setDialog(() => minutes = (minutes - 5).clamp(15, 90)),
+                    icon: const Icon(Icons.remove),
+                  ),
+                  Text('$minutes'),
+                  IconButton(
+                    onPressed: () => setDialog(() => minutes = (minutes + 5).clamp(15, 90)),
+                    icon: const Icon(Icons.add),
+                  ),
+                ],
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, minutes),
+              child: const Text('Ask Vytal'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed == null || !mounted) return;
     await ref.read(coachChatProvider.notifier).send(
-          'Build me a 40-minute ${widget.group.label.toLowerCase()} workout.',
+          'Build me a $confirmed-minute ${widget.group.label.toLowerCase()} workout.',
         );
     if (mounted) context.go('/ask');
   }

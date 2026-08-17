@@ -8,6 +8,8 @@ import '../../domain/models/entitlements.dart';
 import '../../domain/models/operating_mode.dart';
 import '../../monitoring/monitoring_controller.dart';
 import '../../state/app_session_controller.dart';
+import '../../domain/models/workout_models.dart';
+import '../../workouts/workout_controllers.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
 import '../subscription/soft_paywall.dart';
@@ -22,10 +24,21 @@ class BodyScreen extends ConsumerWidget {
     final session = ref.watch(appSessionProvider);
     final health = ref.watch(todayHealthProvider).valueOrNull;
     final monitoring = ref.watch(monitoringControllerProvider);
+    final history = ref.watch(workoutHistoryProvider).entries;
     final extras = context.vytalExtras;
     final connected = session.operatingMode == OperatingMode.connected;
     final demo = health?.provenance == DataProvenance.demo;
     final motionLevel = monitoring.policy.ambientMotionLevel;
+    final recent = history.take(5);
+    final legsLoad = recent.any(
+      (e) =>
+          e.activityKind == WorkoutActivityKind.running ||
+          e.activityKind == WorkoutActivityKind.walking ||
+          e.activityKind == WorkoutActivityKind.cycling,
+    );
+    final strengthLoad = recent.any(
+      (e) => e.activityKind == WorkoutActivityKind.strength,
+    );
 
     return SectionScaffold(
       title: 'Live Body',
@@ -41,7 +54,10 @@ class BodyScreen extends ConsumerWidget {
           SizedBox(
             height: 440,
             child: LiveBodyStage(
-              highlightHeart: connected || demo,
+              highlightHeart: health?.heartRate.hasValue == true,
+              highlightShoulders: strengthLoad,
+              highlightLegs: legsLoad,
+              highlightCore: strengthLoad,
               ambientMotionLevel: motionLevel,
               showRing: connected || demo || session.pairedDevice != null,
               onRegionSelected: (region) {
@@ -70,11 +86,9 @@ class BodyScreen extends ConsumerWidget {
                           title: 'HR',
                           value: health?.heartRate.hasValue == true
                               ? '${health!.heartRate.value}'
-                              : (demo ? '72' : null),
+                              : null,
                           unit: 'BPM',
-                          provenance: demo
-                              ? DataProvenance.demo
-                              : health?.heartRate.provenance,
+                          provenance: health?.heartRate.provenance,
                           emptyMessage: '—',
                           onTap: () => context.push('/vitals/heart_rate'),
                         ),
@@ -92,11 +106,9 @@ class BodyScreen extends ConsumerWidget {
                           title: 'SpO₂',
                           value: health?.spo2.hasValue == true
                               ? '${health!.spo2.value}'
-                              : (demo ? '98' : null),
+                              : null,
                           unit: '%',
-                          provenance: demo
-                              ? DataProvenance.demo
-                              : health?.spo2.provenance,
+                          provenance: health?.spo2.provenance,
                           emptyMessage: '—',
                           onTap: () => context.push('/vitals/spo2'),
                         ),
