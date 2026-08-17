@@ -6,7 +6,20 @@ Source PDFs (uploaded to the agent, not committed as binaries):
 - `sdk_ring_external_access_cn` — Chinese counterpart
 - `iOS_SDK_SDK_Development_Guide` — `QCBandSDK.framework`
 
-## Packages required (not in repo yet)
+## Packages in repo
+
+Located under `third_party/qring/`:
+
+| Platform | Artifact |
+|---|---|
+| Android | `third_party/qring/android/qring_sdk_1.0.0.60.aar` (minSdk 26) |
+| iOS | `third_party/qring/ios/QCBandSDK.framework` |
+
+Also included: Android/iOS PDF guides and `android/SDKSample.zip` for reference.
+
+## Former status (resolved)
+
+Previously required (now vendored):
 
 | Platform | Artifact |
 |---|---|
