@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/theme/theme_mode_controller.dart';
 import '../../core/theme/vytal_colors.dart';
 import '../../state/app_session_controller.dart';
 import '../shared/ui_primitives.dart';
@@ -54,31 +55,19 @@ class FirstLaunchScreen extends ConsumerWidget {
                         title: DeviceArrivalChoice.alreadyHaveDevice.label,
                         subtitle:
                             'Continue into the app, then connect when ready.',
-                        onTap: () => ref
-                            .read(appSessionProvider.notifier)
-                            .completeFirstLaunch(
-                              DeviceArrivalChoice.alreadyHaveDevice,
-                            ),
+                        onTap: () => _enter(ref, DeviceArrivalChoice.alreadyHaveDevice),
                       ),
                       _ChoiceCard(
                         title: DeviceArrivalChoice.deviceOnTheWay.label,
                         subtitle:
                             'Use App-Only Mode until it arrives. Your profile stays.',
-                        onTap: () => ref
-                            .read(appSessionProvider.notifier)
-                            .completeFirstLaunch(
-                              DeviceArrivalChoice.deviceOnTheWay,
-                            ),
+                        onTap: () => _enter(ref, DeviceArrivalChoice.deviceOnTheWay),
                       ),
                       _ChoiceCard(
                         title: DeviceArrivalChoice.appWithoutDevice.label,
                         subtitle:
                             'AI coaching, routines, timers, notes, and goals are available now.',
-                        onTap: () => ref
-                            .read(appSessionProvider.notifier)
-                            .completeFirstLaunch(
-                              DeviceArrivalChoice.appWithoutDevice,
-                            ),
+                        onTap: () => _enter(ref, DeviceArrivalChoice.appWithoutDevice),
                       ),
                       const Spacer(),
                       const SizedBox(height: 16),
@@ -96,6 +85,11 @@ class FirstLaunchScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _enter(WidgetRef ref, DeviceArrivalChoice choice) async {
+    await ref.read(themeModeProvider.notifier).setMode(ThemeMode.dark);
+    await ref.read(appSessionProvider.notifier).completeFirstLaunch(choice);
   }
 }
 

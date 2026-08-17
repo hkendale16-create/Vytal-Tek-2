@@ -85,7 +85,7 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
             ],
           ),
           SizedBox(
-            height: 300,
+            height: 380,
             child: Stack(
               clipBehavior: Clip.none,
               children: [
@@ -95,7 +95,8 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
                     children: [
                       ReadinessGauge(
                         score: score,
-                        size: 196,
+                        size: 236,
+                        accent: VytalColors.violet,
                         label: 'SLEEP SCORE',
                         provenance: score == null ? null : DataProvenance.demo,
                         onTap: () => context.push('/ask'),
@@ -120,19 +121,14 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
                   left: 0,
                   top: 12,
                   child: FloatingHud(
-                    child: SizedBox(
-                      width: 124,
-                      child: MetricHudTile(
-                        compact: true,
-                        accent: VytalColors.violet,
-                        title: 'Duration',
-                        value: durationLabel,
-                        unit: '',
-                        emptyMessage: 'No recent reading',
-                        provenance: durationLabel != null && isDemo
-                            ? DataProvenance.demo
-                            : sleep?.provenance,
-                      ),
+                    child: HudMetricChip(
+                      accent: VytalColors.violet,
+                      label: 'Duration',
+                      value: durationLabel,
+                      unit: '',
+                      provenance: durationLabel != null && isDemo
+                          ? DataProvenance.demo
+                          : sleep?.provenance,
                     ),
                   ),
                 ),
@@ -141,18 +137,12 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
                   top: 36,
                   child: FloatingHud(
                     delay: const Duration(milliseconds: 420),
-                    child: SizedBox(
-                      width: 132,
-                      child: MetricHudTile(
-                        compact: true,
-                        accent: VytalColors.violet,
-                        title: 'Bedtime',
-                        value: isDemo ? '23:12' : null,
-                        unit: isDemo ? '→ 06:24' : '',
-                        emptyMessage: 'No recent reading',
-                        provenance:
-                            isDemo ? DataProvenance.demo : null,
-                      ),
+                    child: HudMetricChip(
+                      accent: VytalColors.violet,
+                      label: 'Bedtime',
+                      value: isDemo ? '23:12' : null,
+                      unit: isDemo ? '→ 06:24' : '',
+                      provenance: isDemo ? DataProvenance.demo : null,
                     ),
                   ),
                 ),

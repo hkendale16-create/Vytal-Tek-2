@@ -28,7 +28,7 @@ class ActivityScreen extends ConsumerWidget {
       child: Column(
         children: [
           SizedBox(
-            height: 280,
+            height: 340,
             child: Stack(
               clipBehavior: Clip.none,
               children: [
@@ -37,16 +37,16 @@ class ActivityScreen extends ConsumerWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       ActivityRings(
-                        size: 196,
+                        size: 220,
                         move: isDemo ? 0.78 : 0,
                         exercise: isDemo ? 0.54 : 0,
                         stand: isDemo ? 0.66 : 0,
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
                       Text(
                         steps == null ? '— steps' : '$steps steps',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -65,44 +65,31 @@ class ActivityScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
-                Positioned(
-                  left: 0,
-                  top: 8,
+                Align(
+                  alignment: const Alignment(-1.0, -0.85),
                   child: FloatingHud(
-                    child: SizedBox(
-                      width: 124,
-                      child: MetricHudTile(
-                        compact: true,
-                        title: 'Calories',
-                        value: calories?.toString(),
-                        unit: 'kcal',
-                        icon: Icons.local_fire_department_outlined,
-                        provenance:
-                            calories == null ? null : health?.provenance,
-                        emptyMessage: 'No calorie total yet',
-                        onTap: () =>
-                            context.push('/vitals/${HealthMetricKeys.calories}'),
-                      ),
+                    child: HudMetricChip(
+                      label: 'Calories',
+                      value: calories?.toString(),
+                      unit: 'kcal',
+                      icon: Icons.local_fire_department_outlined,
+                      provenance: calories == null ? null : health?.provenance,
+                      onTap: () =>
+                          context.push('/vitals/${HealthMetricKeys.calories}'),
                     ),
                   ),
                 ),
-                Positioned(
-                  right: 0,
-                  top: 36,
+                Align(
+                  alignment: const Alignment(1.0, -0.55),
                   child: FloatingHud(
                     delay: const Duration(milliseconds: 380),
-                    child: SizedBox(
-                      width: 124,
-                      child: MetricHudTile(
-                        compact: true,
-                        title: 'Active',
-                        value: isDemo ? '42' : null,
-                        unit: 'min',
-                        icon: Icons.directions_run,
-                        provenance: isDemo ? DataProvenance.demo : null,
-                        emptyMessage: 'No active minutes yet',
-                        onTap: () => context.push('/workouts'),
-                      ),
+                    child: HudMetricChip(
+                      label: 'Active',
+                      value: isDemo ? '42' : null,
+                      unit: 'min',
+                      icon: Icons.directions_run,
+                      provenance: isDemo ? DataProvenance.demo : null,
+                      onTap: () => context.push('/workouts'),
                     ),
                   ),
                 ),

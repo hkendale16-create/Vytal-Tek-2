@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -70,7 +71,7 @@ class GlassPanel extends StatelessWidget {
 class AmbientCanvasGlow extends StatelessWidget {
   const AmbientCanvasGlow({
     super.key,
-    this.intensity = 0.42,
+    this.intensity = 0.85,
     this.includeViolet = false,
   });
 
@@ -80,28 +81,28 @@ class AmbientCanvasGlow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final scale = intensity * (isDark ? 1.0 : 0.55);
+    final scale = intensity * (isDark ? 1.0 : 0.9);
     return IgnorePointer(
       child: Stack(
         children: [
           Positioned(
-            top: -90,
-            left: -50,
-            child: _blob(VytalColors.teal, 320, 0.22 * scale),
+            top: -120,
+            left: -80,
+            child: _blob(VytalColors.teal, 420, 0.42 * scale),
           ),
           Positioned(
-            top: 180,
-            right: -70,
+            top: 120,
+            right: -110,
             child: _blob(
               includeViolet ? VytalColors.violet : VytalColors.cyan,
-              280,
-              0.18 * scale,
+              360,
+              0.34 * scale,
             ),
           ),
           Positioned(
-            bottom: 40,
-            left: 40,
-            child: _blob(VytalColors.cyan, 220, 0.12 * scale),
+            bottom: -40,
+            left: -20,
+            child: _blob(VytalColors.cyan, 280, 0.22 * scale),
           ),
         ],
       ),
@@ -256,12 +257,19 @@ class _HudOrb extends StatelessWidget {
             height: 52,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: extras.glassFill,
-              border: Border.all(color: extras.border),
+              gradient: RadialGradient(
+                colors: [
+                  VytalColors.teal.withValues(alpha: 0.22),
+                  extras.glassFill,
+                ],
+              ),
+              border: Border.all(
+                color: VytalColors.teal.withValues(alpha: 0.55),
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: VytalColors.teal.withValues(alpha: 0.16),
-                  blurRadius: 16,
+                  color: VytalColors.teal.withValues(alpha: 0.38),
+                  blurRadius: 22,
                 ),
               ],
             ),
@@ -364,7 +372,8 @@ class ReadinessGauge extends StatelessWidget {
     this.subtitle,
     this.provenance,
     this.onTap,
-    this.size = 220,
+    this.size = 248,
+    this.accent,
   });
 
   final int? score;
@@ -373,6 +382,7 @@ class ReadinessGauge extends StatelessWidget {
   final DataProvenance? provenance;
   final VoidCallback? onTap;
   final double size;
+  final Color? accent;
 
   @override
   Widget build(BuildContext context) {
@@ -380,56 +390,47 @@ class ReadinessGauge extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final value = ((score ?? 0).clamp(0, 100)) / 100.0;
     final hasScore = score != null;
-    final ring = size * (200 / 220);
+    final color = accent ?? VytalColors.teal;
 
     final gauge = SizedBox(
       height: size,
       width: size,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          if (isDark)
-            Container(
-              width: ring,
-              height: ring,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: VytalColors.cyan.withValues(alpha: 0.18),
-                    blurRadius: 40,
-                  ),
-                ],
-              ),
-            ),
-          SizedBox(
-            width: ring,
-            height: ring,
-            child: CircularProgressIndicator(
-              // Always determinate so empty state is static (no perpetual spin).
-              value: hasScore ? value : 0,
-              strokeWidth: 12,
-              backgroundColor: context.vytalExtras.elevated,
-              color: VytalColors.teal,
-              strokeCap: StrokeCap.round,
-            ),
-          ),
-          Column(
+      child: CustomPaint(
+        painter: _HudGaugePainter(
+          progress: hasScore ? value : 0,
+          accent: color,
+          isDark: isDark,
+          track: context.vytalExtras.elevated,
+        ),
+        child: Center(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 hasScore ? '$score' : '—',
-                style: theme.textTheme.displaySmall?.copyWith(
+                style: theme.textTheme.displayLarge?.copyWith(
                   fontWeight: FontWeight.w800,
-                  letterSpacing: -1.5,
-                  color: hasScore ? VytalColors.teal : theme.colorScheme.onSurface,
+                  letterSpacing: hasScore ? -2.4 : 0,
+                  height: 0.92,
+                  fontSize: size * (hasScore ? 0.28 : 0.14),
+                  color: hasScore ? color : theme.colorScheme.onSurface.withValues(alpha: 0.45),
+                  shadows: isDark && hasScore
+                      ? [
+                          Shadow(
+                            color: color.withValues(alpha: 0.55),
+                            blurRadius: 22,
+                          ),
+                        ]
+                      : null,
                 ),
               ),
+              const SizedBox(height: 4),
               Text(
                 label,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: VytalColors.teal,
-                  letterSpacing: 1.2,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: color,
+                  letterSpacing: 2.6,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
               if (subtitle != null) ...[
@@ -449,7 +450,7 @@ class ReadinessGauge extends StatelessWidget {
               ],
             ],
           ),
-        ],
+        ),
       ),
     );
     if (onTap == null) return gauge;
@@ -459,6 +460,138 @@ class ReadinessGauge extends StatelessWidget {
         customBorder: const CircleBorder(),
         onTap: onTap,
         child: gauge,
+      ),
+    );
+  }
+}
+
+class _HudGaugePainter extends CustomPainter {
+  _HudGaugePainter({
+    required this.progress,
+    required this.accent,
+    required this.isDark,
+    required this.track,
+  });
+
+  final double progress;
+  final Color accent;
+  final bool isDark;
+  final Color track;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 14;
+    const start = -math.pi * 0.75;
+    const sweep = math.pi * 1.5;
+
+    canvas.drawCircle(
+      center,
+      radius - 6,
+      Paint()
+        ..color = accent.withValues(alpha: isDark ? 0.16 : 0.1)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 28),
+    );
+
+    final tickPaint = Paint()
+      ..color = accent.withValues(alpha: isDark ? 0.28 : 0.2)
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.round;
+    for (var i = 0; i <= 24; i++) {
+      final t = start + sweep * (i / 24);
+      final inner = Offset(
+        center.dx + math.cos(t) * (radius + 8),
+        center.dy + math.sin(t) * (radius + 8),
+      );
+      final outer = Offset(
+        center.dx + math.cos(t) * (radius + 14),
+        center.dy + math.sin(t) * (radius + 14),
+      );
+      canvas.drawLine(inner, outer, tickPaint);
+    }
+
+    final trackPaint = Paint()
+      ..color = isDark ? track : accent.withValues(alpha: 0.22)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 14
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      start,
+      sweep,
+      false,
+      trackPaint,
+    );
+
+    if (progress <= 0) return;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    final glow = Paint()
+      ..shader = SweepGradient(
+        startAngle: start,
+        endAngle: start + sweep,
+        colors: [
+          accent.withValues(alpha: 0.15),
+          accent,
+          VytalColors.cyan,
+        ],
+      ).createShader(rect)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 14
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+    final fill = Paint()
+      ..shader = SweepGradient(
+        startAngle: start,
+        endAngle: start + sweep,
+        colors: [accent, VytalColors.cyan, accent],
+      ).createShader(rect)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 11
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(rect, start, sweep * progress.clamp(0, 1), false, glow);
+    canvas.drawArc(rect, start, sweep * progress.clamp(0, 1), false, fill);
+  }
+
+  @override
+  bool shouldRepaint(covariant _HudGaugePainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.accent != accent;
+}
+
+/// Small floating capsule used around gauges — not a 2×2 card.
+class HudMetricChip extends StatelessWidget {
+  const HudMetricChip({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.unit,
+    this.icon,
+    this.provenance,
+    this.onTap,
+    this.accent,
+  });
+
+  final String label;
+  final String? value;
+  final String unit;
+  final IconData? icon;
+  final DataProvenance? provenance;
+  final VoidCallback? onTap;
+  final Color? accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 118,
+      child: MetricHudTile(
+        compact: true,
+        title: label,
+        value: value ?? '—',
+        unit: unit,
+        icon: icon,
+        provenance: provenance,
+        emptyMessage: null,
+        onTap: onTap,
+        accent: accent,
       ),
     );
   }
