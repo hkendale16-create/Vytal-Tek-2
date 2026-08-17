@@ -82,6 +82,14 @@ class SettingsScreen extends ConsumerWidget {
                 ),
                 const Divider(height: 1),
                 ListTile(
+                  leading: const Icon(Icons.notifications_outlined),
+                  title: const Text('Notifications'),
+                  subtitle: const Text('Reminders stay local until OS push'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/reminders'),
+                ),
+                const Divider(height: 1),
+                ListTile(
                   leading: const Icon(Icons.watch_outlined),
                   title: const Text('Devices'),
                   trailing: const Icon(Icons.chevron_right),

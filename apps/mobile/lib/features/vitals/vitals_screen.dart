@@ -30,7 +30,7 @@ class VitalsScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => EmptyMetricCard(
           title: 'Vitals unavailable',
-          message: 'Could not load readings. Return to Home and retry.',
+          message: 'Could not load readings. Return to Today and retry.',
         ),
         data: (health) {
           final items = _catalog(health);
@@ -43,7 +43,7 @@ class VitalsScreen extends ConsumerWidget {
                   child: EmptyMetricCard(
                     title: 'No connected reading',
                     message:
-                        'Your readings will appear here after a measurement or device sync.',
+                        'Connect a Vytal device to begin receiving this measurement.',
                   ),
                 ),
               GridView.count(
@@ -82,6 +82,13 @@ class VitalsScreen extends ConsumerWidget {
   List<_VitalRow> _catalog(TodayHealthSnapshot health) {
     String? intValue(HealthMetricReading<int> r) =>
         r.hasValue ? '${r.value}' : null;
+    String hardwareEmpty(String fallback) {
+      if (!health.hasWearableContext) {
+        return 'Connect a Vytal device to begin receiving this measurement.';
+      }
+      return fallback;
+    }
+
     return [
       _VitalRow(
         key: HealthMetricKeys.heartRate,
@@ -90,7 +97,9 @@ class VitalsScreen extends ConsumerWidget {
         unit: 'BPM',
         icon: Icons.favorite_outline,
         provenance: health.heartRate.provenance,
-        empty: health.heartRate.statusLabel ?? health.heartRate.freshness.label,
+        empty: hardwareEmpty(
+          health.heartRate.statusLabel ?? health.heartRate.freshness.label,
+        ),
       ),
       _VitalRow(
         key: HealthMetricKeys.restingHeartRate,
@@ -99,7 +108,7 @@ class VitalsScreen extends ConsumerWidget {
         unit: 'BPM',
         icon: Icons.monitor_heart_outlined,
         provenance: DataProvenance.wearable,
-        empty: 'Not supported by this device',
+        empty: hardwareEmpty('Not supported by this device'),
       ),
       _VitalRow(
         key: HealthMetricKeys.hrv,
@@ -108,7 +117,9 @@ class VitalsScreen extends ConsumerWidget {
         unit: 'ms',
         icon: Icons.graphic_eq,
         provenance: health.hrv.provenance,
-        empty: health.hrv.statusLabel ?? health.hrv.freshness.label,
+        empty: hardwareEmpty(
+          health.hrv.statusLabel ?? health.hrv.freshness.label,
+        ),
       ),
       _VitalRow(
         key: HealthMetricKeys.spo2,
@@ -117,7 +128,9 @@ class VitalsScreen extends ConsumerWidget {
         unit: '%',
         icon: Icons.water_drop_outlined,
         provenance: health.spo2.provenance,
-        empty: health.spo2.statusLabel ?? health.spo2.freshness.label,
+        empty: hardwareEmpty(
+          health.spo2.statusLabel ?? health.spo2.freshness.label,
+        ),
       ),
       _VitalRow(
         key: HealthMetricKeys.temperature,
@@ -128,8 +141,9 @@ class VitalsScreen extends ConsumerWidget {
         unit: '°C',
         icon: Icons.thermostat,
         provenance: health.temperature.provenance,
-        empty: health.temperature.statusLabel ??
-            health.temperature.freshness.label,
+        empty: hardwareEmpty(
+          health.temperature.statusLabel ?? health.temperature.freshness.label,
+        ),
       ),
       _VitalRow(
         key: HealthMetricKeys.respiratoryRate,
@@ -138,7 +152,7 @@ class VitalsScreen extends ConsumerWidget {
         unit: '/min',
         icon: Icons.air,
         provenance: DataProvenance.wearable,
-        empty: 'Not supported by this device',
+        empty: hardwareEmpty('Not supported by this device'),
       ),
       _VitalRow(
         key: HealthMetricKeys.steps,
@@ -147,7 +161,7 @@ class VitalsScreen extends ConsumerWidget {
         unit: '',
         icon: Icons.directions_walk,
         provenance: health.steps == null ? DataProvenance.wearable : health.provenance,
-        empty: 'No recent reading',
+        empty: hardwareEmpty('No recent reading'),
       ),
       _VitalRow(
         key: HealthMetricKeys.calories,
@@ -157,7 +171,7 @@ class VitalsScreen extends ConsumerWidget {
         icon: Icons.local_fire_department_outlined,
         provenance:
             health.calories == null ? DataProvenance.wearable : health.provenance,
-        empty: 'No recent reading',
+        empty: hardwareEmpty('No recent reading'),
       ),
     ];
   }

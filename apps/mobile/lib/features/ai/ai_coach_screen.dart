@@ -53,8 +53,8 @@ class _AiCoachScreenState extends ConsumerState<AiCoachScreen> {
     final theme = Theme.of(context);
 
     return SectionScaffold(
-      title: 'Coach Vital',
-      subtitle: 'Grounded in your data — not a physician.',
+      title: 'Ask Vytal',
+      subtitle: 'Coach Vital — grounded in your data, not a physician.',
       actions: [
         IconButton(
           tooltip: 'Clear chat',

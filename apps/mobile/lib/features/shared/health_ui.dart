@@ -224,16 +224,32 @@ class HudActionRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+    final rows = <List<HudAction>>[];
+    for (var i = 0; i < actions.length; i += 3) {
+      rows.add(
+        actions.sublist(i, i + 3 > actions.length ? actions.length : i + 3),
+      );
+    }
+    return Column(
       children: [
-        for (final action in actions)
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              child: _HudOrb(action: action),
-            ),
+        for (var r = 0; r < rows.length; r++) ...[
+          if (r > 0) const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              for (final action in rows[r])
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: _HudOrb(action: action),
+                  ),
+                ),
+              if (rows[r].length < 3)
+                for (var i = rows[r].length; i < 3; i++)
+                  const Expanded(child: SizedBox()),
+            ],
           ),
+        ],
       ],
     );
   }

@@ -53,6 +53,19 @@ class TimersHubScreen extends ConsumerWidget {
                 : 'Work / rest rounds',
             onTap: () => context.push('/timers/interval'),
           ),
+          const SizedBox(height: 10),
+          _Tile(
+            icon: Icons.self_improvement_outlined,
+            title: 'Rest timer',
+            detail: '1:30 between sets',
+            onTap: () {
+              final clock = ref.read(countdownProvider.notifier);
+              clock.setHours(0);
+              clock.setMinutes(1);
+              clock.setSeconds(30);
+              context.push('/timers/countdown');
+            },
+          ),
         ],
       ),
     );

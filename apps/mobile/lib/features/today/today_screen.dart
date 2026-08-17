@@ -156,16 +156,14 @@ class TodayScreen extends ConsumerWidget {
                                   child: FloatingHud(
                                     delay: const Duration(milliseconds: 380),
                                     child: HudMetricChip(
-                                      label: 'SpO₂',
-                                      value: health.spo2.hasValue
-                                          ? '${health.spo2.value}'
+                                      label: 'Sleep',
+                                      value: health.sleep.hasValue
+                                          ? '${health.sleep.value!.inHours}h'
                                           : null,
-                                      unit: '%',
-                                      icon: Icons.water_drop_outlined,
-                                      provenance: health.spo2.provenance,
-                                      onTap: () => context.push(
-                                        '/vitals/${HealthMetricKeys.spo2}',
-                                      ),
+                                      unit: '',
+                                      icon: Icons.bedtime_outlined,
+                                      provenance: health.sleep.provenance,
+                                      onTap: () => context.push('/sleep'),
                                     ),
                                   ),
                                 ),
@@ -174,16 +172,14 @@ class TodayScreen extends ConsumerWidget {
                                   child: FloatingHud(
                                     delay: const Duration(milliseconds: 620),
                                     child: HudMetricChip(
-                                      label: 'Steps',
+                                      label: 'Activity',
                                       value: health.steps?.toString(),
-                                      unit: '',
-                                      icon: Icons.directions_walk,
+                                      unit: health.steps == null ? '' : 'steps',
+                                      icon: Icons.directions_run_outlined,
                                       provenance: health.steps == null
                                           ? null
                                           : health.provenance,
-                                      onTap: () => context.push(
-                                        '/vitals/${HealthMetricKeys.steps}',
-                                      ),
+                                      onTap: () => context.push('/activity'),
                                     ),
                                   ),
                                 ),
@@ -226,7 +222,7 @@ class TodayScreen extends ConsumerWidget {
                               HudAction(
                                 icon: Icons.favorite_outline,
                                 label: 'Vitals',
-                                onTap: () => context.push('/vitals'),
+                                onTap: () => context.go('/vitals'),
                               ),
                               HudAction(
                                 icon: Icons.timer_outlined,
@@ -234,14 +230,19 @@ class TodayScreen extends ConsumerWidget {
                                 onTap: () => context.push('/timers/countdown'),
                               ),
                               HudAction(
-                                icon: Icons.auto_awesome_outlined,
-                                label: 'Coach',
-                                onTap: () => context.push('/ask'),
+                                icon: Icons.timer_outlined,
+                                label: 'Stopwatch',
+                                onTap: () => context.push('/timers/stopwatch'),
                               ),
                               HudAction(
-                                icon: Icons.accessibility_new_outlined,
-                                label: 'Body',
-                                onTap: () => context.push('/body'),
+                                icon: Icons.note_alt_outlined,
+                                label: 'Note',
+                                onTap: () => context.push('/notes'),
+                              ),
+                              HudAction(
+                                icon: Icons.auto_awesome_outlined,
+                                label: 'Ask Vytal',
+                                onTap: () => context.go('/ask'),
                               ),
                             ],
                           ),
@@ -278,12 +279,9 @@ class TodayScreen extends ConsumerWidget {
                           const SizedBox(height: 10),
                           HudStrip(
                             icon: Icons.auto_awesome_outlined,
-                            title: 'Coach Vital',
-                            subtitle: session.operatingMode ==
-                                    OperatingMode.appOnly
-                                ? 'Ask using your profile. Wearable context after pairing.'
-                                : 'Insights use verified profile + wearable summaries.',
-                            onTap: () => context.push('/ask'),
+                            title: "Today's insight",
+                            subtitle: health.readinessMessage,
+                            onTap: () => context.go('/ask'),
                           ),
                         ],
                       );

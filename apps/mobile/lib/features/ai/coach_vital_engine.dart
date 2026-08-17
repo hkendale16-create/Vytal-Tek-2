@@ -54,11 +54,11 @@ class CoachVitalEngine {
 
   static const suggestedPrompts = [
     'How am I doing today?',
-    'Should I train today?',
-    'Why is my recovery lower?',
+    'Should I work out today?',
+    'Why is my HRV lower?',
     'How did I sleep?',
-    'Build me a 30-minute workout.',
-    'How has my HRV changed?',
+    'Build me a workout.',
+    'How has my recovery changed?',
   ];
 
   String welcome({
