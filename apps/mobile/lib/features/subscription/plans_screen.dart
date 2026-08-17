@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -45,42 +46,39 @@ class PlansScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
           ],
-          GlassPanel(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Sandbox preview', style: theme.textTheme.titleMedium),
-                const SizedBox(height: 6),
-                Text(
-                  'Preview Plus/Pro gates for UI review. This is not a purchase '
-                  'and is never production authority.',
-                  style: theme.textTheme.bodySmall,
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final tier in SubscriptionTier.values)
-                      OutlinedButton(
-                        onPressed: () async {
-                          await controller.applySandboxPreview(tier);
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Sandbox preview: ${tier.displayLabel}',
-                              ),
-                            ),
-                          );
-                        },
-                        child: Text('Preview ${tier.displayLabel}'),
-                      ),
-                  ],
-                ),
-              ],
+          if (!kReleaseMode)
+            GlassPanel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Sandbox preview', style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Debug only — preview Plus/Pro gates. Never production authority.',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final tier in SubscriptionTier.values)
+                        OutlinedButton(
+                          onPressed: () async {
+                            final result =
+                                await controller.applySandboxPreview(tier);
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(result.message)),
+                            );
+                          },
+                          child: Text('Preview ${tier.displayLabel}'),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );

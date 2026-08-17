@@ -110,7 +110,7 @@ void main() {
       );
     });
 
-    test('snapshot json round-trip preserves keys and lifecycle', () {
+    test('snapshot parse round-trip preserves keys; fromJson strips paid', () {
       final plus = SubscriptionCatalog.standard.productForTier(SubscriptionTier.plus);
       final original = EntitlementSnapshot.forTier(
         SubscriptionTier.plus,
@@ -120,13 +120,18 @@ void main() {
         expiresAt: DateTime.utc(2026, 9, 1),
         verificationSource: EntitlementVerificationSource.sandboxPreview,
       );
-      final restored = EntitlementSnapshot.fromJson(original.toJson());
-      expect(restored.tier, SubscriptionTier.plus);
-      expect(restored.enabled, plus.entitlements);
-      expect(restored.lifecycle, SubscriptionLifecycle.active);
-      expect(restored.productId, plus.id);
-      expect(restored.verificationSource,
-          EntitlementVerificationSource.sandboxPreview);
+      final trusted = EntitlementSnapshot.parse(original.toJson());
+      expect(trusted.tier, SubscriptionTier.plus);
+      expect(trusted.enabled, plus.entitlements);
+
+      final fromDisk = EntitlementSnapshot.fromJson(original.toJson());
+      expect(fromDisk.tier, SubscriptionTier.free);
+      expect(
+        fromDisk.verificationSource,
+        EntitlementVerificationSource.localCacheUntrusted,
+      );
+      expect(fromDisk.canUse(EntitlementKeys.analyticsAdvanced), isFalse);
+      expect(fromDisk.productId, plus.id);
     });
   });
 

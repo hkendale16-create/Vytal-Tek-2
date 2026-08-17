@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// Entitlement keys — screens ask these, not plan name strings.
 abstract final class EntitlementKeys {
   static const aiBasic = 'ai.basic';
@@ -123,14 +125,21 @@ class EntitlementSnapshot {
   final bool willRenew;
   final EntitlementVerificationSource verificationSource;
 
-  bool canUse(String key) => enabled.contains(key);
+  /// Feature gate — paid keys require an authoritative verification source.
+  bool canUse(String key) => EntitlementSecurity.canUse(this, key);
 
   bool get isPaidTier => tier != SubscriptionTier.free;
 
   bool get isSubscribed =>
-      isPaidTier && lifecycle.grantsAccess;
+      isPaidTier &&
+      lifecycle.grantsAccess &&
+      EntitlementSecurity.sourceGrantsPaidAccess(verificationSource);
 
   String get statusLabel {
+    if (verificationSource ==
+        EntitlementVerificationSource.localCacheUntrusted) {
+      return 'Verifying subscription…';
+    }
     if (tier == SubscriptionTier.free) return 'Free plan';
     return '${tier.displayLabel} · ${lifecycle.label}';
   }
@@ -174,7 +183,8 @@ class EntitlementSnapshot {
         'verificationSource': verificationSource.name,
       };
 
-  factory EntitlementSnapshot.fromJson(Map<String, dynamic> json) {
+  /// Raw decode — for trusted server verifier payloads only.
+  factory EntitlementSnapshot.parse(Map<String, dynamic> json) {
     final enabledRaw = json['enabled'];
     final enabled = enabledRaw is List
         ? enabledRaw.map((e) => e.toString()).toSet()
@@ -198,6 +208,13 @@ class EntitlementSnapshot {
         (e) => e.name == json['verificationSource'],
         orElse: () => EntitlementVerificationSource.localFreeDefaults,
       ),
+    );
+  }
+
+  /// Disk / SharedPreferences restore — paid access is stripped (Phase F).
+  factory EntitlementSnapshot.fromJson(Map<String, dynamic> json) {
+    return EntitlementSecurity.sanitizeForPersistRestore(
+      EntitlementSnapshot.parse(json),
     );
   }
 
@@ -261,6 +278,9 @@ enum EntitlementVerificationSource {
 
   /// Verified by App Store / Play + backend (Phase D).
   serverVerified,
+
+  /// Paid claim was on disk — access stripped until restore + re-verify (Phase F).
+  localCacheUntrusted,
 }
 
 extension EntitlementVerificationSourceX on EntitlementVerificationSource {
@@ -269,7 +289,119 @@ extension EntitlementVerificationSourceX on EntitlementVerificationSource {
         EntitlementVerificationSource.catalogPreview => 'Catalog preview',
         EntitlementVerificationSource.sandboxPreview => 'Sandbox preview',
         EntitlementVerificationSource.serverVerified => 'Server verified',
+        EntitlementVerificationSource.localCacheUntrusted =>
+          'Cached — needs re-verification',
       };
 
-  bool get isAuthoritative => this == EntitlementVerificationSource.serverVerified;
+  bool get isAuthoritative =>
+      this == EntitlementVerificationSource.serverVerified;
+}
+
+abstract final class EntitlementSecurity {
+  /// Keys that never require server verification.
+  static Set<String> get freeKeys => EntitlementSnapshot.freeDefaults.enabled;
+
+  static bool isPaidKey(String key) => !freeKeys.contains(key);
+
+  /// Whether this source may unlock paid entitlement keys.
+  static bool sourceGrantsPaidAccess(EntitlementVerificationSource source) {
+    if (source.isAuthoritative) return true;
+    // Debug / profile only — never in release.
+    if (source == EntitlementVerificationSource.sandboxPreview) {
+      return !kReleaseMode;
+    }
+    return false;
+  }
+
+  /// Hardened feature check used by [EntitlementSnapshot.canUse].
+  static bool canUse(EntitlementSnapshot snapshot, String key) {
+    if (!snapshot.enabled.contains(key)) return false;
+    if (!isPaidKey(key)) return true;
+    if (!snapshot.lifecycle.grantsAccess && snapshot.isPaidTier) {
+      return false;
+    }
+    return sourceGrantsPaidAccess(snapshot.verificationSource);
+  }
+
+  /// Strip paid access from disk restores. Keeps [productId] as a restore hint.
+  static EntitlementSnapshot sanitizeForPersistRestore(
+    EntitlementSnapshot parsed,
+  ) {
+    final hasPaidKeys = parsed.enabled.any(isPaidKey);
+    final claimsPaid = parsed.isPaidTier ||
+        hasPaidKeys ||
+        parsed.verificationSource ==
+            EntitlementVerificationSource.serverVerified ||
+        parsed.verificationSource ==
+            EntitlementVerificationSource.sandboxPreview ||
+        parsed.verificationSource ==
+            EntitlementVerificationSource.catalogPreview ||
+        parsed.verificationSource ==
+            EntitlementVerificationSource.localCacheUntrusted;
+
+    if (!claimsPaid) {
+      // Still intersect enabled with free keys to defeat key injection.
+      return parsed.copyWith(
+        enabled: parsed.enabled.intersection(freeKeys),
+        tier: SubscriptionTier.free,
+        lifecycle: SubscriptionLifecycle.none,
+        verificationSource: EntitlementVerificationSource.localFreeDefaults,
+        willRenew: false,
+        clearExpiresAt: true,
+        clearRenewsAt: true,
+      );
+    }
+
+    return EntitlementSnapshot.freeDefaults.copyWith(
+      productId: parsed.productId,
+      verificationSource: EntitlementVerificationSource.localCacheUntrusted,
+      lastVerifiedAt: parsed.lastVerifiedAt,
+    );
+  }
+
+  /// Returns null when [candidate] may be applied; otherwise a rejection reason.
+  static String? assertAssignable(EntitlementSnapshot candidate) {
+    final paidEnabled = candidate.enabled.where(isPaidKey).toSet();
+    if (paidEnabled.isEmpty && candidate.tier == SubscriptionTier.free) {
+      return null;
+    }
+
+    if (candidate.verificationSource ==
+        EntitlementVerificationSource.catalogPreview) {
+      return 'catalogPreview cannot grant entitlements.';
+    }
+
+    if (candidate.verificationSource ==
+        EntitlementVerificationSource.localCacheUntrusted) {
+      return 'localCacheUntrusted cannot grant entitlements — restore purchases.';
+    }
+
+    if (paidEnabled.isNotEmpty &&
+        !sourceGrantsPaidAccess(candidate.verificationSource)) {
+      return 'Paid entitlements require serverVerified'
+          '${kReleaseMode ? '' : ' (or sandboxPreview in debug)'}.';
+    }
+
+    if (candidate.isPaidTier &&
+        candidate.verificationSource ==
+            EntitlementVerificationSource.localFreeDefaults) {
+      return 'localFreeDefaults cannot claim a paid tier.';
+    }
+
+    // Reject serverVerified snapshots that somehow enable keys outside catalog
+    // knowledge — still allow any subset of known keys.
+    final unknown = paidEnabled.difference(EntitlementKeys.all);
+    if (unknown.isNotEmpty) {
+      return 'Unknown entitlement keys: ${unknown.join(', ')}';
+    }
+
+    return null;
+  }
+
+  /// True when a restorePurchases pass should be attempted after launch.
+  static bool shouldAttemptRestore(EntitlementSnapshot snapshot) {
+    return snapshot.verificationSource ==
+            EntitlementVerificationSource.localCacheUntrusted &&
+        snapshot.productId != null;
+  }
 }

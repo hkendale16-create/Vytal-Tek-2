@@ -20,7 +20,9 @@ apps/mobile/     Flutter app (iOS, Android, web shell)
 | QRing native bridge | Android + iOS MethodChannels wired into `QRingWearableAdapter` |
 | 4 Core Health UI | Complete on branch history — Home/Activity/Sleep/Insights/Profile |
 | Subscription A | Complete — entitlement service, catalog, soft paywalls |
-| Subscription B–E | In progress — StoreKit/Play adapters, server verify, plan changes |
+| Subscription B–E | Complete — StoreKit/Play adapters, server verify, plan changes |
+| Subscription F | In progress — security hardening + persist tamper protections |
+| Subscription G | Checklist — marketplace readiness (`docs/subscription/PHASE_G.md`) |
 | 5 3D Experience | Not started |
 | 6 AI Coach | Not started |
 

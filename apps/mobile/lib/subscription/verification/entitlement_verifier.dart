@@ -227,7 +227,7 @@ class HttpEntitlementVerifier implements EntitlementVerifier {
         message: 'Verifier response missing entitlements object.',
       );
     }
-    final snapshot = EntitlementSnapshot.fromJson(raw).copyWith(
+    final snapshot = EntitlementSnapshot.parse(raw).copyWith(
       verificationSource: EntitlementVerificationSource.serverVerified,
       lastVerifiedAt: DateTime.now().toUtc(),
     );

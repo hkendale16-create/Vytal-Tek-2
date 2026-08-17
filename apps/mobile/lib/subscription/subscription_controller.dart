@@ -205,12 +205,34 @@ class SubscriptionController {
     await _ref.read(appSessionProvider.notifier).setEntitlements(snapshot);
   }
 
+  /// Phase F — after launch, re-verify if disk restore left an untrusted hint.
+  Future<BillingOperationResult?> refreshAfterLaunch() async {
+    final snapshot = entitlements.snapshot;
+    if (!EntitlementSecurity.shouldAttemptRestore(snapshot)) {
+      return null;
+    }
+    return restorePurchases();
+  }
+
   /// Sandbox UI preview only — clearly labeled, never production authority.
-  Future<void> applySandboxPreview(SubscriptionTier tier) async {
+  ///
+  /// Phase F: no-ops in release builds.
+  Future<BillingOperationResult> applySandboxPreview(SubscriptionTier tier) async {
+    if (kReleaseMode) {
+      return const BillingOperationResult(
+        ok: false,
+        message: 'Sandbox preview is disabled in release builds.',
+        requiresServerVerification: false,
+      );
+    }
     final product = catalog.productForTier(tier);
     if (tier == SubscriptionTier.free) {
       await _apply(EntitlementSnapshot.freeDefaults);
-      return;
+      return const BillingOperationResult(
+        ok: true,
+        message: 'Sandbox preview: Free / Core',
+        requiresServerVerification: false,
+      );
     }
     final renews = DateTime.now().toUtc().add(const Duration(days: 30));
     await _apply(
@@ -223,6 +245,11 @@ class SubscriptionController {
         willRenew: true,
         verificationSource: EntitlementVerificationSource.sandboxPreview,
       ),
+    );
+    return BillingOperationResult(
+      ok: true,
+      message: 'Sandbox preview: ${tier.displayLabel}',
+      requiresServerVerification: false,
     );
   }
 }

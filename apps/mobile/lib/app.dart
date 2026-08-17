@@ -5,12 +5,27 @@ import 'core/routing/app_router.dart';
 import 'core/theme/theme_mode_controller.dart';
 import 'core/theme/vytal_theme.dart';
 import 'monitoring/monitoring_controller.dart';
+import 'subscription/subscription_controller.dart';
 
-class VytalApp extends ConsumerWidget {
+class VytalApp extends ConsumerStatefulWidget {
   const VytalApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<VytalApp> createState() => _VytalAppState();
+}
+
+class _VytalAppState extends ConsumerState<VytalApp> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Phase F: re-verify cached subscription hints after cold start.
+      ref.read(subscriptionControllerProvider).refreshAfterLaunch();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     // Keep the monitoring engine alive for lifecycle + auto-switching.
     ref.watch(monitoringControllerProvider);
 

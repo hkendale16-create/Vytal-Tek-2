@@ -251,9 +251,14 @@ class AppSessionController extends StateNotifier<AppSession> {
 
   /// Updates entitlements through the session layer.
   ///
-  /// Callers must not invent paid access. Production grants require
-  /// server-verified snapshots (Subscription Phase D).
+  /// Phase F: rejects paid grants that are not assignable under
+  /// [EntitlementSecurity] (e.g. forged serverVerified from prefs).
   Future<void> setEntitlements(EntitlementSnapshot entitlements) async {
+    final rejection = EntitlementSecurity.assertAssignable(entitlements);
+    if (rejection != null) {
+      // Fail closed — keep current free-safe state.
+      return;
+    }
     state = state.copyWith(entitlements: entitlements);
     await _persist();
   }
