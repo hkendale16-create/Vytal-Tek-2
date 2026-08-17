@@ -44,6 +44,12 @@ void main() {
     expect(labels, ['Today', 'Vitals', 'Workouts', 'Coach', 'More']);
     expect(find.text('Home'), findsNothing);
     expect(find.text(OperatingMode.appOnly.label), findsOneWidget);
+
+    // Lazy tabs: only Today is built. IndexedStack used to keep all five alive.
+    expect(find.text('Missing values stay missing.'), findsNothing);
+    expect(find.text('My Routines'), findsNothing);
+    expect(find.textContaining('grounded in your data'), findsNothing);
+    expect(find.text('Recovery / Readiness'), findsNothing);
   });
 
   testWidgets('Home Analytics control opens the Analytics screen', (
@@ -71,6 +77,12 @@ void main() {
 
     await tapNav(tester, 'More');
     expect(find.text('Recovery / Readiness'), findsOneWidget);
+
+    await tapNav(tester, 'Today');
+    expect(find.text('Missing values stay missing.'), findsNothing);
+    expect(find.text('My Routines'), findsNothing);
+    expect(find.textContaining('grounded in your data'), findsNothing);
+    expect(find.text('Recovery / Readiness'), findsNothing);
   });
 
   testWidgets('More opens existing recovery, sleep, analytics, and settings', (

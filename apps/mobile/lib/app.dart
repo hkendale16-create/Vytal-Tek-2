@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/motion/hud_motion_provider.dart';
 import 'core/motion/vytal_motion.dart';
-import 'core/routing/app_router.dart';
+import 'navigation/app_router.dart';
 import 'core/theme/theme_mode_controller.dart';
 import 'core/theme/vytal_theme.dart';
 import 'battery/battery_intelligence.dart';
