@@ -3,18 +3,84 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Vytal Tek</title>
+  <title>Vytal Tek — Live Health. Real Feedback. Stronger You.</title>
+  <meta name="description" content="Vytal Tek is a personal health and performance platform. Valuable in App-Only Mode, richer when a Vytal ring is paired." />
+  <link rel="icon" href="assets/mark-v.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <main class="wrap">
-    <p class="eyebrow">Vytal Tek</p>
-    <h1>Legal</h1>
-    <p>Store-review documents for the Vytal Tek app. Replace with counsel-reviewed copy before production submission if needed.</p>
-    <ul>
-      <li><a href="privacy/">Privacy Policy</a></li>
-      <li><a href="terms/">Terms of Use</a></li>
-    </ul>
+  <div class="glow glow-a" aria-hidden="true"></div>
+  <div class="glow glow-b" aria-hidden="true"></div>
+
+  <header class="nav">
+    <a class="brand" href="./">
+      <img src="assets/mark-v.png" width="36" height="36" alt="" />
+      <span class="wordmark">
+        <span class="vytal">VYTAL</span>
+        <span class="tek">TEK</span>
+      </span>
+    </a>
+    <nav>
+      <a href="#product">Product</a>
+      <a href="#modes">Modes</a>
+      <a href="privacy/">Privacy</a>
+      <a href="terms/">Terms</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Personal health · Performance</p>
+        <h1>Live Health.<br />Real Feedback.<br />Stronger You.</h1>
+        <p class="lede">
+          The app is valuable before hardware arrives. Pair a Vytal wearable and
+          Connected Mode enriches the same experience — never with invented vitals.
+        </p>
+        <div class="actions">
+          <a class="btn primary" href="#product">See the platform</a>
+          <a class="btn ghost" href="privacy/">Privacy &amp; Terms</a>
+        </div>
+        <p class="tagline">LIVE BETTER. BECOME STRONGER. EVERY DAY.</p>
+      </div>
+      <figure class="hero-device">
+        <img src="assets/hero-ring.png" alt="Vytal smart ring with teal inner glow on a dark canvas" />
+      </figure>
+    </section>
+
+    <section id="product" class="cards">
+      <article class="glass">
+        <h2>Home</h2>
+        <p>Readiness first. Floating HUD metrics. How am I doing today?</p>
+      </article>
+      <article class="glass">
+        <h2>Coach Vital</h2>
+        <p>Grounded in your data. Admits what is missing. Never diagnoses.</p>
+      </article>
+      <article class="glass">
+        <h2>Live Body</h2>
+        <p>Interactive figure with floating cards — HR, SpO₂, sleep, activity.</p>
+      </article>
+    </section>
+
+    <section id="modes" class="modes">
+      <div class="glass wide">
+        <h2>App-Only Mode</h2>
+        <p>Full product before a ring ships: workouts, notes, coach, plans.</p>
+      </div>
+      <div class="glass wide">
+        <h2>Connected Mode</h2>
+        <p>Pair the wearable. Verified readings only. Demo values stay labeled Demo.</p>
+      </div>
+    </section>
   </main>
+
+  <footer>
+    <p>© Vytal Tek</p>
+    <p><a href="privacy/">Privacy Policy</a> · <a href="terms/">Terms of Use</a></p>
+  </footer>
 </body>
 </html>
