@@ -7,6 +7,8 @@ import '../../domain/devices/device_connection_state.dart';
 import '../../domain/models/monitoring_mode.dart';
 import '../../domain/models/operating_mode.dart';
 import '../../domain/models/personal_profile.dart';
+import '../../monitoring/monitoring_controller.dart';
+import '../../monitoring/monitoring_signals.dart';
 import '../../state/app_session_controller.dart';
 import '../shared/ui_primitives.dart';
 
@@ -17,6 +19,7 @@ class TodayScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(appSessionProvider);
     final connection = ref.watch(deviceConnectionProvider);
+    final monitoring = ref.watch(monitoringControllerProvider);
     final name = session.profile.displayName?.trim();
     final greeting = (name == null || name.isEmpty) ? 'Welcome' : 'Hello, $name';
     final device = connection.activeDevice ?? session.pairedDevice;
@@ -41,7 +44,11 @@ class TodayScreen extends ConsumerWidget {
             runSpacing: 8,
             children: [
               StatusPill(label: session.operatingMode.label, emphasis: true),
-              StatusPill(label: 'Monitoring · ${session.monitoringMode.label}'),
+              StatusPill(
+                label: 'Monitoring · ${monitoring.mode.label}',
+                emphasis: monitoring.mode == MonitoringMode.active,
+              ),
+              StatusPill(label: monitoring.reason.label),
               if (session.demoModeEnabled)
                 const StatusPill(label: 'Demo mode', emphasis: true),
             ],

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models/monitoring_mode.dart';
+import '../../monitoring/monitoring_controller.dart';
+import '../../monitoring/monitoring_signals.dart';
 import '../../state/app_session_controller.dart';
 import '../shared/ui_primitives.dart';
 
@@ -11,12 +13,14 @@ class MonitoringSettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(appSessionProvider);
-    final controller = ref.read(appSessionProvider.notifier);
+    final runtime = ref.watch(monitoringControllerProvider);
+    final monitoring = ref.read(monitoringControllerProvider.notifier);
+    final theme = Theme.of(context);
 
     return SectionScaffold(
       title: 'Monitoring',
       subtitle:
-          'Background monitoring requires explicit OS permissions and can increase battery use.',
+          'Background monitoring requires explicit OS permissions and can increase battery use. You can turn it off anytime.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -24,14 +28,14 @@ class MonitoringSettingsScreen extends ConsumerWidget {
             child: SwitchListTile(
               title: const Text('Automatic monitoring mode'),
               subtitle: const Text(
-                'When on, Vytal may move between Active, Normal, and Standby. Manual selection still works.',
+                'When on, Vytal may move between Active, Normal, and Standby. Turn off to lock your manual selection.',
               ),
               value: session.automaticMonitoringEnabled,
-              onChanged: controller.setAutomaticMonitoring,
+              onChanged: (value) => monitoring.setAutomatic(value),
             ),
           ),
           const SizedBox(height: 12),
-          Text('Current mode', style: Theme.of(context).textTheme.titleMedium),
+          Text('Current mode', style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
           SegmentedButton<MonitoringMode>(
             segments: [
@@ -41,29 +45,81 @@ class MonitoringSettingsScreen extends ConsumerWidget {
                   label: Text(mode.label),
                 ),
             ],
-            selected: {session.monitoringMode},
+            selected: {runtime.mode},
             onSelectionChanged: (values) {
-              controller.setMonitoringMode(values.first);
+              monitoring.selectModeManually(values.first);
             },
           ),
           const SizedBox(height: 12),
           EmptyMetricCard(
-            title: session.monitoringMode.label,
-            message: session.monitoringMode.description,
+            title: '${runtime.mode.label} · ${runtime.reason.label}',
+            message:
+                '${runtime.mode.description}\n\n'
+                'Sensor poll: ${_formatDuration(runtime.policy.sensorPollInterval)}\n'
+                'UI refresh: ${_formatDuration(runtime.policy.uiRefreshInterval)}\n'
+                'Sync cadence: ${_formatDuration(runtime.policy.syncInterval)}\n'
+                'Battery impact: ${runtime.policy.expectedBatteryImpact}',
           ),
           const SizedBox(height: 12),
           Card(
             child: SwitchListTile(
               title: const Text('Background monitoring'),
-              subtitle: const Text(
-                'Off by default. Enable only after understanding battery and Bluetooth impact. Platform limits always apply.',
-              ),
+              subtitle: Text(runtime.gate.userFacingStatus),
               value: session.backgroundMonitoringEnabled,
-              onChanged: controller.setBackgroundMonitoring,
+              onChanged: (value) => monitoring.setBackgroundMonitoring(value),
             ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: SwitchListTile(
+              title: const Text('Active workout monitoring (simulate)'),
+              subtitle: const Text(
+                'Phase 3 signal for automatic Active mode. Real workout detection arrives with activity tracking.',
+              ),
+              value: runtime.signals.workoutActive,
+              onChanged: (value) => monitoring.setWorkoutActive(value),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: SwitchListTile(
+              title: const Text('Sleep period (simulate)'),
+              subtitle: const Text(
+                'When automatic mode is on, sleep prefers Standby and calmer behavior.',
+              ),
+              value: runtime.signals.isSleeping,
+              onChanged: (value) => monitoring.setSleeping(value),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text('Signal snapshot', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          EmptyMetricCard(
+            title: runtime.gate.appInForeground ? 'Foreground' : 'Background',
+            message: [
+              'Automatic: ${runtime.signals.automaticMonitoringEnabled ? 'On' : 'Off'}',
+              'Background monitoring: ${runtime.signals.backgroundMonitoringEnabled ? 'On' : 'Off'}',
+              'High-frequency sampling: ${runtime.isHighFrequency ? 'Allowed' : 'Reduced'}',
+              'Wearable battery: ${runtime.signals.wearableBatteryPercent?.toString() ?? 'Unavailable'}',
+              'Inactivity: ${_formatDuration(runtime.signals.inactiveFor)}',
+              'Eval ticks: ${runtime.tickCount}',
+            ].join('\n'),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Vytal does not run prohibited hidden background work. '
+            'Platform limits always apply once a wearable SDK is connected.',
+            style: theme.textTheme.bodySmall,
           ),
         ],
       ),
     );
+  }
+
+  String _formatDuration(Duration duration) {
+    if (duration.inHours >= 1) return '${duration.inHours}h';
+    if (duration.inMinutes >= 1) return '${duration.inMinutes}m';
+    if (duration.inSeconds >= 1) return '${duration.inSeconds}s';
+    return '${duration.inMilliseconds}ms';
   }
 }
