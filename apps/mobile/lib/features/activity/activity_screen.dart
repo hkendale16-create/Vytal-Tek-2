@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../domain/models/data_provenance.dart';
+import '../../domain/models/health_metric.dart';
 import '../../state/app_session_controller.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
@@ -66,6 +67,7 @@ class ActivityScreen extends ConsumerWidget {
                   icon: Icons.local_fire_department_outlined,
                   provenance: calories == null ? null : health?.provenance,
                   emptyMessage: 'No calorie total yet',
+                  onTap: () => context.push('/vitals/${HealthMetricKeys.calories}'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -77,11 +79,18 @@ class ActivityScreen extends ConsumerWidget {
                   icon: Icons.directions_run,
                   provenance: isDemo ? DataProvenance.demo : null,
                   emptyMessage: 'No active minutes yet',
+                  onTap: () => context.push('/workouts'),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
+          FilledButton.tonalIcon(
+            onPressed: () => context.push('/workouts/start'),
+            icon: const Icon(Icons.play_arrow_rounded),
+            label: const Text('Start Workout'),
+          ),
+          const SizedBox(height: 8),
           FilledButton.tonalIcon(
             onPressed: () => context.push('/workouts'),
             icon: const Icon(Icons.fitness_center_outlined),

@@ -48,6 +48,16 @@ class BodyScreen extends ConsumerWidget {
                     highlightHeart: connected || demo,
                     ambientMotionLevel: motionLevel,
                     showRing: connected || demo || session.pairedDevice != null,
+                    onRegionSelected: (region) {
+                      switch (region) {
+                        case BodyRegion.chest:
+                          context.push('/vitals/heart_rate');
+                        case BodyRegion.legs:
+                          context.push('/workouts');
+                        case BodyRegion.head:
+                          context.push('/recovery');
+                      }
+                    },
                     childOverlay: Stack(
                       children: [
                         Align(
@@ -64,6 +74,7 @@ class BodyScreen extends ConsumerWidget {
                                   ? DataProvenance.demo
                                   : health?.heartRate.provenance,
                               emptyMessage: '—',
+                              onTap: () => context.push('/vitals/heart_rate'),
                             ),
                           ),
                         ),
@@ -81,6 +92,7 @@ class BodyScreen extends ConsumerWidget {
                                   ? DataProvenance.demo
                                   : health?.spo2.provenance,
                               emptyMessage: '—',
+                              onTap: () => context.push('/vitals/spo2'),
                             ),
                           ),
                         ),
@@ -97,6 +109,7 @@ class BodyScreen extends ConsumerWidget {
                               unit: '°C',
                               provenance: health?.temperature.provenance,
                               emptyMessage: '—',
+                              onTap: () => context.push('/vitals/temperature'),
                             ),
                           ),
                         ),
@@ -112,6 +125,7 @@ class BodyScreen extends ConsumerWidget {
                               unit: '',
                               provenance: health?.sleep.provenance,
                               emptyMessage: '—',
+                              onTap: () => context.go('/sleep'),
                             ),
                           ),
                         ),

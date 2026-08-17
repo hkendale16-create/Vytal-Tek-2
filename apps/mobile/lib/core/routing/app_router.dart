@@ -11,6 +11,7 @@ import '../../features/body/body_screen.dart';
 import '../../features/devices/devices_screen.dart';
 import '../../features/onboarding/first_launch_screen.dart';
 import '../../features/profile/profile_screen.dart';
+import '../../features/recovery/recovery_screen.dart';
 import '../../features/settings/monitoring_settings_screen.dart';
 import '../../features/settings/permissions_screen.dart';
 import '../../features/settings/settings_screen.dart';
@@ -20,8 +21,9 @@ import '../../features/subscription/plans_screen.dart';
 import '../../features/subscription/subscription_screen.dart';
 import '../../features/notes/notes_screen.dart';
 import '../../features/notes/reminders_screen.dart';
+import '../../features/timers/timers_screens.dart';
 import '../../features/today/today_screen.dart';
-import '../../features/workouts/workout_session_screen.dart';
+import '../../features/vitals/vitals_screen.dart';
 import '../../features/workouts/workouts_screen.dart';
 
 final _rootKey = GlobalKey<NavigatorState>();
@@ -116,12 +118,64 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const BatteryScreen(),
       ),
       GoRoute(
+        path: '/vitals',
+        builder: (context, state) => const VitalsScreen(),
+      ),
+      GoRoute(
+        path: '/vitals/:key',
+        builder: (context, state) => VitalDetailScreen(
+          metricKey: state.pathParameters['key'] ?? 'heart_rate',
+        ),
+      ),
+      GoRoute(
+        path: '/recovery',
+        builder: (context, state) => const RecoveryScreen(),
+      ),
+      GoRoute(
+        path: '/timers',
+        builder: (context, state) => const TimersHubScreen(),
+      ),
+      GoRoute(
+        path: '/timers/countdown',
+        builder: (context, state) => const CountdownScreen(),
+      ),
+      GoRoute(
+        path: '/timers/stopwatch',
+        builder: (context, state) => const StopwatchScreen(),
+      ),
+      GoRoute(
+        path: '/timers/interval',
+        builder: (context, state) => const IntervalTimerScreen(),
+      ),
+      GoRoute(
         path: '/workouts',
         builder: (context, state) => const WorkoutsScreen(),
       ),
       GoRoute(
+        path: '/workouts/start',
+        builder: (context, state) => const ActivityPickerScreen(),
+      ),
+      GoRoute(
+        path: '/workouts/active',
+        builder: (context, state) => const ActiveWorkoutScreen(),
+      ),
+      GoRoute(
         path: '/workouts/session',
-        builder: (context, state) => const WorkoutSessionScreen(),
+        builder: (context, state) => const ActiveWorkoutScreen(),
+      ),
+      GoRoute(
+        path: '/workouts/summary',
+        builder: (context, state) => const WorkoutSummaryScreen(),
+      ),
+      GoRoute(
+        path: '/workouts/history',
+        builder: (context, state) => const WorkoutHistoryScreen(),
+      ),
+      GoRoute(
+        path: '/workouts/builder',
+        builder: (context, state) => RoutineBuilderScreen(
+          routineId: state.uri.queryParameters['id'],
+        ),
       ),
       GoRoute(
         path: '/devices',

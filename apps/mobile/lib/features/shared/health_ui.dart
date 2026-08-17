@@ -60,12 +60,14 @@ class ReadinessGauge extends StatelessWidget {
     required this.label,
     this.subtitle,
     this.provenance,
+    this.onTap,
   });
 
   final int? score;
   final String label;
   final String? subtitle;
   final DataProvenance? provenance;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +76,7 @@ class ReadinessGauge extends StatelessWidget {
     final value = ((score ?? 0).clamp(0, 100)) / 100.0;
     final hasScore = score != null;
 
-    return SizedBox(
+    final gauge = SizedBox(
       height: 220,
       width: 220,
       child: Stack(
@@ -144,6 +146,15 @@ class ReadinessGauge extends StatelessWidget {
         ],
       ),
     );
+    if (onTap == null) return gauge;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: gauge,
+      ),
+    );
   }
 }
 
@@ -156,6 +167,7 @@ class MetricHudTile extends StatelessWidget {
     this.icon,
     this.provenance,
     this.emptyMessage,
+    this.onTap,
   });
 
   final String title;
@@ -164,12 +176,13 @@ class MetricHudTile extends StatelessWidget {
   final IconData? icon;
   final DataProvenance? provenance;
   final String? emptyMessage;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasValue = value != null;
-    return GlassPanel(
+    final panel = GlassPanel(
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -225,7 +238,77 @@ class MetricHudTile extends StatelessWidget {
         ],
       ),
     );
+    if (onTap == null) return panel;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: panel,
+      ),
+    );
   }
+}
+
+/// Simple trend line. Callers must pass real or explicitly labeled demo series.
+class VitalSparkline extends StatelessWidget {
+  const VitalSparkline({
+    super.key,
+    required this.values,
+    this.color = VytalColors.teal,
+  });
+
+  final List<double> values;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    if (values.length < 2) {
+      return const SizedBox(height: 140);
+    }
+    return CustomPaint(
+      painter: _SparklinePainter(values: values, color: color),
+      child: const SizedBox.expand(),
+    );
+  }
+}
+
+class _SparklinePainter extends CustomPainter {
+  _SparklinePainter({required this.values, required this.color});
+
+  final List<double> values;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.isEmpty) return;
+    final minV = values.reduce((a, b) => a < b ? a : b) - 2;
+    final maxV = values.reduce((a, b) => a > b ? a : b) + 2;
+    final path = Path();
+    for (var i = 0; i < values.length; i++) {
+      final x = size.width * (i / (values.length - 1));
+      final y = size.height *
+          (1 - ((values[i] - minV) / (maxV - minV)).clamp(0, 1));
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..color = color
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _SparklinePainter oldDelegate) =>
+      oldDelegate.values != values || oldDelegate.color != color;
 }
 
 class ProvenanceCaption extends StatelessWidget {

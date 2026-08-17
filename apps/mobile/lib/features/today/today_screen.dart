@@ -29,7 +29,13 @@ class TodayScreen extends ConsumerWidget {
     final device = connection.activeDevice ?? session.pairedDevice;
     final theme = Theme.of(context);
 
-    return CustomScrollView(
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(todayHealthProvider);
+        await ref.read(todayHealthProvider.future);
+      },
+      child: CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
         SliverAppBar(
           pinned: true,
@@ -86,7 +92,9 @@ class TodayScreen extends ConsumerWidget {
                           emphasis: true,
                         ),
                         StatusPill(
-                          label: 'Monitoring · ${monitoring.mode.label}',
+                          label: session.automaticMonitoringEnabled
+                              ? 'Monitoring · Automatic — ${monitoring.mode.label}'
+                              : 'Monitoring · ${monitoring.mode.label}',
                           emphasis: monitoring.mode == MonitoringMode.active,
                         ),
                         if (session.demoModeEnabled)
@@ -106,6 +114,7 @@ class TodayScreen extends ConsumerWidget {
                         provenance: health.readinessScore == null
                             ? null
                             : health.provenance,
+                        onTap: () => context.push('/recovery'),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -113,6 +122,37 @@ class TodayScreen extends ConsumerWidget {
                       health.readinessMessage,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 20),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        FilledButton.tonal(
+                          onPressed: () => context.push('/workouts/start'),
+                          child: const Text('Start Workout'),
+                        ),
+                        FilledButton.tonal(
+                          onPressed: () => context.push('/vitals'),
+                          child: const Text('Check Vitals'),
+                        ),
+                        FilledButton.tonal(
+                          onPressed: () => context.push('/timers/countdown'),
+                          child: const Text('Start Timer'),
+                        ),
+                        FilledButton.tonal(
+                          onPressed: () => context.push('/timers/stopwatch'),
+                          child: const Text('Stopwatch'),
+                        ),
+                        FilledButton.tonal(
+                          onPressed: () => context.push('/ask'),
+                          child: const Text('Ask Vytal'),
+                        ),
+                        FilledButton.tonal(
+                          onPressed: () => context.push('/notes'),
+                          child: const Text('Add Note'),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 20),
                     GridView.count(
@@ -133,6 +173,8 @@ class TodayScreen extends ConsumerWidget {
                           provenance: health.heartRate.provenance,
                           emptyMessage: health.heartRate.statusLabel ??
                               health.heartRate.freshness.label,
+                          onTap: () =>
+                              context.push('/vitals/${HealthMetricKeys.heartRate}'),
                         ),
                         MetricHudTile(
                           title: 'Steps',
@@ -142,6 +184,8 @@ class TodayScreen extends ConsumerWidget {
                           provenance:
                               health.steps == null ? null : health.provenance,
                           emptyMessage: 'No step total yet',
+                          onTap: () =>
+                              context.push('/vitals/${HealthMetricKeys.steps}'),
                         ),
                         MetricHudTile(
                           title: 'SpO₂',
@@ -153,6 +197,8 @@ class TodayScreen extends ConsumerWidget {
                           provenance: health.spo2.provenance,
                           emptyMessage:
                               health.spo2.statusLabel ?? health.spo2.freshness.label,
+                          onTap: () =>
+                              context.push('/vitals/${HealthMetricKeys.spo2}'),
                         ),
                         MetricHudTile(
                           title: 'HRV',
@@ -163,6 +209,8 @@ class TodayScreen extends ConsumerWidget {
                           provenance: health.hrv.provenance,
                           emptyMessage:
                               health.hrv.statusLabel ?? health.hrv.freshness.label,
+                          onTap: () =>
+                              context.push('/vitals/${HealthMetricKeys.hrv}'),
                         ),
                       ],
                     ),
@@ -175,7 +223,7 @@ class TodayScreen extends ConsumerWidget {
                           const SizedBox(height: 6),
                           Text(
                             device == null
-                                ? 'No device paired. Connect My Vytal when your wearable arrives.'
+                                ? 'No Vytal device connected.'
                                 : '${device.displayName} · ${connection.state.label}'
                                     '${device.isDemo ? ' · Demo' : ''}'
                                     '${health.battery.value != null ? ' · Battery ${health.battery.value}%' : ''}',
@@ -195,8 +243,12 @@ class TodayScreen extends ConsumerWidget {
                               ),
                               const SizedBox(width: 8),
                               OutlinedButton(
-                                onPressed: () => context.push('/body'),
-                                child: const Text('Live Body'),
+                                onPressed: health.battery.hasValue
+                                    ? () => context.push('/battery')
+                                    : () => context.push('/body'),
+                                child: Text(
+                                  health.battery.hasValue ? 'Battery' : 'Live Body',
+                                ),
                               ),
                             ],
                           ),
@@ -240,6 +292,7 @@ class TodayScreen extends ConsumerWidget {
           ),
         ),
       ],
+    ),
     );
   }
 }

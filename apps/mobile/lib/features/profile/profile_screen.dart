@@ -131,6 +131,21 @@ class ProfileScreen extends ConsumerWidget {
                   onTap: () => context.push('/battery'),
                 ),
                 ListTile(
+                  leading: const Icon(Icons.favorite_outline),
+                  title: const Text('Vitals'),
+                  onTap: () => context.push('/vitals'),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.bolt_outlined),
+                  title: const Text('Recovery'),
+                  onTap: () => context.push('/recovery'),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.timer_outlined),
+                  title: const Text('Timers'),
+                  onTap: () => context.push('/timers'),
+                ),
+                ListTile(
                   leading: const Icon(Icons.fitness_center_outlined),
                   title: const Text('Workouts'),
                   onTap: () => context.push('/workouts'),

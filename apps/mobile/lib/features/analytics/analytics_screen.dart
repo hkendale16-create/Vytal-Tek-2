@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/theme/vytal_colors.dart';
 import '../../domain/models/data_provenance.dart';
 import '../../domain/models/entitlements.dart';
 import '../../state/app_session_controller.dart';
@@ -20,9 +19,18 @@ class AnalyticsScreen extends ConsumerStatefulWidget {
 
 class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   String _range = '7D';
+  String _metric = 'Heart Rate';
 
   static const _basicRanges = {'7D', '30D'};
   static const _advancedRanges = {'90D', '1Y'};
+  static const _metrics = [
+    'Heart Rate',
+    'HRV',
+    'Sleep',
+    'Activity',
+    'Recovery',
+    'Workout Load',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +47,18 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
       subtitle: 'Trends use aggregated summaries — not every raw sample.',
       child: Column(
         children: [
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final metric in _metrics)
+                ChoiceChip(
+                  label: Text(metric),
+                  selected: _metric == metric,
+                  onSelected: (_) => setState(() => _metric = metric),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             children: [
@@ -69,19 +89,15 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Heart rate trend · $_range',
+                    '$_metric trend · $_range',
                     style: theme.textTheme.titleMedium,
                   ),
                   const SizedBox(height: 16),
                   SizedBox(
                     height: 140,
                     child: demo
-                        ? CustomPaint(
-                            painter: _SparklinePainter(
-                              values: const [68, 72, 70, 74, 71, 69, 72],
-                              color: VytalColors.teal,
-                            ),
-                            child: const SizedBox.expand(),
+                        ? VitalSparkline(
+                            values: _demoSeries(_metric, _range),
                           )
                         : Center(
                             child: Text(
@@ -133,42 +149,24 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
       ),
     );
   }
-}
 
-class _SparklinePainter extends CustomPainter {
-  _SparklinePainter({required this.values, required this.color});
-
-  final List<double> values;
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (values.isEmpty) return;
-    final minV = values.reduce((a, b) => a < b ? a : b) - 2;
-    final maxV = values.reduce((a, b) => a > b ? a : b) + 2;
-    final path = Path();
-    for (var i = 0; i < values.length; i++) {
-      final x = size.width * (i / (values.length - 1));
-      final y = size.height *
-          (1 - ((values[i] - minV) / (maxV - minV)).clamp(0, 1));
-      if (i == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
-      }
-    }
-    canvas.drawPath(
-      path,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3
-        ..color = color
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round,
-    );
+  /// Labeled Demo series only — length follows the selected range.
+  List<double> _demoSeries(String metric, String range) {
+    final n = switch (range) {
+      '7D' => 7,
+      '30D' => 30,
+      '90D' => 16,
+      '1Y' => 12,
+      _ => 7,
+    };
+    final base = switch (metric) {
+      'HRV' => 62.0,
+      'Sleep' => 7.2,
+      'Activity' => 6400.0,
+      'Recovery' => 80.0,
+      'Workout Load' => 42.0,
+      _ => 70.0,
+    };
+    return List<double>.generate(n, (i) => base + ((i % 5) - 2) * (base * 0.02));
   }
-
-  @override
-  bool shouldRepaint(covariant _SparklinePainter oldDelegate) =>
-      oldDelegate.values != values;
 }

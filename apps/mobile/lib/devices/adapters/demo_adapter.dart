@@ -163,10 +163,12 @@ class DemoWearableAdapter implements WearableDevice {
         unit: 'BPM',
       );
     }
+    // Labeled Demo stream — varies with wall clock so live UI can follow values.
+    final value = 70 + (DateTime.now().second % 11);
     return demoReading(
       key: HealthMetricKeys.heartRate,
       displayName: 'Heart Rate',
-      value: 72,
+      value: value,
       unit: 'BPM',
       statusLabel: 'Demo',
     );

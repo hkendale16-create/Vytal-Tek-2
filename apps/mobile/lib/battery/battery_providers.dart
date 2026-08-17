@@ -6,6 +6,10 @@ import '../features/today/today_health_provider.dart';
 import '../state/app_session_controller.dart';
 import 'battery_intelligence.dart';
 
+final batteryAlertDedupProvider = Provider<BatteryAlertDedup>((ref) {
+  return BatteryAlertDedup();
+});
+
 final batteryIntelligenceProvider = Provider<BatteryInsight>((ref) {
   final session = ref.watch(
     appSessionProvider.select(
