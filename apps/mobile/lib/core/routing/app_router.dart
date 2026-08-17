@@ -17,6 +17,8 @@ import '../../features/shell/app_shell.dart';
 import '../../features/sleep/sleep_screen.dart';
 import '../../features/subscription/plans_screen.dart';
 import '../../features/subscription/subscription_screen.dart';
+import '../../features/notes/notes_screen.dart';
+import '../../features/notes/reminders_screen.dart';
 import '../../features/today/today_screen.dart';
 
 final _rootKey = GlobalKey<NavigatorState>();
@@ -97,6 +99,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/ask',
         builder: (context, state) => const AiCoachScreen(),
+      ),
+      GoRoute(
+        path: '/notes',
+        builder: (context, state) => const NotesScreen(),
+      ),
+      GoRoute(
+        path: '/reminders',
+        builder: (context, state) => const RemindersScreen(),
       ),
       GoRoute(
         path: '/devices',

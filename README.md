@@ -24,8 +24,9 @@ apps/mobile/     Flutter app (iOS, Android, web shell)
 | Subscription F | Complete — persist tamper protections + canUse hardening |
 | Subscription G | Checklist ready — marketplace go-live (`docs/subscription/PHASE_G.md`) |
 | Data usage audit | Hardened — selective health watches, no unpaired sensor ticks |
-| 5 3D Experience | Not started |
-| 6 AI Coach | Not started |
+| 5 3D Experience | Complete on branch — interactive Live Body stage |
+| 6 AI Coach | Complete on branch — grounded Coach Vital chat |
+| 7 Notes & Reminders | Complete on branch — local notes/reminders + AI context |
 
 ## Run (mobile)
 

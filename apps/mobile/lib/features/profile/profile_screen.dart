@@ -131,6 +131,16 @@ class ProfileScreen extends ConsumerWidget {
                   onTap: () => context.push('/ask'),
                 ),
                 ListTile(
+                  leading: const Icon(Icons.note_alt_outlined),
+                  title: const Text('Notes'),
+                  onTap: () => context.push('/notes'),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.alarm_outlined),
+                  title: const Text('Reminders'),
+                  onTap: () => context.push('/reminders'),
+                ),
+                ListTile(
                   leading: const Icon(Icons.accessibility_new_outlined),
                   title: const Text('Live Body'),
                   onTap: () => context.push('/body'),
