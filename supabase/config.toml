@@ -1,0 +1,5 @@
+# A string used to distinguish different Supabase projects on the same host.
+project_id = "sdeifrzdkiiexawwzfvb"
+
+[functions.verify-entitlement]
+verify_jwt = false

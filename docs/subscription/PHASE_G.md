@@ -25,8 +25,7 @@ Client architecture for B–F is in place. This checklist is the go-live gate fo
 
 ## Server
 
-- [x] Schema + Edge Function stub under `services/entitlements/` (fails closed without store secrets)
-- [ ] Deploy to a dedicated Vytal backend project (not shared unrelated databases)
+- [x] Schema + Edge Function stub deployed on dedicated **Vytal Tek** project `sdeifrzdkiiexawwzfvb`
 - [ ] Verify App Store JWS / transaction APIs
 - [ ] Verify Google Play purchase tokens
 - [ ] App Store Server Notifications V2

@@ -24,6 +24,7 @@ site/            Privacy / Terms pages (GitHub Pages)
 | Subscription B–E | Complete — StoreKit/Play adapters, server verify, plan changes |
 | Subscription F | Complete — persist tamper protections + canUse hardening |
 | Subscription G | Complete on main — client go-live; console products still human |
+| Hosting | Supabase Vytal Tek project live; Netlify legal site pending Git connect |
 | Store review | CI + legal Pages + review packet (`docs/store/REVIEW_NOTES.md`) |
 | Data usage audit | Hardened — selective health watches, no unpaired sensor ticks |
 | 5 3D Experience | Complete on branch — interactive Live Body stage |
