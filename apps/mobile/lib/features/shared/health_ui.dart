@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
@@ -31,6 +30,10 @@ class GlassPanel extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
+        color: extras.glassFill,
+        border: Border.all(
+          color: edge.withValues(alpha: isDark ? 0.45 : 0.28),
+        ),
         boxShadow: [
           if (glow || isDark)
             BoxShadow(
@@ -46,23 +49,8 @@ class GlassPanel extends StatelessWidget {
             ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: isDark ? 18 : 10, sigmaY: isDark ? 18 : 10),
-          child: Container(
-            padding: padding,
-            decoration: BoxDecoration(
-              color: extras.glassFill,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: edge.withValues(alpha: isDark ? 0.45 : 0.28),
-              ),
-            ),
-            child: child,
-          ),
-        ),
-      ),
+      padding: padding,
+      child: child,
     );
   }
 }
@@ -263,9 +251,9 @@ class _HudOrb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final extras = context.vytalExtras;
-    return InkWell(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: action.onTap,
-      borderRadius: BorderRadius.circular(28),
       child: Column(
         children: [
           Container(
@@ -368,13 +356,10 @@ class HudStrip extends StatelessWidget {
       ),
     );
     if (onTap == null) return child;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: child,
-      ),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: child,
     );
   }
 }
@@ -470,13 +455,10 @@ class ReadinessGauge extends StatelessWidget {
       ),
     );
     if (onTap == null) return gauge;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: gauge,
-      ),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: gauge,
     );
   }
 }
@@ -730,13 +712,10 @@ class MetricHudTile extends StatelessWidget {
       ),
     );
     if (onTap == null) return panel;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: panel,
-      ),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: panel,
     );
   }
 }

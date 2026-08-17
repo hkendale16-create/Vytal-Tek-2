@@ -227,6 +227,13 @@ class TodayScreen extends ConsumerWidget {
                             ),
                           ),
                           const SizedBox(height: 18),
+                          HudStrip(
+                            icon: Icons.insights_outlined,
+                            title: 'Analytics',
+                            subtitle: '7 day / 30 day / 90 day / 1 year trends',
+                            onTap: () => context.push('/analytics'),
+                          ),
+                          const SizedBox(height: 12),
                           HudActionRail(
                             actions: [
                               HudAction(
@@ -240,6 +247,11 @@ class TodayScreen extends ConsumerWidget {
                                 onTap: () => context.go('/vitals'),
                               ),
                               HudAction(
+                                icon: Icons.insights_outlined,
+                                label: 'Analytics',
+                                onTap: () => context.push('/analytics'),
+                              ),
+                              HudAction(
                                 icon: Icons.timer_outlined,
                                 label: 'Timer',
                                 onTap: () => context.push('/timers/countdown'),
@@ -248,11 +260,6 @@ class TodayScreen extends ConsumerWidget {
                                 icon: Icons.timer_outlined,
                                 label: 'Stopwatch',
                                 onTap: () => context.push('/timers/stopwatch'),
-                              ),
-                              HudAction(
-                                icon: Icons.note_alt_outlined,
-                                label: 'Note',
-                                onTap: () => context.push('/notes'),
                               ),
                               HudAction(
                                 icon: Icons.auto_awesome_outlined,

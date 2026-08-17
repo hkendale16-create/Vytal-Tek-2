@@ -1,40 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import 'vytal_hud_dock.dart';
-
 class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
-
-  static const destinations = [
-    VytalHudDestination(
-      icon: Icons.today_outlined,
-      selectedIcon: Icons.today_rounded,
-      label: 'Today',
-    ),
-    VytalHudDestination(
-      icon: Icons.favorite_outline,
-      selectedIcon: Icons.favorite_rounded,
-      label: 'Vitals',
-    ),
-    VytalHudDestination(
-      icon: Icons.fitness_center_outlined,
-      selectedIcon: Icons.fitness_center_rounded,
-      label: 'Workouts',
-    ),
-    VytalHudDestination(
-      icon: Icons.auto_awesome_outlined,
-      selectedIcon: Icons.auto_awesome,
-      label: 'Coach',
-    ),
-    VytalHudDestination(
-      icon: Icons.menu_rounded,
-      selectedIcon: Icons.menu_open_rounded,
-      label: 'More',
-    ),
-  ];
 
   void _onTap(int index) {
     navigationShell.goBranch(
@@ -47,14 +17,37 @@ class AppShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: navigationShell,
-      bottomNavigationBar: ColoredBox(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        child: VytalHudDock(
-          key: const Key('vytal-hud-dock'),
-          index: navigationShell.currentIndex,
-          onSelect: _onTap,
-          destinations: destinations,
-        ),
+      bottomNavigationBar: NavigationBar(
+        key: const Key('vytal-hud-dock'),
+        selectedIndex: navigationShell.currentIndex,
+        onDestinationSelected: _onTap,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.today_outlined),
+            selectedIcon: Icon(Icons.today_rounded),
+            label: 'Today',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.favorite_outline),
+            selectedIcon: Icon(Icons.favorite_rounded),
+            label: 'Vitals',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.fitness_center_outlined),
+            selectedIcon: Icon(Icons.fitness_center_rounded),
+            label: 'Workouts',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.auto_awesome_outlined),
+            selectedIcon: Icon(Icons.auto_awesome),
+            label: 'Coach',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.menu_rounded),
+            selectedIcon: Icon(Icons.menu_open_rounded),
+            label: 'More',
+          ),
+        ],
       ),
     );
   }
