@@ -88,38 +88,63 @@ class RecoveryScreen extends ConsumerWidget {
             onTap: () => context.push('/sleep'),
           ),
           const SizedBox(height: 10),
-          const HudStrip(
+          HudStrip(
             icon: Icons.monitor_heart_outlined,
             title: 'Resting HR',
             subtitle: 'Not supported by this device',
+            onTap: () => context.go(
+              '/ask?prompt=${Uri.encodeQueryComponent("Why is my heart rate higher?")}',
+            ),
           ),
           const SizedBox(height: 10),
-          const HudStrip(
+          HudStrip(
             icon: Icons.fitness_center_outlined,
             title: 'Training load',
             subtitle: 'No recent reading',
+            onTap: () => context.push('/workouts'),
           ),
           const SizedBox(height: 10),
-          const HudStrip(
+          HudStrip(
             icon: Icons.timeline,
             title: 'Personal baseline',
             subtitle: 'Baseline learning starts after enough verified days.',
+            onTap: () => context.go(
+              '/ask?prompt=${Uri.encodeQueryComponent("How is my recovery?")}',
+            ),
+          ),
+          const SizedBox(height: 10),
+          HudStrip(
+            icon: Icons.note_alt_outlined,
+            title: 'Add recovery note',
+            subtitle: 'Soreness, stress, caffeine, rest…',
+            onTap: () => context.push('/notes?category=recovery'),
           ),
           const SizedBox(height: 16),
-          GlassPanel(
-            child: Text(
-              demo
-                  ? 'Demo: this score is a labeled UI stand-in — not a clinical recovery index.'
-                  : (health?.readinessMessage ??
-                      'Vytal will not invent a recovery score. Contributing metrics stay blank until they sync.'),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: extras.textMuted,
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => context.go(
+                '/ask?prompt=${Uri.encodeQueryComponent("How is my recovery?")}',
+              ),
+              child: GlassPanel(
+                child: Text(
+                  demo
+                      ? 'Demo: this score is a labeled UI stand-in — not a clinical recovery index.'
+                      : (health?.readinessMessage ??
+                          'Vytal will not invent a recovery score. Contributing metrics stay blank until they sync.'),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: extras.textMuted,
+                  ),
+                ),
               ),
             ),
           ),
           const SizedBox(height: 8),
           TextButton.icon(
-            onPressed: () => context.push('/ask'),
+            onPressed: () => context.go(
+              '/ask?prompt=${Uri.encodeQueryComponent("How is my recovery?")}',
+            ),
             icon: const Icon(Icons.auto_awesome_outlined),
             label: const Text('Ask Vytal about my recovery'),
           ),

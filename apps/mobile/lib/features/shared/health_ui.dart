@@ -33,11 +33,11 @@ class GlassPanel extends StatelessWidget {
         color: extras.glassFill,
         border: Border.all(color: edge.withValues(alpha: isDark ? 0.45 : 0.28)),
         boxShadow: [
-          if (glow || isDark)
+          if (glow)
             BoxShadow(
-              color: edge.withValues(alpha: isDark ? 0.22 : 0.1),
-              blurRadius: isDark ? 22 : 14,
-              spreadRadius: isDark ? 1 : 0,
+              color: edge.withValues(alpha: isDark ? 0.10 : 0.07),
+              blurRadius: isDark ? 10 : 8,
+              spreadRadius: 0,
             ),
           if (!isDark)
             BoxShadow(
@@ -103,7 +103,7 @@ class AmbientCanvasGlow extends StatelessWidget {
         shape: BoxShape.circle,
         gradient: RadialGradient(
           colors: [
-            color.withValues(alpha: opacity),
+            color.withValues(alpha: opacity * 0.42),
             color.withValues(alpha: 0),
           ],
         ),
@@ -274,8 +274,8 @@ class _HudOrb extends StatelessWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: VytalColors.teal.withValues(alpha: 0.38),
-                    blurRadius: 22,
+                    color: VytalColors.teal.withValues(alpha: 0.14),
+                    blurRadius: 10,
                   ),
                 ],
               ),
@@ -426,8 +426,8 @@ class ReadinessGauge extends StatelessWidget {
                   shadows: isDark && hasScore
                       ? [
                           Shadow(
-                            color: color.withValues(alpha: 0.55),
-                            blurRadius: 22,
+                            color: color.withValues(alpha: 0.18),
+                            blurRadius: 8,
                           ),
                         ]
                       : null,
@@ -498,8 +498,8 @@ class _HudGaugePainter extends CustomPainter {
       center,
       radius - 6,
       Paint()
-        ..color = accent.withValues(alpha: isDark ? 0.16 : 0.1)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 28),
+        ..color = accent.withValues(alpha: isDark ? 0.08 : 0.05)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
     );
 
     final tickPaint = Paint()
@@ -543,7 +543,7 @@ class _HudGaugePainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 14
       ..strokeCap = StrokeCap.round
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
     final fill = Paint()
       ..shader = SweepGradient(
         startAngle: start,
@@ -606,8 +606,8 @@ class MetricHudTile extends StatelessWidget {
   const MetricHudTile({
     super.key,
     required this.title,
-    required this.value,
-    required this.unit,
+    this.value,
+    this.unit = '',
     this.icon,
     this.provenance,
     this.emptyMessage,
@@ -1035,7 +1035,7 @@ class SleepStageLegend extends StatelessWidget {
                 ),
                 Expanded(
                   flex: (deep * 100).round().clamp(1, 100),
-                  child: Container(color: const Color(0xFF3D6BFF)),
+                  child: Container(color: VytalColors.info),
                 ),
                 Expanded(
                   flex: (light * 100).round().clamp(1, 100),
@@ -1051,7 +1051,7 @@ class SleepStageLegend extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         row('REM', rem, VytalColors.violet),
-        row('Deep', deep, const Color(0xFF3D6BFF)),
+        row('Deep', deep, VytalColors.info),
         row('Light', light, VytalColors.cyan),
         row('Awake', awake, VytalColors.caution),
       ],

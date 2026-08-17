@@ -23,6 +23,21 @@ class AiCoachScreen extends ConsumerStatefulWidget {
 class _AiCoachScreenState extends ConsumerState<AiCoachScreen> {
   final _controller = TextEditingController();
   final _scroll = ScrollController();
+  var _lastPrompt = '';
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final prompt = GoRouterState.of(context).uri.queryParameters['prompt'];
+    if (prompt != null && prompt.trim().isNotEmpty && prompt != _lastPrompt) {
+      _lastPrompt = prompt;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        _controller.text = prompt;
+        await _send();
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -68,7 +83,6 @@ class _AiCoachScreenState extends ConsumerState<AiCoachScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           GlassPanel(
-            glow: true,
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
             child: SizedBox(
               height: 360,
@@ -184,7 +198,6 @@ class _GeneratedWorkoutCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     return GlassPanel(
-      glow: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -230,8 +243,11 @@ class _GeneratedWorkoutCard extends ConsumerWidget {
                 child: const Text('Save Routine'),
               ),
               OutlinedButton(
-                onPressed: () => context.push('/workouts/builder'),
-                child: const Text('Modify'),
+                onPressed: () {
+                  ref.read(pendingRoutineDraftProvider.notifier).state = routine;
+                  context.push('/workouts/builder');
+                },
+                child: const Text('Edit'),
               ),
               TextButton(
                 onPressed: () =>

@@ -76,6 +76,16 @@ class QRingWearableAdapter implements WearableDevice {
   DeviceConnectionException _mapPlatform(Object error) {
     if (error is DeviceConnectionException) return error;
     if (error is PlatformException) {
+      if (error.code == 'bluetooth_off') {
+        return DeviceConnectionException.bluetoothOff;
+      }
+      if (error.code == 'connect_timeout') {
+        return const DeviceConnectionException(
+          code: 'connect_timeout',
+          userMessage:
+              'Connecting timed out. Keep the ring nearby, charged, and Bluetooth on.',
+        );
+      }
       return DeviceConnectionException(
         code: error.code,
         userMessage: error.message ??
@@ -134,6 +144,7 @@ class QRingWearableAdapter implements WearableDevice {
     }
 
     _connection.add(DeviceConnectionState.pairing);
+    _connection.add(DeviceConnectionState.connecting);
     try {
       final result = await _native.connect(deviceId);
       _supportFlags = result.flags;

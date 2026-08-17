@@ -365,7 +365,9 @@ class _VitalDetailScreenState extends ConsumerState<VitalDetailScreen> {
                 Text(_explanation(reading), style: theme.textTheme.bodyMedium),
                 const SizedBox(height: 12),
                 TextButton(
-                  onPressed: () => context.push('/ask'),
+                  onPressed: () => context.go(
+                    '/ask?prompt=${Uri.encodeQueryComponent("Tell me about my ${widget.metricKey.replaceAll('_', ' ')}.")}',
+                  ),
                   child: const Text('Ask Vytal about this metric'),
                 ),
               ],

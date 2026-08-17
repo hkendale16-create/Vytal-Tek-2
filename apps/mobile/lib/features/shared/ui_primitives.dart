@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../core/motion/ambient_background.dart';
 import '../../core/theme/vytal_colors.dart';
 import '../../core/theme/vytal_theme.dart';
-import 'health_ui.dart';
 
 class SectionScaffold extends StatelessWidget {
   const SectionScaffold({
@@ -54,7 +54,7 @@ class SectionScaffold extends StatelessWidget {
       backgroundColor: extras.canvas,
       body: Stack(
         children: [
-          AmbientCanvasGlow(includeViolet: violetGlow),
+          AnimatedAmbientBackground(includeViolet: violetGlow),
           scroll,
         ],
       ),
@@ -202,8 +202,8 @@ class _VytalVPainter extends CustomPainter {
           ..style = PaintingStyle.stroke
           ..strokeWidth = w * 0.16
           ..strokeCap = StrokeCap.round
-          ..color = color.withValues(alpha: 0.35)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+          ..color = color.withValues(alpha: 0.18)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
       );
     }
     canvas.drawPath(path, paint);

@@ -17,6 +17,7 @@ import '../sync/device_sync_engine.dart';
 import '../sync/sync_models.dart';
 import 'bluetooth_readiness.dart';
 import 'device_connection_exception.dart';
+import 'pairing_platform.dart';
 
 class DeviceConnectionSnapshot {
   const DeviceConnectionSnapshot({
@@ -119,6 +120,7 @@ class DeviceConnectionController
 
   Future<void> _bootstrap() async {
     final registry = await _registryStore.load();
+    if (_disposed) return;
     final session = _ref.read(appSessionProvider);
     _setState(state.copyWith(
       registry: registry,
@@ -153,6 +155,11 @@ class DeviceConnectionController
       _adapter = UnpairedWearableDevice();
     }
     _stateSub = _adapter.connectionState.listen((value) {
+      if (value == DeviceConnectionState.disconnected &&
+          state.state == DeviceConnectionState.connected) {
+        _setState(state.copyWith(state: DeviceConnectionState.disconnected));
+        return;
+      }
       _setState(state.copyWith(state: value));
     });
     _infoSub = _adapter.deviceInfo.listen((info) {
@@ -181,8 +188,28 @@ class DeviceConnectionController
   WearableDevice get adapter => _adapter;
 
   Future<void> scanForDevices() async {
-    _setState(state.copyWith(clearError: true, isScanning: true, discovered: []));
+    _setState(state.copyWith(
+      clearError: true,
+      isScanning: true,
+      discovered: [],
+      state: DeviceConnectionState.scanning,
+    ));
     final session = _ref.read(appSessionProvider);
+
+    if (!session.demoModeEnabled && !PairingPlatform.blePairingSupported) {
+      final error = DeviceConnectionException(
+        code: 'bluetooth_unsupported',
+        userMessage:
+            PairingPlatform.limitationMessage(demoModeEnabled: false),
+        canRetry: false,
+      );
+      _setState(state.copyWith(
+        isScanning: false,
+        lastError: error,
+        state: DeviceConnectionState.error,
+      ));
+      throw error;
+    }
 
     final readiness = await _readiness.check(requestIfNeeded: true);
     if (!readiness.canScan && !session.demoModeEnabled) {
@@ -203,7 +230,17 @@ class DeviceConnectionController
       _setState(state.copyWith(
         isScanning: false,
         discovered: found,
-        state: DeviceConnectionState.disconnected,
+        state: found.isEmpty
+            ? DeviceConnectionState.disconnected
+            : DeviceConnectionState.disconnected,
+        lastError: found.isEmpty && !session.demoModeEnabled
+            ? const DeviceConnectionException(
+                code: 'no_devices',
+                userMessage:
+                    'No devices found. Keep your Vytal ring nearby, charged, and Bluetooth on, then scan again.',
+              )
+            : null,
+        clearError: found.isNotEmpty,
       ));
     } on DeviceConnectionException catch (error) {
       _setState(state.copyWith(
@@ -213,12 +250,15 @@ class DeviceConnectionController
       ));
       rethrow;
     } catch (error) {
-      final wrapped = DeviceConnectionException(
-        code: 'scan_failed',
-        userMessage:
-            'We couldn’t find nearby Vytal devices. Check Bluetooth and try again.',
-        technicalDetail: error.toString(),
-      );
+      final detail = error.toString().toLowerCase();
+      final wrapped = detail.contains('timeout')
+          ? DeviceConnectionException.scanTimeout
+          : DeviceConnectionException(
+              code: 'scan_failed',
+              userMessage:
+                  'We couldn’t find nearby Vytal devices. Check Bluetooth and try again.',
+              technicalDetail: error.toString(),
+            );
       _setState(state.copyWith(
         isScanning: false,
         lastError: wrapped,
@@ -238,7 +278,10 @@ class DeviceConnectionController
       throw DeviceConnectionException.alreadyConnected;
     }
 
-    _setState(state.copyWith(clearError: true, state: DeviceConnectionState.pairing));
+    _setState(state.copyWith(
+      clearError: true,
+      state: DeviceConnectionState.connecting,
+    ));
 
     final info = WearableDeviceInfo(
       id: const Uuid().v4(),

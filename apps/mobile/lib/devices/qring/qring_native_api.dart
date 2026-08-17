@@ -172,8 +172,13 @@ class MethodChannelQRingNativeApi implements QRingNativeApi {
 
   StreamSubscription<dynamic>? _eventSub;
   final _scanController = StreamController<QRingScanResult>.broadcast();
+  final _disconnectController = StreamController<void>.broadcast();
+  final _errorController = StreamController<String>.broadcast();
   Completer<QRingNativeConnectionResult>? _connectCompleter;
   bool _listening = false;
+
+  Stream<void> get unexpectedDisconnects => _disconnectController.stream;
+  Stream<String> get nativeErrors => _errorController.stream;
 
   static const _unsupportedPlatforms = {
     TargetPlatform.linux,
@@ -215,17 +220,35 @@ class MethodChannelQRingNativeApi implements QRingNativeApi {
               QRingNativeConnectionResult.fromMap(payload),
             );
             _connectCompleter = null;
-          } else if (state == 'error' && _connectCompleter != null) {
+          } else if ((state == 'error' || state == 'disconnected') &&
+              _connectCompleter != null) {
             _connectCompleter!.completeError(
               PlatformException(
-                code: payload['code'] as String? ?? 'connect_failed',
+                code: payload['code'] as String? ??
+                    (state == 'disconnected' ? 'disconnected' : 'connect_failed'),
                 message: payload['message'] as String? ??
                     'Could not connect to the wearable.',
               ),
             );
             _connectCompleter = null;
+          } else if (state == 'disconnected') {
+            _disconnectController.add(null);
           }
         }
+      case 'error':
+        final code = event['code'] as String? ??
+            (payload is Map ? payload['code'] as String? : null) ??
+            'native_error';
+        if (code == 'bluetooth_off' && _connectCompleter != null) {
+          _connectCompleter!.completeError(
+            PlatformException(
+              code: 'bluetooth_off',
+              message: 'Bluetooth is turned off. Turn it on, then try again.',
+            ),
+          );
+          _connectCompleter = null;
+        }
+        _errorController.add(code);
       default:
         break;
     }
@@ -338,5 +361,7 @@ class MethodChannelQRingNativeApi implements QRingNativeApi {
   void dispose() {
     _eventSub?.cancel();
     _scanController.close();
+    _disconnectController.close();
+    _errorController.close();
   }
 }

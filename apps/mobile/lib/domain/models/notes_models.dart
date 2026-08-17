@@ -9,6 +9,8 @@ class VytalNote {
     this.tags = const [],
     this.category = 'general',
     this.attachedDate,
+    this.attachedRecordId,
+    this.attachedRecordType,
   });
 
   final String id;
@@ -18,6 +20,8 @@ class VytalNote {
   final List<String> tags;
   final String category;
   final DateTime? attachedDate;
+  final String? attachedRecordId;
+  final String? attachedRecordType;
 
   VytalNote copyWith({
     String? body,
@@ -25,6 +29,8 @@ class VytalNote {
     List<String>? tags,
     String? category,
     DateTime? attachedDate,
+    String? attachedRecordId,
+    String? attachedRecordType,
   }) {
     return VytalNote(
       id: id,
@@ -34,6 +40,8 @@ class VytalNote {
       tags: tags ?? this.tags,
       category: category ?? this.category,
       attachedDate: attachedDate ?? this.attachedDate,
+      attachedRecordId: attachedRecordId ?? this.attachedRecordId,
+      attachedRecordType: attachedRecordType ?? this.attachedRecordType,
     );
   }
 
@@ -45,6 +53,8 @@ class VytalNote {
         'tags': tags,
         'category': category,
         'attachedDate': attachedDate?.toIso8601String(),
+        'attachedRecordId': attachedRecordId,
+        'attachedRecordType': attachedRecordType,
       };
 
   factory VytalNote.fromJson(Map<String, dynamic> json) => VytalNote(
@@ -57,23 +67,41 @@ class VytalNote {
             const [],
         category: json['category'] as String? ?? 'general',
         attachedDate: DateTime.tryParse(json['attachedDate'] as String? ?? ''),
+        attachedRecordId: json['attachedRecordId'] as String?,
+        attachedRecordType: json['attachedRecordType'] as String?,
       );
 }
 
 abstract final class NoteCategories {
+  static const allFilter = 'all';
   static const general = 'general';
   static const workout = 'workout';
+  static const exercise = 'exercise';
   static const sleep = 'sleep';
   static const recovery = 'recovery';
-  static const health = 'health';
+  static const dailyHealth = 'daily_health';
+  static const vital = 'vital';
 
-  static const all = [general, workout, sleep, recovery, health];
+  static const all = [
+    general,
+    workout,
+    exercise,
+    sleep,
+    recovery,
+    dailyHealth,
+    vital,
+  ];
+
+  static const filters = [allFilter, ...all];
 
   static String label(String key) => switch (key) {
+        allFilter => 'All',
         workout => 'Workout',
+        exercise => 'Exercise',
         sleep => 'Sleep',
         recovery => 'Recovery',
-        health => 'Health reading',
+        dailyHealth => 'Daily health',
+        vital => 'Vital reading',
         _ => 'General day',
       };
 }

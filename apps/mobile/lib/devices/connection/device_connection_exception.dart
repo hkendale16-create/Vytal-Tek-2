@@ -58,4 +58,10 @@ class DeviceConnectionException implements Exception {
     userMessage: 'A device is already connected. Disconnect it first to pair another.',
     canRetry: false,
   );
+
+  static const scanTimeout = DeviceConnectionException(
+    code: 'scan_timeout',
+    userMessage:
+        'The scan timed out before any wearables answered. Keep the ring nearby and try again.',
+  );
 }

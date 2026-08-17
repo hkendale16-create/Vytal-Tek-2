@@ -26,7 +26,6 @@ class SoftPaywall extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return GlassPanel(
-      glow: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

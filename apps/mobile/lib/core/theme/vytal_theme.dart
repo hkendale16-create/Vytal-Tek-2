@@ -15,7 +15,7 @@ abstract final class VytalTheme {
     textPrimary: VytalColors.lightTextPrimary,
     textSecondary: VytalColors.lightTextSecondary,
     textMuted: VytalColors.lightTextMuted,
-    glowOpacity: 0.12,
+    glowOpacity: 0.06,
   );
 
   static ThemeData dark() => _build(
@@ -27,7 +27,7 @@ abstract final class VytalTheme {
     textPrimary: VytalColors.darkTextPrimary,
     textSecondary: VytalColors.darkTextSecondary,
     textMuted: VytalColors.darkTextMuted,
-    glowOpacity: 0.28,
+    glowOpacity: 0.11,
   );
 
   static ThemeData _build({

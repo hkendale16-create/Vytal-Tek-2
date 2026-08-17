@@ -70,6 +70,8 @@ class NotesController extends StateNotifier<NotesState> {
     List<String> tags = const [],
     String category = 'general',
     DateTime? attachedDate,
+    String? attachedRecordId,
+    String? attachedRecordType,
   }) async {
     final trimmed = body.trim();
     if (trimmed.isEmpty) return;
@@ -80,6 +82,8 @@ class NotesController extends StateNotifier<NotesState> {
       tags: tags,
       category: category,
       attachedDate: attachedDate,
+      attachedRecordId: attachedRecordId,
+      attachedRecordType: attachedRecordType,
     );
     state = state.copyWith(notes: [note, ...state.notes]);
     await _persist();
@@ -90,6 +94,8 @@ class NotesController extends StateNotifier<NotesState> {
     required String body,
     String? category,
     DateTime? attachedDate,
+    String? attachedRecordId,
+    String? attachedRecordType,
   }) async {
     final trimmed = body.trim();
     if (trimmed.isEmpty) return;
@@ -101,6 +107,8 @@ class NotesController extends StateNotifier<NotesState> {
                     body: trimmed,
                     category: category,
                     attachedDate: attachedDate,
+                    attachedRecordId: attachedRecordId,
+                    attachedRecordType: attachedRecordType,
                     updatedAt: DateTime.now().toUtc(),
                   )
                 : n,

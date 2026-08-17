@@ -10,6 +10,7 @@ class PermissionDescriptor {
     required this.affectedWhenDenied,
     required this.platformPermission,
     this.opensAppSettingsWhenDenied = true,
+    this.unsupportedOnCurrentPlatform = false,
   });
 
   final String id;
@@ -18,6 +19,7 @@ class PermissionDescriptor {
   final String affectedWhenDenied;
   final ph.Permission? platformPermission;
   final bool opensAppSettingsWhenDenied;
+  final bool unsupportedOnCurrentPlatform;
 }
 
 /// Central permission definitions. Request only what Vytal genuinely needs.
@@ -75,28 +77,46 @@ abstract final class PermissionCatalog {
     platformPermission: ph.Permission.sensors,
   );
 
-  /// Required by the official QRing Android SDK for BLE scanning.
+  /// BLE scan on Android, plus outdoor workout distance when the user starts one.
   static const location = PermissionDescriptor(
     id: 'location',
     title: 'Location',
     whyNeeded:
-        'Android requires location permission for Bluetooth scanning when pairing a Vytal wearable. Vytal does not use your location for tracking.',
+        'Android needs location to scan for a Vytal wearable. Running, walking, and cycling can also use on-device GPS for distance, pace, and a route sketch. Tracks stay on this phone.',
     affectedWhenDenied:
-        'Vytal cannot discover nearby wearables to pair on Android.',
+        'Wearable discovery on Android and outdoor distance/pace/route are unavailable.',
     platformPermission: ph.Permission.locationWhenInUse,
   );
 
-  static List<PermissionDescriptor> get core => [
-        bluetooth,
-        if (defaultTargetPlatform == TargetPlatform.android) ...[
-          bluetoothScan,
-          bluetoothConnect,
-          location,
-          activity,
-        ],
+  static List<PermissionDescriptor> get core {
+    if (kIsWeb) {
+      return [
+        PermissionDescriptor(
+          id: bluetooth.id,
+          title: bluetooth.title,
+          whyNeeded: bluetooth.whyNeeded,
+          affectedWhenDenied: bluetooth.affectedWhenDenied,
+          platformPermission: null,
+          unsupportedOnCurrentPlatform: true,
+        ),
         notifications,
-        if (defaultTargetPlatform == TargetPlatform.iOS) sensors,
       ];
+    }
+    return [
+      bluetooth,
+      if (defaultTargetPlatform == TargetPlatform.android) ...[
+        bluetoothScan,
+        bluetoothConnect,
+        location,
+        activity,
+      ],
+      notifications,
+      if (defaultTargetPlatform == TargetPlatform.iOS) ...[
+        sensors,
+        location,
+      ],
+    ];
+  }
 }
 
 enum VytalPermissionStatus {
@@ -107,17 +127,19 @@ enum VytalPermissionStatus {
   restricted,
   limited,
   notApplicable,
+  unsupported,
 }
 
 extension VytalPermissionStatusX on VytalPermissionStatus {
   String get label => switch (this) {
-        VytalPermissionStatus.unknown => 'Not checked',
+        VytalPermissionStatus.unknown => 'Disabled',
         VytalPermissionStatus.granted => 'Enabled',
-        VytalPermissionStatus.denied => 'Disabled',
-        VytalPermissionStatus.permanentlyDenied => 'Blocked in system settings',
+        VytalPermissionStatus.denied => 'Denied',
+        VytalPermissionStatus.permanentlyDenied => 'Permanently Denied',
         VytalPermissionStatus.restricted => 'Restricted',
         VytalPermissionStatus.limited => 'Limited',
-        VytalPermissionStatus.notApplicable => 'Not required on this platform',
+        VytalPermissionStatus.notApplicable => 'Not Required',
+        VytalPermissionStatus.unsupported => 'Unsupported',
       };
 
   bool get isEffectivelyGranted =>
