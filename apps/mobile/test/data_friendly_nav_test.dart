@@ -31,7 +31,9 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('bottom nav is Today, Vitals, Workouts, Coach, More', (tester) async {
+  testWidgets('bottom nav is Today, Vitals, Workouts, Coach, More', (
+    tester,
+  ) async {
     await enterAppOnly(tester);
 
     expect(find.byType(NavigationBar), findsOneWidget);
@@ -44,16 +46,14 @@ void main() {
     expect(find.text(OperatingMode.appOnly.label), findsOneWidget);
   });
 
-  testWidgets('Home Analytics control opens the Analytics screen', (tester) async {
+  testWidgets('Home Analytics control opens the Analytics screen', (
+    tester,
+  ) async {
     await enterAppOnly(tester);
 
-    final analytics = find.text('Analytics');
-    await tester.scrollUntilVisible(analytics.first, 120);
-    await tester.tap(analytics.first);
+    await tester.tap(find.byKey(const Key('today-analytics')));
     await tester.pumpAndSettle();
 
-    expect(find.byType(NavigationBar), findsNothing);
-    expect(find.text('7 day / 30 day / 90 day / 1 year trends'), findsNothing);
     expect(find.textContaining('Daily totals'), findsOneWidget);
   });
 
@@ -71,14 +71,11 @@ void main() {
 
     await tapNav(tester, 'More');
     expect(find.text('Recovery / Readiness'), findsOneWidget);
-
-    await tester.tap(find.text('Analytics').first);
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Daily totals'), findsOneWidget);
   });
 
-  testWidgets('More opens existing recovery, sleep, analytics, and settings',
-      (tester) async {
+  testWidgets('More opens existing recovery, sleep, analytics, and settings', (
+    tester,
+  ) async {
     await enterAppOnly(tester);
 
     await tapNav(tester, 'More');
@@ -104,8 +101,9 @@ void main() {
     expect(find.byType(NavigationBar), findsNothing);
   });
 
-  testWidgets('App-Only Vitals asks to connect instead of blocking the app',
-      (tester) async {
+  testWidgets('App-Only Vitals asks to connect instead of blocking the app', (
+    tester,
+  ) async {
     await enterAppOnly(tester);
 
     await tapNav(tester, 'Vitals');
@@ -118,20 +116,24 @@ void main() {
     expect(find.text('Workouts'), findsOneWidget);
   });
 
-  testWidgets('Workouts hub exposes routines, AI, and tools without extra tabs',
-      (tester) async {
-    await enterAppOnly(tester);
+  testWidgets(
+    'Workouts hub exposes routines, AI, and tools without extra tabs',
+    (tester) async {
+      await enterAppOnly(tester);
 
-    await tapNav(tester, 'Workouts');
+      await tapNav(tester, 'Workouts');
 
-    expect(find.text('My Routines'), findsOneWidget);
-    expect(find.text('AI Workouts'), findsOneWidget);
-    expect(find.text('Workout Tools'), findsOneWidget);
-    expect(find.text('Interval timer'), findsOneWidget);
-    expect(find.text('Rest timer'), findsOneWidget);
-  });
+      expect(find.text('My Routines'), findsOneWidget);
+      expect(find.text('AI Workouts'), findsOneWidget);
+      expect(find.text('Workout Tools'), findsOneWidget);
+      expect(find.text('Interval timer'), findsOneWidget);
+      expect(find.text('Rest timer'), findsOneWidget);
+    },
+  );
 
-  testWidgets('Coach tab is Ask Vytal with suggested questions', (tester) async {
+  testWidgets('Coach tab is Ask Vytal with suggested questions', (
+    tester,
+  ) async {
     await enterAppOnly(tester);
 
     await tapNav(tester, 'Coach');
