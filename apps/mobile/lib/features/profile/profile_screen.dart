@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/theme_mode_controller.dart';
 import '../../core/theme/vytal_colors.dart';
 import '../../domain/models/operating_mode.dart';
+import '../../domain/models/personal_profile.dart';
 import '../../state/app_session_controller.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
@@ -58,6 +59,16 @@ class ProfileScreen extends ConsumerWidget {
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: () => showModalBottomSheet<void>(
+              context: context,
+              isScrollControlled: true,
+              showDragHandle: true,
+              builder: (context) => const _EditProfileSheet(),
+            ),
+            child: const Text('Edit profile'),
           ),
           const SizedBox(height: 12),
           _InfoPanel(
@@ -268,6 +279,157 @@ class _InfoPanel extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _EditProfileSheet extends ConsumerStatefulWidget {
+  const _EditProfileSheet();
+
+  @override
+  ConsumerState<_EditProfileSheet> createState() => _EditProfileSheetState();
+}
+
+class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
+  late final TextEditingController _name;
+  late final TextEditingController _height;
+  late final TextEditingController _weight;
+  late final TextEditingController _duration;
+  late final TextEditingController _goals;
+  late final TextEditingController _equipment;
+
+  @override
+  void initState() {
+    super.initState();
+    final profile = ref.read(appSessionProvider).profile;
+    _name = TextEditingController(text: profile.displayName ?? '');
+    _height = TextEditingController(
+      text: profile.heightCm?.toStringAsFixed(0) ?? '',
+    );
+    _weight = TextEditingController(
+      text: profile.weightKg?.toStringAsFixed(0) ?? '',
+    );
+    _duration = TextEditingController(
+      text: profile.preferredWorkoutDurationMinutes?.toString() ?? '',
+    );
+    _goals = TextEditingController(text: profile.goals.join(', '));
+    _equipment = TextEditingController(text: profile.availableEquipment.join(', '));
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _height.dispose();
+    _weight.dispose();
+    _duration.dispose();
+    _goals.dispose();
+    _equipment.dispose();
+    super.dispose();
+  }
+
+  List<String> _split(String raw) => raw
+      .split(',')
+      .map((item) => item.trim())
+      .where((item) => item.isNotEmpty)
+      .toList();
+
+  Future<void> _save() async {
+    final current = ref.read(appSessionProvider).profile;
+    await ref.read(appSessionProvider.notifier).updateProfile(
+          PersonalProfile(
+            displayName: _name.text.trim().isEmpty ? null : _name.text.trim(),
+            ageRange: current.ageRange,
+            heightCm: double.tryParse(_height.text.trim()),
+            weightKg: double.tryParse(_weight.text.trim()),
+            goals: _split(_goals.text),
+            fitnessExperience: current.fitnessExperience,
+            preferredWorkouts: current.preferredWorkouts,
+            availableEquipment: _split(_equipment.text),
+            typicalWakeTime: current.typicalWakeTime,
+            typicalBedtime: current.typicalBedtime,
+            preferredWorkoutDurationMinutes:
+                int.tryParse(_duration.text.trim()),
+            limitations: current.limitations,
+            skippedSensitiveQuestions: current.skippedSensitiveQuestions,
+          ),
+        );
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        8,
+        20,
+        20 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Edit profile', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _name,
+              decoration: const InputDecoration(
+                labelText: 'Name',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _height,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Height (cm)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _weight,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Weight (kg)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _duration,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Typical workout minutes',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _goals,
+              decoration: const InputDecoration(
+                labelText: 'Goals (comma separated)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _equipment,
+              decoration: const InputDecoration(
+                labelText: 'Equipment (comma separated)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: _save,
+              child: const Text('Save'),
+            ),
+          ],
+        ),
       ),
     );
   }

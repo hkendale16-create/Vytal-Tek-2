@@ -137,19 +137,19 @@ class _AmbientPainter extends CustomPainter {
       Offset(size.width * 0.18 + drift * 18, size.height * 0.08 + drift2 * 10),
       210,
       VytalColors.teal,
-      0.16 * scale,
+      0.09 * scale,
     );
     blob(
       Offset(size.width * 0.88 + drift2 * 14, size.height * 0.28 + drift * 12),
       180,
       includeViolet ? VytalColors.violet : VytalColors.cyan,
-      0.12 * scale,
+      0.07 * scale,
     );
     blob(
       Offset(size.width * 0.22 + drift2 * 10, size.height * 0.92 + drift * 8),
       160,
       VytalColors.cyan,
-      0.10 * scale,
+      0.06 * scale,
     );
 
     if (!animate) return;

@@ -188,6 +188,7 @@ class WorkoutRoutine {
     this.favorite = false,
     this.activityKind = WorkoutActivityKind.strength,
     this.source = 'user',
+    this.notes,
   });
 
   final String id;
@@ -197,6 +198,7 @@ class WorkoutRoutine {
   final bool favorite;
   final WorkoutActivityKind activityKind;
   final String source;
+  final String? notes;
 
   WorkoutRoutine copyWith({
     String? id,
@@ -206,6 +208,7 @@ class WorkoutRoutine {
     bool? favorite,
     WorkoutActivityKind? activityKind,
     String? source,
+    String? notes,
   }) {
     return WorkoutRoutine(
       id: id ?? this.id,
@@ -215,6 +218,7 @@ class WorkoutRoutine {
       favorite: favorite ?? this.favorite,
       activityKind: activityKind ?? this.activityKind,
       source: source ?? this.source,
+      notes: notes ?? this.notes,
     );
   }
 
@@ -226,6 +230,7 @@ class WorkoutRoutine {
         'favorite': favorite,
         'activityKind': activityKind.name,
         'source': source,
+        'notes': notes,
       };
 
   factory WorkoutRoutine.fromJson(Map<String, dynamic> json) => WorkoutRoutine(
@@ -242,6 +247,7 @@ class WorkoutRoutine {
           orElse: () => WorkoutActivityKind.strength,
         ),
         source: json['source'] as String? ?? 'user',
+        notes: json['notes'] as String?,
       );
 
   static List<WorkoutRoutine> builtIns() {

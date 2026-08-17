@@ -262,6 +262,10 @@ class _RoutineCard extends StatelessWidget {
             '${routine.exercises.length} exercises · ${routine.activityKind.label}',
             style: theme.textTheme.bodySmall,
           ),
+          if (routine.notes != null && routine.notes!.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(routine.notes!, style: theme.textTheme.bodySmall),
+          ],
           const SizedBox(height: 10),
           Row(
             children: [
@@ -1297,6 +1301,7 @@ class _RoutineBuilderScreenState extends ConsumerState<RoutineBuilderScreen> {
       if (draft != null && widget.routineId == null) {
         setState(() {
           _name.text = draft.name;
+          _notes.text = draft.notes ?? '';
           _kind = draft.activityKind;
           _exercises
             ..clear()
@@ -1318,6 +1323,7 @@ class _RoutineBuilderScreenState extends ConsumerState<RoutineBuilderScreen> {
       if (match == null) return;
       setState(() {
         _name.text = match.name;
+        _notes.text = match.notes ?? '';
         _kind = match.activityKind;
         _exercises.addAll(match.exercises);
       });
@@ -1361,6 +1367,7 @@ class _RoutineBuilderScreenState extends ConsumerState<RoutineBuilderScreen> {
       exercises: List.of(_exercises),
       activityKind: _kind,
       source: 'user',
+      notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
     );
     if (existingId != null) {
       await ref.read(workoutLibraryProvider.notifier).updateCustom(routine);

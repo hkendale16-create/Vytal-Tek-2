@@ -28,7 +28,6 @@ class SubscriptionScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           GlassPanel(
-            glow: true,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

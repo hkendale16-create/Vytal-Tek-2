@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vytal_tek/core/permissions/permission_catalog.dart';
+import 'package:vytal_tek/devices/connection/bluetooth_readiness.dart';
+import 'package:vytal_tek/devices/connection/device_connection_exception.dart';
 import 'package:vytal_tek/devices/connection/pairing_platform.dart';
 import 'package:vytal_tek/domain/models/notes_models.dart';
 import 'package:vytal_tek/domain/models/workout_models.dart';
@@ -40,6 +42,15 @@ void main() {
           expect(message.toLowerCase(), contains('desktop'));
         }
       }
+    });
+
+    test('bluetooth-off and scan-timeout are distinct from no-devices', () {
+      expect(DeviceConnectionException.bluetoothOff.code, 'bluetooth_off');
+      expect(DeviceConnectionException.scanTimeout.code, 'scan_timeout');
+      const off = BluetoothReadinessResult(
+        status: BluetoothReadiness.bluetoothOff,
+      );
+      expect(off.asException?.code, 'bluetooth_off');
     });
   });
 
@@ -234,6 +245,17 @@ void main() {
       expect(phase?.reps, 8);
       expect(phase?.weightKg, closeTo(WorkoutMetricCatalog.lbToKg(145), 0.2));
       n.stop();
+    });
+
+    test('routine notes persist on the model', () {
+      final routine = WorkoutRoutine(
+        id: 'r1',
+        name: 'Chest',
+        exercises: const [],
+        notes: 'Left shoulder felt tight.',
+      );
+      final roundTrip = WorkoutRoutine.fromJson(routine.toJson());
+      expect(roundTrip.notes, 'Left shoulder felt tight.');
     });
   });
 

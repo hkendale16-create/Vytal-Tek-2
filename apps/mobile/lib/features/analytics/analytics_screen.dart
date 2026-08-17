@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme/vytal_theme.dart';
 import '../../domain/models/data_provenance.dart';
@@ -150,19 +151,36 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
           EntitlementGate(
             entitlementKey: EntitlementKeys.recoveryAdvanced,
             compactPaywall: true,
-            child: GlassPanel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Recovery insight', style: theme.textTheme.titleMedium),
-                  const SizedBox(height: 8),
-                  Text(
-                    demo
-                        ? 'Demo: body status looks ready for training based on labeled demo HRV and sleep — not medical advice.'
-                        : 'Insights stay empty until verified wearable summaries exist. Vytal will not invent diagnoses.',
-                    style: theme.textTheme.bodyMedium,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () => context.push('/recovery'),
+                child: GlassPanel(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Recovery insight',
+                        style: theme.textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        demo
+                            ? 'Demo: body status looks ready for training based on labeled demo HRV and sleep — not medical advice.'
+                            : 'Insights stay empty until verified wearable summaries exist. Vytal will not invent diagnoses.',
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Tap for Recovery or Ask Vytal',
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: extras.textMuted,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),

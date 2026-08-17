@@ -111,7 +111,7 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
                         accent: VytalColors.violet,
                         label: 'SLEEP SCORE',
                         provenance: score == null ? null : DataProvenance.demo,
-                        onTap: () => context.push(
+                        onTap: () => context.go(
                           '/ask?prompt=${Uri.encodeQueryComponent("How did I sleep?")}',
                         ),
                       ),
@@ -177,7 +177,7 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
             accent: VytalColors.violet,
             title: 'Resting HR',
             subtitle: 'Not supported by this device',
-            onTap: () => context.push(
+            onTap: () => context.go(
               '/ask?prompt=${Uri.encodeQueryComponent("Why is my resting heart rate missing?")}',
             ),
           ),
@@ -187,7 +187,7 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
             accent: VytalColors.violet,
             title: 'Respiratory rate',
             subtitle: 'Not supported by this device',
-            onTap: () => context.push(
+            onTap: () => context.go(
               '/ask?prompt=${Uri.encodeQueryComponent("Do you have a respiratory rate reading?")}',
             ),
           ),
@@ -205,7 +205,7 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
                           : 'Ahead ${-debt}m vs recent nights',
                     if (consistency != null) 'Consistency $consistency',
                   ].join(' · '),
-            onTap: () => context.push(
+            onTap: () => context.go(
               '/ask?prompt=${Uri.encodeQueryComponent("How did I sleep?")}',
             ),
           ),
@@ -223,7 +223,6 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
             compactPaywall: true,
             child: GlassPanel(
               accent: VytalColors.info,
-              glow: true,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -247,7 +246,7 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
           ),
           const SizedBox(height: 8),
           TextButton.icon(
-            onPressed: () => context.push(
+            onPressed: () => context.go(
               '/ask?prompt=${Uri.encodeQueryComponent("How did I sleep?")}',
             ),
             icon: const Icon(Icons.auto_awesome_outlined),

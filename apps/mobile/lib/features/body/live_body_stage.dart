@@ -1,16 +1,18 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/motion/vytal_motion.dart';
 import '../../core/theme/vytal_colors.dart';
+import '../../navigation/route_visibility.dart';
 
 enum BodyRegion { chest, legs, head, shoulders, core }
 
 /// Phase 5 — interactive holographic body / wearable stage.
 ///
 /// Uses perspective transforms + ambient motion (not a full GPU mesh). Animations
-/// pause when [TickerMode] is off or the route is not visible.
+/// pause when Reduce Motion is on or the Body route is not visible.
 class LiveBodyStage extends StatefulWidget {
   const LiveBodyStage({
     super.key,
@@ -41,6 +43,7 @@ class _LiveBodyStageState extends State<LiveBodyStage>
     with TickerProviderStateMixin {
   late final AnimationController _breath;
   late final AnimationController _spin;
+  GoRouterDelegate? _routerDelegate;
   double _dragYaw = 0;
   double _dragPitch = 0;
 
@@ -60,6 +63,12 @@ class _LiveBodyStageState extends State<LiveBodyStage>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final delegate = GoRouter.maybeOf(context)?.routerDelegate;
+    if (delegate != _routerDelegate) {
+      _routerDelegate?.removeListener(_syncMotion);
+      _routerDelegate = delegate;
+      _routerDelegate?.addListener(_syncMotion);
+    }
     _syncMotion();
   }
 
@@ -75,8 +84,10 @@ class _LiveBodyStageState extends State<LiveBodyStage>
   }
 
   void _syncMotion() {
-    final animate =
-        widget.ambientMotionLevel > 0 && VytalMotion.hudMotionEnabled(context);
+    if (!mounted) return;
+    final animate = widget.ambientMotionLevel > 0 &&
+        VytalMotion.hudMotionEnabled(context) &&
+        isCurrentRoutePath(context, '/body');
     if (!animate) {
       _breath.stop();
       _spin.stop();
@@ -92,6 +103,7 @@ class _LiveBodyStageState extends State<LiveBodyStage>
 
   @override
   void dispose() {
+    _routerDelegate?.removeListener(_syncMotion);
     _breath.dispose();
     _spin.dispose();
     super.dispose();

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/permissions/permission_catalog.dart';
+import '../../core/permissions/permission_prompt.dart';
 import '../../domain/models/notes_models.dart';
 import '../../notes/notes_controller.dart';
 import '../shared/health_ui.dart';
@@ -27,25 +29,50 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
   }
 
   Future<void> _add() async {
+    var notify = _notify;
+    if (notify) {
+      final granted = await ensureVytalPermission(
+        context: context,
+        ref: ref,
+        item: PermissionCatalog.notifications,
+        headline: 'Allow reminder notifications?',
+        explanation:
+            'Vytal can alert you when a reminder is due. This is requested only when you turn notifications on.',
+      );
+      if (!granted) {
+        notify = false;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Reminder saved without OS notifications. Enable them in Settings → Permissions anytime.',
+              ),
+            ),
+          );
+        }
+      }
+    }
     await ref.read(notesProvider.notifier).addReminder(
           title: _title.text,
           when: _when,
           category: _category,
           repeat: _repeat,
-          notify: _notify,
+          notify: notify,
         );
     _title.clear();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          _notify
-              ? 'Reminder saved. In-app alert is on (OS push arrives with notification permission).'
-              : 'Reminder saved without notification.',
+    if (notify) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Reminder saved. Notification permission is enabled.'),
         ),
-      ),
-    );
-    setState(() {});
+      );
+    } else if (!_notify) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Reminder saved without notification.')),
+      );
+    }
+    setState(() => _notify = notify);
   }
 
   Future<void> _pickWhen() async {
@@ -115,7 +142,22 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Notification'),
                   value: _notify,
-                  onChanged: (v) => setState(() => _notify = v),
+                  onChanged: (v) async {
+                    if (!v) {
+                      setState(() => _notify = false);
+                      return;
+                    }
+                    final granted = await ensureVytalPermission(
+                      context: context,
+                      ref: ref,
+                      item: PermissionCatalog.notifications,
+                      headline: 'Allow reminder notifications?',
+                      explanation:
+                          'Turn this on so Vytal can remind you at the time you pick.',
+                    );
+                    if (!mounted) return;
+                    setState(() => _notify = granted);
+                  },
                 ),
                 TextButton(
                   onPressed: _pickWhen,

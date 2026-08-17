@@ -1,10 +1,12 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/motion/vytal_motion.dart';
 import '../../core/theme/vytal_colors.dart';
 import '../../domain/devices/wearable_device.dart';
+import '../../navigation/route_visibility.dart';
 
 /// Lightweight 3D torus (ring) for Home. Lazy, paused offscreen / Reduce Motion.
 class LiveDeviceStage extends StatefulWidget {
@@ -55,8 +57,11 @@ class _LiveDeviceStageState extends State<LiveDeviceStage>
     );
   }
 
+  GoRouterDelegate? _routerDelegate;
+
   bool _canAnimate(BuildContext context) {
     if (!VytalMotion.hudMotionEnabled(context)) return false;
+    if (!isCurrentRoutePath(context, '/today')) return false;
     final binding = WidgetsBinding.instance.runtimeType.toString();
     if (binding.contains('TestWidgetsFlutter')) return false;
     return true;
@@ -76,11 +81,18 @@ class _LiveDeviceStageState extends State<LiveDeviceStage>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final delegate = GoRouter.maybeOf(context)?.routerDelegate;
+    if (delegate != _routerDelegate) {
+      _routerDelegate?.removeListener(_sync);
+      _routerDelegate = delegate;
+      _routerDelegate?.addListener(_sync);
+    }
     _sync();
   }
 
   @override
   void dispose() {
+    _routerDelegate?.removeListener(_sync);
     _spin.dispose();
     _float.dispose();
     _pulse.dispose();

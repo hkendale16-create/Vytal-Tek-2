@@ -8,6 +8,7 @@ enum BluetoothReadiness {
   permissionDenied,
   permanentlyDenied,
   unsupported,
+  bluetoothOff,
   unknown,
 }
 
@@ -35,6 +36,7 @@ class BluetoothReadinessResult {
                 PairingPlatform.limitationMessage(demoModeEnabled: false),
             canRetry: false,
           ),
+        BluetoothReadiness.bluetoothOff => DeviceConnectionException.bluetoothOff,
         BluetoothReadiness.unknown => DeviceConnectionException.bluetoothOff,
       };
 }
@@ -81,6 +83,23 @@ class BluetoothReadinessChecker {
       }
     }
 
+    if (await _isBluetoothOff()) {
+      return BluetoothReadinessResult(
+        status: BluetoothReadiness.bluetoothOff,
+        detail: 'adapter_off',
+        userMessage: DeviceConnectionException.bluetoothOff.userMessage,
+      );
+    }
+
     return const BluetoothReadinessResult(status: BluetoothReadiness.ready);
+  }
+
+  Future<bool> _isBluetoothOff() async {
+    try {
+      final service = await ph.Permission.bluetooth.serviceStatus;
+      return service == ph.ServiceStatus.disabled;
+    } catch (_) {
+      return false;
+    }
   }
 }

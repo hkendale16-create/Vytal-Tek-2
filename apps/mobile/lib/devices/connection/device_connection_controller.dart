@@ -250,12 +250,15 @@ class DeviceConnectionController
       ));
       rethrow;
     } catch (error) {
-      final wrapped = DeviceConnectionException(
-        code: 'scan_failed',
-        userMessage:
-            'We couldn’t find nearby Vytal devices. Check Bluetooth and try again.',
-        technicalDetail: error.toString(),
-      );
+      final detail = error.toString().toLowerCase();
+      final wrapped = detail.contains('timeout')
+          ? DeviceConnectionException.scanTimeout
+          : DeviceConnectionException(
+              code: 'scan_failed',
+              userMessage:
+                  'We couldn’t find nearby Vytal devices. Check Bluetooth and try again.',
+              technicalDetail: error.toString(),
+            );
       _setState(state.copyWith(
         isScanning: false,
         lastError: wrapped,

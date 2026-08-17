@@ -55,7 +55,7 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
 
   Future<void> _addDevice() async {
     if (!ref.read(appSessionProvider).demoModeEnabled) {
-      final ok = await ensureVytalPermission(
+      await ensureVytalPermission(
         context: context,
         ref: ref,
         item: PairingPlatform.isAndroid
@@ -66,8 +66,18 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
             'Vytal uses Bluetooth to find and pair your wearable. '
             'This is requested only when you choose to connect a device.',
       );
-      if (!ok && PairingPlatform.blePairingSupported) {
-        // Still try — the scan path re-requests and surfaces the OS error.
+      if (!context.mounted) return;
+      if (PairingPlatform.isAndroid) {
+        await ensureVytalPermission(
+          context: context,
+          ref: ref,
+          item: PermissionCatalog.location,
+          headline: 'Allow location for device scanning?',
+          explanation:
+              'Android requires location while scanning for nearby Bluetooth wearables. '
+              'Vytal does not upload your GPS for pairing.',
+        );
+        if (!context.mounted) return;
       }
     }
     await ref.read(deviceConnectionProvider.notifier).scanForDevices();
@@ -170,7 +180,13 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
           if (connection.lastError != null) ...[
             const SizedBox(height: 12),
             EmptyMetricCard(
-              title: 'Connection issue',
+              title: switch (connection.lastError!.code) {
+                'bluetooth_off' => 'Bluetooth is off',
+                'scan_timeout' => 'Scan timed out',
+                'no_devices' => 'No device found',
+                'permission_denied' => 'Permission needed',
+                _ => 'Connection issue',
+              },
               message: connection.lastError!.userMessage,
             ),
           ],
@@ -336,12 +352,14 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
               ),
           ] else if (!connection.isScanning &&
               device == null &&
-              connection.lastError?.code == 'no_devices') ...[
+              (connection.lastError?.code == 'no_devices' ||
+                  connection.lastError?.code == 'scan_timeout')) ...[
             const SizedBox(height: 12),
-            const EmptyMetricCard(
-              title: 'No device found',
-              message:
-                  'Make sure Bluetooth is on, the ring is charged and nearby, then scan again.',
+            EmptyMetricCard(
+              title: connection.lastError?.code == 'scan_timeout'
+                  ? 'Scan timed out'
+                  : 'No device found',
+              message: connection.lastError!.userMessage,
             ),
           ],
           const SizedBox(height: 16),

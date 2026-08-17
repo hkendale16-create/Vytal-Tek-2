@@ -92,7 +92,7 @@ class RecoveryScreen extends ConsumerWidget {
             icon: Icons.monitor_heart_outlined,
             title: 'Resting HR',
             subtitle: 'Not supported by this device',
-            onTap: () => context.push(
+            onTap: () => context.go(
               '/ask?prompt=${Uri.encodeQueryComponent("Why is my heart rate higher?")}',
             ),
           ),
@@ -108,7 +108,7 @@ class RecoveryScreen extends ConsumerWidget {
             icon: Icons.timeline,
             title: 'Personal baseline',
             subtitle: 'Baseline learning starts after enough verified days.',
-            onTap: () => context.push(
+            onTap: () => context.go(
               '/ask?prompt=${Uri.encodeQueryComponent("How is my recovery?")}',
             ),
           ),
@@ -124,7 +124,7 @@ class RecoveryScreen extends ConsumerWidget {
             color: Colors.transparent,
             child: InkWell(
               borderRadius: BorderRadius.circular(20),
-              onTap: () => context.push(
+              onTap: () => context.go(
                 '/ask?prompt=${Uri.encodeQueryComponent("How is my recovery?")}',
               ),
               child: GlassPanel(
@@ -142,7 +142,7 @@ class RecoveryScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           TextButton.icon(
-            onPressed: () => context.push(
+            onPressed: () => context.go(
               '/ask?prompt=${Uri.encodeQueryComponent("How is my recovery?")}',
             ),
             icon: const Icon(Icons.auto_awesome_outlined),
