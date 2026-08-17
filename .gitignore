@@ -1,0 +1,22 @@
+# Flutter / Dart
+**/apps/mobile/.dart_tool/
+**/apps/mobile/build/
+**/apps/mobile/.flutter-plugins-dependencies
+**/apps/mobile/.packages
+*.iml
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets — never commit
+.env
+.env.*
+**/google-services.json
+**/GoogleService-Info.plist
+**/*service-account*.json
+**/Secrets.xcconfig

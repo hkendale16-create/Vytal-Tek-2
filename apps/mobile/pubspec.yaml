@@ -1,0 +1,33 @@
+name: vytal_tek
+description: Vytal Tek — personal health and performance platform.
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  flutter_riverpod: ^2.6.1
+  go_router: ^15.1.2
+  google_fonts: ^6.2.1
+  shared_preferences: ^2.5.3
+  permission_handler: ^12.0.0+1
+  collection: ^1.19.1
+  meta: ^1.16.0
+  uuid: ^4.5.1
+  in_app_purchase: ^3.2.3
+  url_launcher: ^6.3.2
+  in_app_purchase_android: ^0.4.0+5
+  in_app_purchase_storekit: ^0.4.4
+  http: ^1.6.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
