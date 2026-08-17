@@ -3,6 +3,8 @@
 Deploy this when you create a **dedicated Vytal Tek** Supabase (or other) project.
 Do **not** apply these migrations to unrelated apps.
 
+**Live project:** `sdeifrzdkiiexawwzfvb` — see `docs/HOSTING.md`.
+
 ## Endpoints
 
 | Path | Purpose |

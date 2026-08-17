@@ -1,0 +1,16 @@
+# Netlify — legal / marketing static site
+# Connect this GitHub repo in Netlify and set publish directory to `site`
+# (or leave as-is; this file already sets it).
+
+[build]
+  publish = "site"
+
+[[redirects]]
+  from = "/privacy"
+  to = "/privacy/"
+  status = 301
+
+[[redirects]]
+  from = "/terms"
+  to = "/terms/"
+  status = 301

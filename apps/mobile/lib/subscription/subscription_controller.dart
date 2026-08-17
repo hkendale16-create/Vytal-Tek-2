@@ -35,9 +35,9 @@ final entitlementVerifierProvider = Provider<EntitlementVerifier>((ref) {
   }
   if (kReleaseMode) {
     return HttpEntitlementVerifier(
-      endpoint: Uri.parse('https://api.vytaltek.com/v1/entitlements/verify'),
+      endpoint: Uri.parse(EntitlementApiConfig.defaultVerifyUrl),
       catalog: catalog,
-      // postJson omitted → fail closed until dart-define is supplied.
+      postJson: defaultEntitlementHttpPost,
     );
   }
   return MockEntitlementVerifier(catalog: catalog);
