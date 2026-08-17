@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/motion/vytal_motion.dart';
 import '../../core/theme/vytal_colors.dart';
 import '../../devices/connection/device_connection_controller.dart';
 import '../../domain/devices/wearable_device.dart';
@@ -479,6 +480,11 @@ class _HeartPulseState extends State<HeartPulse>
   void initState() {
     super.initState();
     _controller = AnimationController(vsync: this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     _sync();
   }
 
@@ -491,7 +497,7 @@ class _HeartPulseState extends State<HeartPulse>
   }
 
   void _sync() {
-    if (!widget.live || widget.bpm <= 0) {
+    if (!widget.live || widget.bpm <= 0 || !VytalMotion.hudMotionEnabled(context)) {
       _controller.stop();
       return;
     }

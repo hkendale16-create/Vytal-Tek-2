@@ -157,7 +157,7 @@ class _FloatingHudState extends State<FloatingHud>
   }
 
   bool _canFloat(BuildContext context) {
-    if (!VytalMotion.shouldAnimate(context)) return false;
+    if (!VytalMotion.hudMotionEnabled(context)) return false;
     // Repeating tickers prevent pumpAndSettle in widget tests.
     final binding = WidgetsBinding.instance.runtimeType.toString();
     if (binding.contains('TestWidgetsFlutter')) return false;

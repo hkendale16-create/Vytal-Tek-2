@@ -33,4 +33,32 @@ abstract final class VytalMotion {
   static bool shouldAnimate(BuildContext context) {
     return !MediaQuery.disableAnimationsOf(context);
   }
+
+  /// Expensive HUD / 3D motion. Off when the app is backgrounded, Standby is
+  /// active, battery saver is on, or Reduce Motion. Off-stage routes are
+  /// muted by Flutter's [TickerMode] on the animation controllers themselves.
+  static bool hudMotionEnabled(BuildContext context) {
+    if (!shouldAnimate(context)) return false;
+    return HudMotionScope.enabledOf(context);
+  }
+}
+
+/// App-wide gate for ambient HUD animation.
+class HudMotionScope extends InheritedWidget {
+  const HudMotionScope({
+    super.key,
+    required this.enabled,
+    required super.child,
+  });
+
+  final bool enabled;
+
+  static bool enabledOf(BuildContext context) {
+    final scope = context.dependOnInheritedWidgetOfExactType<HudMotionScope>();
+    return scope?.enabled ?? true;
+  }
+
+  @override
+  bool updateShouldNotify(HudMotionScope oldWidget) =>
+      enabled != oldWidget.enabled;
 }
