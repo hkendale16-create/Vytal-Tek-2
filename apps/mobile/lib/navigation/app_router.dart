@@ -23,10 +23,12 @@ import '../features/subscription/subscription_screen.dart';
 import '../features/timers/timers_screens.dart';
 import '../features/today/today_screen.dart';
 import '../features/vitals/vitals_screen.dart';
+import '../features/workouts/muscle_group_screen.dart';
 import '../features/workouts/workouts_screen.dart';
 import '../state/app_session_controller.dart';
 import 'app_shell.dart';
 import 'destinations.dart';
+import 'edge_swipe_back.dart';
 
 final _rootKey = GlobalKey<NavigatorState>();
 
@@ -36,7 +38,27 @@ GoRoute _overlay(
   String path,
   Widget Function(BuildContext context, GoRouterState state) builder,
 ) {
-  return GoRoute(path: path, parentNavigatorKey: _rootKey, builder: builder);
+  return GoRoute(
+    path: path,
+    parentNavigatorKey: _rootKey,
+    pageBuilder: (context, state) {
+      return CustomTransitionPage<void>(
+        key: state.pageKey,
+        child: EdgeSwipeBack(child: builder(context, state)),
+        transitionDuration: const Duration(milliseconds: 240),
+        reverseTransitionDuration: const Duration(milliseconds: 200),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final offset = Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(
+            CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+          );
+          return SlideTransition(position: offset, child: child);
+        },
+      );
+    },
+  );
 }
 
 NoTransitionPage<void> _tabPage(Widget child, GoRouterState state) {
@@ -102,7 +124,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _overlay('/analytics', (context, state) => const AnalyticsScreen()),
       _overlay('/profile', (context, state) => const ProfileScreen()),
       _overlay('/body', (context, state) => const BodyScreen()),
-      _overlay('/notes', (context, state) => const NotesScreen()),
+      _overlay(
+        '/notes',
+        (context, state) => NotesScreen(
+          initialCategory: state.uri.queryParameters['category'],
+          attachedRecordId: state.uri.queryParameters['record'],
+        ),
+      ),
       _overlay('/reminders', (context, state) => const RemindersScreen()),
       _overlay('/battery', (context, state) => const BatteryScreen()),
       _overlay(
@@ -124,6 +152,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _overlay(
         '/timers/interval',
         (context, state) => const IntervalTimerScreen(),
+      ),
+      _overlay(
+        '/workouts/muscles',
+        (context, state) => MuscleGroupPickerScreen(
+          groupName: state.uri.queryParameters['group'],
+        ),
       ),
       _overlay(
         '/workouts/start',

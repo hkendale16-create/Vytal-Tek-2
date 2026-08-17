@@ -1,7 +1,7 @@
-import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart' as ph;
 
 import 'device_connection_exception.dart';
+import 'pairing_platform.dart';
 
 enum BluetoothReadiness {
   ready,
@@ -15,10 +15,12 @@ class BluetoothReadinessResult {
   const BluetoothReadinessResult({
     required this.status,
     this.detail,
+    this.userMessage,
   });
 
   final BluetoothReadiness status;
   final String? detail;
+  final String? userMessage;
 
   bool get canScan => status == BluetoothReadiness.ready;
 
@@ -27,10 +29,10 @@ class BluetoothReadinessResult {
         BluetoothReadiness.permissionDenied ||
         BluetoothReadiness.permanentlyDenied =>
           DeviceConnectionException.permissionDenied,
-        BluetoothReadiness.unsupported => const DeviceConnectionException(
+        BluetoothReadiness.unsupported => DeviceConnectionException(
             code: 'bluetooth_unsupported',
-            userMessage:
-                'Bluetooth wearable pairing isn’t available on this platform build.',
+            userMessage: userMessage ??
+                PairingPlatform.limitationMessage(demoModeEnabled: false),
             canRetry: false,
           ),
         BluetoothReadiness.unknown => DeviceConnectionException.bluetoothOff,
@@ -39,23 +41,23 @@ class BluetoothReadinessResult {
 
 /// Checks OS permissions required before scan/pair.
 ///
-/// Does not silently bypass restrictions. Actual radio on/off detection needs
-/// platform Bluetooth APIs / vendor SDK (Phase 2 adapter wiring).
+/// Web and desktop are called out separately. Android/iOS proceed to the
+/// real permission + QRing scan path.
 class BluetoothReadinessChecker {
   Future<BluetoothReadinessResult> check({bool requestIfNeeded = false}) async {
-    if (kIsWeb) {
-      return const BluetoothReadinessResult(
+    if (!PairingPlatform.blePairingSupported) {
+      return BluetoothReadinessResult(
         status: BluetoothReadiness.unsupported,
-        detail: 'Web build does not support wearable BLE pairing',
+        detail: PairingPlatform.shortName,
+        userMessage: PairingPlatform.limitationMessage(demoModeEnabled: false),
       );
     }
 
     final permissions = <ph.Permission>[
-      ph.Permission.bluetooth,
-      if (defaultTargetPlatform == TargetPlatform.android) ...[
+      if (PairingPlatform.isIOS) ph.Permission.bluetooth,
+      if (PairingPlatform.isAndroid) ...[
         ph.Permission.bluetoothScan,
         ph.Permission.bluetoothConnect,
-        // Official QRing Android SDK requires location for BLE scan.
         ph.Permission.locationWhenInUse,
       ],
     ];

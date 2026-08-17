@@ -6,6 +6,7 @@ import '../../domain/models/operating_mode.dart';
 import '../../domain/models/workout_models.dart';
 import '../../features/today/today_health_provider.dart';
 import '../../state/app_session_controller.dart';
+import '../../workouts/exercise_library.dart';
 
 class CoachMessage {
   const CoachMessage({
@@ -54,11 +55,14 @@ class CoachVitalEngine {
 
   static const suggestedPrompts = [
     'How am I doing today?',
-    'Should I work out today?',
-    'Why is my HRV lower?',
-    'How did I sleep?',
     'Build me a workout.',
-    'How has my recovery changed?',
+    'Build me a chest workout.',
+    'Give me a 20-minute workout.',
+    'Build a workout using only dumbbells.',
+    'What should I train today?',
+    'How did I sleep?',
+    'How is my recovery?',
+    'Why is my heart rate higher?',
   ];
 
   String welcome({
@@ -79,6 +83,8 @@ class CoachVitalEngine {
     required TodayHealthSnapshot? health,
     required List<String> recentNoteSnippets,
     required bool advanced,
+    List<String> recentWorkoutNames = const [],
+    String? currentWorkoutName,
   }) {
     final text = userText.trim();
     final lower = text.toLowerCase();
@@ -89,6 +95,16 @@ class CoachVitalEngine {
           'I can help with habits, routines, and what your app data actually shows.\n\n$safetyFooter';
     }
 
+    if (lower.contains('doing today') ||
+        lower.contains('how am i') ||
+        lower.contains('today?')) {
+      return _todayReply(
+        session: session,
+        health: health,
+        recentWorkoutNames: recentWorkoutNames,
+      );
+    }
+
     if (lower.contains('heart') ||
         lower.contains(' hr') ||
         lower.startsWith('hr') ||
@@ -97,6 +113,9 @@ class CoachVitalEngine {
         label: 'Heart rate',
         reading: health?.heartRate,
         session: session,
+        extra: lower.contains('higher')
+            ? ' I can only comment on the latest verified reading — I won’t invent a cause.'
+            : '',
       );
     }
     if (lower.contains('sleep')) {
@@ -121,9 +140,20 @@ class CoachVitalEngine {
       final preview = recentNoteSnippets.take(3).map((e) => '• $e').join('\n');
       return 'Here’s what I’m holding from your recent notes (user-entered, not wearable):\n$preview';
     }
+    if (lower.contains('what should i train') ||
+        lower.contains('train today')) {
+      final goals = session.profile.preferredWorkouts;
+      final hint = goals.isEmpty
+          ? 'No preferred workouts are saved on your profile yet.'
+          : 'Your profile lists: ${goals.take(3).join(', ')}.';
+      return '$hint I can build a structured session if you tell me a muscle group or duration.\n\n$safetyFooter';
+    }
     if (lower.contains('plan') ||
         lower.contains('workout') ||
         lower.contains('train')) {
+      if (currentWorkoutName != null) {
+        return 'You already have "$currentWorkoutName" in progress. I can still generate another structured session you can save.\n\n$safetyFooter';
+      }
       if (advanced) {
         final recovery = health?.hrv.hasValue == true
             ? 'Your latest verified HRV reading is ${health!.hrv.value} ms.'
@@ -132,7 +162,7 @@ class CoachVitalEngine {
             'Prefer a session that matches your stated goals and available time. '
             'I won’t invent readiness scores.\n\n$safetyFooter';
       }
-      return 'I can help sketch a simple routine from your goals. Adaptive intensity that uses recovery metrics needs Pro (ai.advanced).\n\n$safetyFooter';
+      return 'I can sketch a structured routine from your request. Adaptive intensity that uses recovery metrics needs Pro (ai.advanced).\n\n$safetyFooter';
     }
 
     final mode = session.operatingMode == OperatingMode.appOnly
@@ -150,6 +180,8 @@ class CoachVitalEngine {
     required TodayHealthSnapshot? health,
     required List<String> recentNoteSnippets,
     required bool advanced,
+    List<String> recentWorkoutNames = const [],
+    String? currentWorkoutName,
   }) {
     final text = reply(
       userText: userText,
@@ -157,8 +189,10 @@ class CoachVitalEngine {
       health: health,
       recentNoteSnippets: recentNoteSnippets,
       advanced: advanced,
+      recentWorkoutNames: recentWorkoutNames,
+      currentWorkoutName: currentWorkoutName,
     );
-    final workout = tryBuildWorkout(userText);
+    final workout = tryBuildWorkout(userText, session: session);
     if (workout == null) return CoachReply(text: text);
     return CoachReply(
       text: '$text\n\nStructured session: ${workout.name}. '
@@ -167,30 +201,40 @@ class CoachVitalEngine {
     );
   }
 
-  WorkoutRoutine? tryBuildWorkout(String userText) {
+  WorkoutRoutine? tryBuildWorkout(
+    String userText, {
+    AppSession? session,
+  }) {
     final lower = userText.toLowerCase();
     final wants = lower.contains('build') ||
         lower.contains('create a workout') ||
         lower.contains('generate') ||
+        lower.contains('give me a') ||
+        lower.contains('what should i train') ||
         (lower.contains('workout') &&
             (lower.contains('plan') ||
                 lower.contains('routine') ||
                 lower.contains('session') ||
-                lower.contains('30') ||
-                lower.contains('minute')));
-    if (!wants &&
-        !(lower.contains('workout') &&
-            (lower.contains('me') || lower.contains('make')))) {
-      return null;
-    }
-    return buildStructuredWorkout(userText);
+                lower.contains('minute') ||
+                lower.contains('using') ||
+                lower.contains('dumbbell') ||
+                lower.contains('chest') ||
+                lower.contains('me')));
+    if (!wants) return null;
+    return buildStructuredWorkout(userText, session: session);
   }
 
-  WorkoutRoutine buildStructuredWorkout(String userText) {
+  WorkoutRoutine buildStructuredWorkout(
+    String userText, {
+    AppSession? session,
+  }) {
     final lower = userText.toLowerCase();
-    final minutes = _parseMinutes(lower) ?? 30;
+    final minutes = _parseMinutes(lower) ??
+        session?.profile.preferredWorkoutDurationMinutes ??
+        30;
     final uuid = const Uuid();
-    if (lower.contains('run') || lower.contains('walk')) {
+    if (lower.contains('run') ||
+        (lower.contains('walk') && !lower.contains('dumbbell'))) {
       return WorkoutRoutine(
         id: uuid.v4(),
         name: 'Outdoor cardio — $minutes min',
@@ -200,6 +244,8 @@ class CoachVitalEngine {
           WorkoutExercise(
             id: uuid.v4(),
             name: 'Easy walk / jog',
+            muscleGroup: MuscleGroup.fullBody,
+            equipment: 'None',
             sets: 1,
             durationSeconds: (minutes * 60 * 0.7).round().clamp(60, 3600),
             restSeconds: 0,
@@ -207,6 +253,8 @@ class CoachVitalEngine {
           WorkoutExercise(
             id: uuid.v4(),
             name: 'Strides',
+            muscleGroup: MuscleGroup.fullBody,
+            equipment: 'None',
             sets: 4,
             durationSeconds: 30,
             restSeconds: 45,
@@ -225,6 +273,8 @@ class CoachVitalEngine {
           WorkoutExercise(
             id: uuid.v4(),
             name: 'Work',
+            muscleGroup: MuscleGroup.fullBody,
+            equipment: 'Bodyweight',
             sets: rounds,
             durationSeconds: 30,
             restSeconds: 30,
@@ -232,35 +282,70 @@ class CoachVitalEngine {
         ],
       );
     }
+
+    final group = _muscleFrom(lower) ?? MuscleGroup.chest;
+    final dumbbellOnly = lower.contains('dumbbell');
+    var catalog = ExerciseLibrary.forGroup(group);
+    if (dumbbellOnly) {
+      final filtered =
+          catalog.where((e) => e.equipment.toLowerCase().contains('dumbbell'));
+      if (filtered.isNotEmpty) catalog = filtered.toList();
+    }
+    final take = (minutes / 12).round().clamp(3, 5);
+    final picked = catalog.take(take).toList();
+    if (picked.isEmpty) {
+      picked.addAll(ExerciseLibrary.forGroup(MuscleGroup.fullBody).take(3));
+    }
     return WorkoutRoutine(
       id: uuid.v4(),
-      name: 'Chest Strength — $minutes min',
+      name: '${group.label} Strength — $minutes min',
       activityKind: WorkoutActivityKind.strength,
       source: 'ai',
       exercises: [
-        WorkoutExercise(
-          id: uuid.v4(),
-          name: 'Dumbbell Press',
-          sets: 3,
-          reps: 10,
-          restSeconds: 60,
-        ),
-        WorkoutExercise(
-          id: uuid.v4(),
-          name: 'Incline Press',
-          sets: 3,
-          reps: 10,
-          restSeconds: 60,
-        ),
-        WorkoutExercise(
-          id: uuid.v4(),
-          name: 'Push-ups',
-          sets: 3,
-          reps: 12,
-          restSeconds: 45,
-        ),
+        for (final def in picked) def.toExercise(),
       ],
     );
+  }
+
+  MuscleGroup? _muscleFrom(String lower) {
+    for (final group in MuscleGroup.values) {
+      if (lower.contains(group.aiHint) ||
+          lower.contains(group.label.toLowerCase())) {
+        return group;
+      }
+    }
+    return null;
+  }
+
+  String _todayReply({
+    required AppSession session,
+    required TodayHealthSnapshot? health,
+    required List<String> recentWorkoutNames,
+  }) {
+    final parts = <String>[];
+    if (health?.heartRate.hasValue == true) {
+      parts.add('HR ${health!.heartRate.value} ${health.heartRate.unit ?? 'BPM'}');
+    }
+    if (health?.sleep.hasValue == true) {
+      final d = health!.sleep.value!;
+      parts.add('sleep ${d.inHours}h ${d.inMinutes.remainder(60)}m');
+    }
+    if (health?.hrv.hasValue == true) {
+      parts.add('HRV ${health!.hrv.value} ms');
+    }
+    if (parts.isEmpty) {
+      if (session.operatingMode == OperatingMode.appOnly) {
+        return 'I don’t have wearable vitals yet because no device is paired. '
+            'I can still build workouts from your profile and notes.\n\n$safetyFooter';
+      }
+      return 'I don’t have a recent health summary to judge today. '
+          'Connect your Vytal device or sync it first — I won’t invent scores.\n\n$safetyFooter';
+    }
+    final workouts = recentWorkoutNames.isEmpty
+        ? 'No saved workouts in history yet.'
+        : 'Recent sessions: ${recentWorkoutNames.take(3).join(', ')}.';
+    return 'Here’s what I actually have: ${parts.join(', ')}. $workouts '
+        'This is not a medical assessment.\n\n$safetyFooter';
   }
 
   int? _parseMinutes(String lower) {
@@ -287,6 +372,7 @@ class CoachVitalEngine {
     required HealthMetricReading<dynamic>? reading,
     required AppSession session,
     bool formatDuration = false,
+    String extra = '',
   }) {
     if (reading == null || !reading.hasValue) {
       if (session.operatingMode == OperatingMode.appOnly) {
@@ -303,6 +389,6 @@ class CoachVitalEngine {
     final provenance = reading.provenance == DataProvenance.demo
         ? ' (labeled Demo — not production)'
         : ' (wearable / verified summary)';
-    return 'Latest $label: $shown$provenance. This is informational, not a medical assessment.\n\n$safetyFooter';
+    return 'Latest $label: $shown$provenance.$extra This is informational, not a medical assessment.\n\n$safetyFooter';
   }
 }

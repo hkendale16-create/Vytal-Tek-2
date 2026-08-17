@@ -51,5 +51,11 @@
 	<string>Vytal Tek uses Bluetooth to connect to your wearable for health syncing and live monitoring.</string>
 	<key>NSMotionUsageDescription</key>
 	<string>Vytal Tek uses motion data to improve activity and workout tracking when you allow it.</string>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>Vytal Tek uses notifications for timers, reminders, and optional battery alerts when you enable them.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>bluetooth-central</string>
+	</array>
 </dict>
 </plist>

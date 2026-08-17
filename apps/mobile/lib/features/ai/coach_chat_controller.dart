@@ -8,6 +8,7 @@ import '../../domain/models/entitlements.dart';
 import '../../domain/models/workout_models.dart';
 import '../../notes/notes_controller.dart';
 import '../../state/app_session_controller.dart';
+import '../../workouts/workout_controllers.dart';
 import '../today/today_health_provider.dart';
 import 'coach_vital_engine.dart';
 
@@ -18,23 +19,27 @@ class CoachChatState {
     required this.messages,
     required this.isThinking,
     this.generatedWorkout,
+    this.lastPrompt,
   });
 
   final List<CoachMessage> messages;
   final bool isThinking;
   final WorkoutRoutine? generatedWorkout;
+  final String? lastPrompt;
 
   CoachChatState copyWith({
     List<CoachMessage>? messages,
     bool? isThinking,
     WorkoutRoutine? generatedWorkout,
     bool clearWorkout = false,
+    String? lastPrompt,
   }) {
     return CoachChatState(
       messages: messages ?? this.messages,
       isThinking: isThinking ?? this.isThinking,
       generatedWorkout:
           clearWorkout ? null : (generatedWorkout ?? this.generatedWorkout),
+      lastPrompt: lastPrompt ?? this.lastPrompt,
     );
   }
 }
@@ -102,6 +107,7 @@ class CoachChatController extends StateNotifier<CoachChatState> {
     state = state.copyWith(
       messages: [...state.messages, user],
       isThinking: true,
+      lastPrompt: trimmed,
     );
     await _persist();
 
@@ -113,6 +119,8 @@ class CoachChatController extends StateNotifier<CoachChatState> {
         .where((b) => b.isNotEmpty)
         .map((b) => b.length > 80 ? '${b.substring(0, 80)}…' : b)
         .toList();
+    final history = _ref.read(workoutHistoryProvider).entries;
+    final current = _ref.read(workoutSessionProvider);
 
     final composed = _engine.compose(
       userText: trimmed,
@@ -120,6 +128,10 @@ class CoachChatController extends StateNotifier<CoachChatState> {
       health: health,
       recentNoteSnippets: snippets,
       advanced: session.entitlements.canUse(EntitlementKeys.aiAdvanced),
+      recentWorkoutNames: history.take(5).map((e) => e.name).toList(),
+      currentWorkoutName: current.phases.isEmpty
+          ? null
+          : (current.routine?.name ?? current.activityKind?.label),
     );
 
     final reply = CoachMessage(
@@ -151,7 +163,11 @@ class CoachChatController extends StateNotifier<CoachChatState> {
   Future<void> regenerateWorkout() async {
     final session = _ref.read(appSessionProvider);
     if (!session.entitlements.canUse(EntitlementKeys.aiBasic)) return;
-    final workout = _engine.buildStructuredWorkout('Build me a 30-minute workout.');
+    final prompt = state.lastPrompt ?? 'Build me a 30-minute workout.';
+    final workout = _engine.buildStructuredWorkout(
+      prompt,
+      session: session,
+    );
     final reply = CoachMessage(
       id: _uuid.v4(),
       fromCoach: true,

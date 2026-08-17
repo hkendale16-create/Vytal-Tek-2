@@ -8,7 +8,10 @@ import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
 
 class NotesScreen extends ConsumerStatefulWidget {
-  const NotesScreen({super.key});
+  const NotesScreen({super.key, this.initialCategory, this.attachedRecordId});
+
+  final String? initialCategory;
+  final String? attachedRecordId;
 
   @override
   ConsumerState<NotesScreen> createState() => _NotesScreenState();
@@ -17,9 +20,19 @@ class NotesScreen extends ConsumerStatefulWidget {
 class _NotesScreenState extends ConsumerState<NotesScreen> {
   final _controller = TextEditingController();
   final _search = TextEditingController();
-  String _category = NoteCategories.general;
+  String _filter = NoteCategories.allFilter;
+  String _composeCategory = NoteCategories.general;
   DateTime _date = DateTime.now();
   String? _editingId;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialCategory != null) {
+      _composeCategory = widget.initialCategory!;
+      _filter = widget.initialCategory!;
+    }
+  }
 
   @override
   void dispose() {
@@ -33,16 +46,20 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
       await ref.read(notesProvider.notifier).updateNote(
             _editingId!,
             body: _controller.text,
-            category: _category,
+            category: _composeCategory,
             attachedDate: _date,
+            attachedRecordId: widget.attachedRecordId,
+            attachedRecordType: widget.initialCategory,
           );
       _editingId = null;
     } else {
       await ref.read(notesProvider.notifier).addNote(
             _controller.text,
-            category: _category,
+            category: _composeCategory,
             attachedDate: _date,
-            tags: [_category],
+            tags: [_composeCategory],
+            attachedRecordId: widget.attachedRecordId,
+            attachedRecordType: widget.initialCategory,
           );
     }
     _controller.clear();
@@ -57,7 +74,7 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
       final matchesQuery =
           query.isEmpty || n.body.toLowerCase().contains(query);
       final matchesCat =
-          _category == NoteCategories.general || n.category == _category;
+          _filter == NoteCategories.allFilter || n.category == _filter;
       return matchesQuery && matchesCat;
     }).toList();
     final theme = Theme.of(context);
@@ -84,14 +101,18 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text('Filter', style: theme.textTheme.labelLarge),
+          ),
           Wrap(
             spacing: 8,
             children: [
-              for (final cat in NoteCategories.all)
+              for (final cat in NoteCategories.filters)
                 ChoiceChip(
                   label: Text(NoteCategories.label(cat)),
-                  selected: _category == cat,
-                  onSelected: (_) => setState(() => _category = cat),
+                  selected: _filter == cat,
+                  onSelected: (_) => setState(() => _filter = cat),
                 ),
             ],
           ),
@@ -105,11 +126,25 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
                   minLines: 2,
                   maxLines: 5,
                   decoration: const InputDecoration(
-                    hintText: 'How did training feel? Sleep? Stress?',
+                    hintText:
+                        'Left shoulder felt tight today. Slept poorly. Had caffeine late.',
                     border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 10),
+                Text('Attach to', style: theme.textTheme.labelLarge),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    for (final cat in NoteCategories.all)
+                      ChoiceChip(
+                        label: Text(NoteCategories.label(cat)),
+                        selected: _composeCategory == cat,
+                        onSelected: (_) =>
+                            setState(() => _composeCategory = cat),
+                      ),
+                  ],
+                ),
                 TextButton(
                   onPressed: () async {
                     final picked = await showDatePicker(
@@ -126,7 +161,8 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
                 ),
                 FilledButton(
                   onPressed: _save,
-                  child: Text(_editingId == null ? 'Save note' : 'Update note'),
+                  child:
+                      Text(_editingId == null ? 'Save note' : 'Update note'),
                 ),
               ],
             ),
@@ -148,7 +184,12 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
                       Text(note.body, style: theme.textTheme.bodyLarge),
                       const SizedBox(height: 8),
                       Text(
-                        '${NoteCategories.label(note.category)} · ${_format(note.createdAt)}',
+                        [
+                          NoteCategories.label(note.category),
+                          _format(note.attachedDate ?? note.createdAt),
+                          if (note.attachedRecordType != null)
+                            'linked ${note.attachedRecordType}',
+                        ].join(' · '),
                         style: theme.textTheme.labelSmall,
                       ),
                       Row(
@@ -156,8 +197,11 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
                           TextButton(
                             onPressed: () {
                               _controller.text = note.body;
-                              _category = note.category;
+                              _composeCategory = note.category;
                               _editingId = note.id;
+                              if (note.attachedDate != null) {
+                                _date = note.attachedDate!;
+                              }
                               setState(() {});
                             },
                             child: const Text('Edit'),

@@ -9,6 +9,7 @@ import '../domain/models/entitlements.dart';
 import '../domain/models/workout_models.dart';
 import '../monitoring/monitoring_controller.dart';
 import '../state/app_session_controller.dart';
+import 'workout_metrics.dart';
 
 const _routinesKey = 'vytal.workouts.routines.v1';
 const _historyKey = 'vytal.workouts.history.v1';
@@ -181,6 +182,10 @@ class WorkoutSessionState {
     this.notes = '',
     this.summaryPending = false,
     this.hrSamples = const [],
+    this.hiitWorkSeconds = 40,
+    this.hiitRestSeconds = 20,
+    this.hiitRounds = 8,
+    this.baselineSteps,
   });
 
   final WorkoutRoutine? routine;
@@ -197,6 +202,16 @@ class WorkoutSessionState {
   final String notes;
   final bool summaryPending;
   final List<int> hrSamples;
+  final int hiitWorkSeconds;
+  final int hiitRestSeconds;
+  final int hiitRounds;
+  final int? baselineSteps;
+
+  bool get hasProgress =>
+      elapsedSeconds() > 0 ||
+      phaseIndex > 0 ||
+      hrSamples.isNotEmpty ||
+      completed;
 
   TimerPhase? get currentPhase =>
       phases.isEmpty || phaseIndex >= phases.length ? null : phases[phaseIndex];
@@ -234,6 +249,9 @@ class WorkoutSessionState {
   );
 }
 
+final pendingRoutineDraftProvider =
+    StateProvider<WorkoutRoutine?>((ref) => null);
+
 final workoutSessionProvider =
     StateNotifierProvider<WorkoutSessionController, WorkoutSessionState>((ref) {
   return WorkoutSessionController(ref);
@@ -268,9 +286,25 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
     WorkoutActivityKind kind, {
     String? name,
     int initialElapsedSeconds = 0,
+    int hiitWorkSeconds = 40,
+    int hiitRestSeconds = 20,
+    int hiitRounds = 8,
   }) {
     _tick?.cancel();
     final label = name ?? kind.label;
+    if (kind == WorkoutActivityKind.hiit) {
+      startHiit(
+        name: label,
+        workSeconds: hiitWorkSeconds,
+        restSeconds: hiitRestSeconds,
+        rounds: hiitRounds,
+      );
+      return;
+    }
+    if (kind == WorkoutActivityKind.strength) {
+      startStrengthDraft(name: label);
+      return;
+    }
     state = WorkoutSessionState(
       routine: WorkoutRoutine(
         id: 'activity-${kind.name}',
@@ -299,6 +333,129 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
     _arm();
   }
 
+  void startHiit({
+    String name = 'HIIT',
+    int workSeconds = 40,
+    int restSeconds = 20,
+    int rounds = 8,
+  }) {
+    _tick?.cancel();
+    final phases = <TimerPhase>[];
+    for (var round = 1; round <= rounds; round++) {
+      phases.add(
+        TimerPhase(
+          kind: WorkoutTimerKind.interval,
+          label: 'Work · round $round/$rounds',
+          seconds: workSeconds,
+          setNumber: round,
+          setsTotal: rounds,
+        ),
+      );
+      if (round < rounds) {
+        phases.add(
+          TimerPhase(
+            kind: WorkoutTimerKind.rest,
+            label: 'Rest · round $round/$rounds',
+            seconds: restSeconds,
+            setNumber: round,
+            setsTotal: rounds,
+          ),
+        );
+      }
+    }
+    state = WorkoutSessionState(
+      routine: WorkoutRoutine(
+        id: 'activity-hiit',
+        name: name,
+        exercises: const [],
+        activityKind: WorkoutActivityKind.hiit,
+        source: 'activity',
+      ),
+      phases: phases,
+      phaseIndex: 0,
+      remainingSeconds: phases.first.seconds,
+      running: true,
+      completed: false,
+      playMode: WorkoutPlayMode.routine,
+      activityKind: WorkoutActivityKind.hiit,
+      runningSince: DateTime.now(),
+      hiitWorkSeconds: workSeconds,
+      hiitRestSeconds: restSeconds,
+      hiitRounds: rounds,
+    );
+    _ref.read(monitoringControllerProvider.notifier).setWorkoutActive(true);
+    _arm();
+  }
+
+  void startStrengthDraft({String name = 'Strength'}) {
+    _tick?.cancel();
+    state = WorkoutSessionState(
+      routine: WorkoutRoutine(
+        id: 'activity-strength',
+        name: name,
+        exercises: const [],
+        activityKind: WorkoutActivityKind.strength,
+        source: 'activity',
+      ),
+      phases: const [],
+      phaseIndex: 0,
+      remainingSeconds: 0,
+      running: true,
+      completed: false,
+      playMode: WorkoutPlayMode.routine,
+      activityKind: WorkoutActivityKind.strength,
+      runningSince: DateTime.now(),
+    );
+    _ref.read(monitoringControllerProvider.notifier).setWorkoutActive(true);
+    _arm();
+  }
+
+  void addExerciseToSession(WorkoutExercise exercise) {
+    final current = state.routine ??
+        WorkoutRoutine(
+          id: 'activity-strength',
+          name: 'Strength',
+          exercises: const [],
+          activityKind: WorkoutActivityKind.strength,
+          source: 'activity',
+        );
+    final routine = current.copyWith(
+      exercises: [...current.exercises, exercise],
+    );
+    final phases = buildPhases(routine);
+    final wasEmpty = state.phases.isEmpty;
+    final nextIndex = wasEmpty
+        ? 0
+        : state.phaseIndex.clamp(0, phases.isEmpty ? 0 : phases.length - 1);
+    state = _copy(
+      routine: routine,
+      phases: phases,
+      phaseIndex: nextIndex,
+      remainingSeconds: phases.isEmpty ? 0 : phases[nextIndex].seconds,
+      running: true,
+      completed: false,
+      runningSince: DateTime.now(),
+    );
+    _arm();
+  }
+
+  void addSetToCurrentExercise() {
+    final routine = state.routine;
+    final phase = state.currentPhase;
+    if (routine == null || phase?.exerciseId == null) return;
+    final exercises = [
+      for (final ex in routine.exercises)
+        if (ex.id == phase!.exerciseId) ex.copyWith(sets: ex.sets + 1) else ex,
+    ];
+    final updated = routine.copyWith(exercises: exercises);
+    final phases = buildPhases(updated);
+    state = _copy(
+      routine: updated,
+      phases: phases,
+      remainingSeconds: state.remainingSeconds,
+    );
+  }
+
   /// Expand a routine into ordered exercise / rest phases (min 5s work).
   static List<TimerPhase> buildPhases(WorkoutRoutine routine) {
     final phases = <TimerPhase>[];
@@ -318,6 +475,8 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
             setsTotal: exercise.sets,
             reps: exercise.reps,
             weightKg: exercise.weightKg,
+            muscleGroup: exercise.muscleGroup,
+            equipment: exercise.equipment,
           ),
         );
         final isLastSetOfExercise = set == exercise.sets;
@@ -333,6 +492,8 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
               exerciseName: exercise.name,
               setNumber: set,
               setsTotal: exercise.sets,
+              muscleGroup: exercise.muscleGroup,
+              equipment: exercise.equipment,
             ),
           );
         }
@@ -372,7 +533,11 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
   }
 
   void resume() {
-    if (state.completed || state.phases.isEmpty) return;
+    if (state.completed) return;
+    if (state.phases.isEmpty &&
+        state.playMode != WorkoutPlayMode.routine) {
+      return;
+    }
     state = _copy(
       running: true,
       remainingSeconds: state.remainingSeconds,
@@ -384,7 +549,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
 
   void completeSet() {
     if (state.playMode != WorkoutPlayMode.routine) return;
-    if (state.completed) return;
+    if (state.completed || state.phases.isEmpty) return;
     _goToPhase(state.phaseIndex + 1);
   }
 
@@ -397,6 +562,34 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
     if (state.phaseIndex <= 0) return;
     _goToPhase(state.phaseIndex - 1);
   }
+
+  void resetSession() {
+    final kind = state.activityKind;
+    final routine = state.routine;
+    final mode = state.playMode;
+    final work = state.hiitWorkSeconds;
+    final rest = state.hiitRestSeconds;
+    final rounds = state.hiitRounds;
+    stop();
+    if (mode == WorkoutPlayMode.routine &&
+        routine != null &&
+        routine.source != 'activity') {
+      startRoutine(routine);
+      pause();
+      return;
+    }
+    if (kind == WorkoutActivityKind.hiit) {
+      startHiit(workSeconds: work, restSeconds: rest, rounds: rounds);
+      pause();
+      return;
+    }
+    if (kind != null) {
+      startActivity(kind);
+      pause();
+    }
+  }
+
+  void stopAndSummarize() => finish();
 
   void finish() {
     _tick?.cancel();
@@ -427,21 +620,44 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
 
   Future<void> saveToHistory() async {
     final duration = state.elapsedSeconds();
+    final kind = state.activityKind ?? WorkoutActivityKind.custom;
+    final weight = _ref.read(appSessionProvider).profile.weightKg ?? 70;
+    final estimated = WorkoutMetricCatalog.estimatedCalories(
+      kind: kind,
+      elapsedSeconds: duration,
+      weightKg: weight,
+    );
+    final volume = _trainingVolumeKg();
     final entry = WorkoutHistoryEntry(
       id: const Uuid().v4(),
-      name: state.routine?.name ?? state.activityKind?.label ?? 'Workout',
-      activityKind: state.activityKind ?? WorkoutActivityKind.custom,
+      name: state.routine?.name ?? kind.label,
+      activityKind: kind,
       durationSeconds: duration,
       completedAt: DateTime.now().toUtc(),
-      calories: null,
+      calories: estimated == 0 ? null : estimated,
+      estimatedCalories: estimated == 0 ? null : estimated,
       averageHr: state.averageHr,
       maxHr: state.maxHr,
       notes: state.notes.trim().isEmpty ? null : state.notes.trim(),
       routineId: state.routine?.id,
       playMode: state.playMode,
+      trainingVolumeKg: volume == 0 ? null : volume,
     );
     await _ref.read(workoutHistoryProvider.notifier).add(entry);
     stop();
+  }
+
+  double _trainingVolumeKg() {
+    final routine = state.routine;
+    if (routine == null) return 0;
+    var total = 0.0;
+    for (final ex in routine.exercises) {
+      final kg = ex.weightKg ?? 0;
+      final reps = ex.reps ?? 0;
+      if (kg <= 0 || reps <= 0) continue;
+      total += kg * reps * ex.sets;
+    }
+    return total;
   }
 
   void discard() => stop();
@@ -479,7 +695,11 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
   void _onTick() {
     final phase = state.currentPhase;
     if (phase == null) {
-      stop();
+      final elapsed = state.elapsedAtResumeSeconds + 1;
+      state = _copy(
+        stopwatchElapsed: elapsed,
+        elapsedAtResumeSeconds: elapsed,
+      );
       return;
     }
     if (phase.kind == WorkoutTimerKind.stopwatch ||
@@ -520,6 +740,10 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
     String? notes,
     bool? summaryPending,
     List<int>? hrSamples,
+    int? hiitWorkSeconds,
+    int? hiitRestSeconds,
+    int? hiitRounds,
+    int? baselineSteps,
   }) {
     return WorkoutSessionState(
       routine: routine ?? state.routine,
@@ -537,6 +761,10 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
       notes: notes ?? state.notes,
       summaryPending: summaryPending ?? state.summaryPending,
       hrSamples: hrSamples ?? state.hrSamples,
+      hiitWorkSeconds: hiitWorkSeconds ?? state.hiitWorkSeconds,
+      hiitRestSeconds: hiitRestSeconds ?? state.hiitRestSeconds,
+      hiitRounds: hiitRounds ?? state.hiitRounds,
+      baselineSteps: baselineSteps ?? state.baselineSteps,
     );
   }
 

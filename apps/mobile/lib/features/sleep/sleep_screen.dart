@@ -111,7 +111,9 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
                         accent: VytalColors.violet,
                         label: 'SLEEP SCORE',
                         provenance: score == null ? null : DataProvenance.demo,
-                        onTap: () => context.push('/ask'),
+                        onTap: () => context.push(
+                          '/ask?prompt=${Uri.encodeQueryComponent("How did I sleep?")}',
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Text(
@@ -228,7 +230,9 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
           ),
           const SizedBox(height: 8),
           TextButton.icon(
-            onPressed: () => context.push('/ask'),
+            onPressed: () => context.push(
+              '/ask?prompt=${Uri.encodeQueryComponent("How did I sleep?")}',
+            ),
             icon: const Icon(Icons.auto_awesome_outlined),
             label: const Text('Ask Vytal about my sleep'),
           ),

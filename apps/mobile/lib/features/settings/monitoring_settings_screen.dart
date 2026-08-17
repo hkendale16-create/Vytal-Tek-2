@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/permissions/permission_catalog.dart';
+import '../../core/permissions/permission_prompt.dart';
 import '../../domain/models/monitoring_mode.dart';
 import '../../monitoring/monitoring_controller.dart';
 import '../../monitoring/monitoring_signals.dart';
@@ -66,7 +68,19 @@ class MonitoringSettingsScreen extends ConsumerWidget {
               title: const Text('Background monitoring'),
               subtitle: Text(runtime.gate.userFacingStatus),
               value: session.backgroundMonitoringEnabled,
-              onChanged: (value) => monitoring.setBackgroundMonitoring(value),
+              onChanged: (value) async {
+                if (value) {
+                  await ensureVytalPermission(
+                    context: context,
+                    ref: ref,
+                    item: PermissionCatalog.notifications,
+                    headline: 'Background monitoring',
+                    explanation:
+                        'Background monitoring may need notification access so Vytal can keep a discreet status while the app is not open.',
+                  );
+                }
+                monitoring.setBackgroundMonitoring(value);
+              },
             ),
           ),
           const SizedBox(height: 12),

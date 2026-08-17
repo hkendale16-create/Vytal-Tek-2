@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/motion/ambient_background.dart';
 import '../../core/theme/vytal_colors.dart';
 import '../../core/theme/vytal_theme.dart';
 import '../../devices/connection/device_connection_controller.dart';
 import '../../domain/devices/device_connection_state.dart';
+import '../../domain/devices/wearable_device.dart';
 import '../../domain/models/data_provenance.dart';
 import '../../domain/models/health_metric.dart';
 import '../../domain/models/monitoring_mode.dart';
@@ -14,6 +16,7 @@ import '../../monitoring/monitoring_controller.dart';
 import '../../state/app_session_controller.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
+import 'live_device_stage.dart';
 import 'today_health_provider.dart';
 
 class TodayScreen extends ConsumerWidget {
@@ -40,7 +43,7 @@ class TodayScreen extends ConsumerWidget {
       },
       child: Stack(
         children: [
-          const AmbientCanvasGlow(intensity: 1.05),
+          const AnimatedAmbientBackground(intensity: 0.9),
           CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
@@ -128,6 +131,28 @@ class TodayScreen extends ConsumerWidget {
                                 ),
                               ),
                             ],
+                          ),
+                          const SizedBox(height: 12),
+                          LiveDeviceStage(
+                            deviceKind: device?.kind ?? VytalDeviceKind.smartRing,
+                            connected: device != null,
+                            demo: session.demoModeEnabled ||
+                                (device?.isDemo ?? false),
+                            heartRateBpm: health.heartRate.hasValue
+                                ? health.heartRate.value
+                                : null,
+                            onTap: () => context.push('/devices'),
+                          ),
+                          Text(
+                            device == null
+                                ? (session.demoModeEnabled
+                                    ? 'Demo ring · tap to pulse'
+                                    : 'Vytal ring · tap to preview')
+                                : '${device.kind.label} · tap for a live pulse',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: extras.textMuted,
+                            ),
                           ),
                           const SizedBox(height: 12),
                           HudStrip(
@@ -313,7 +338,9 @@ class TodayScreen extends ConsumerWidget {
                             icon: Icons.auto_awesome_outlined,
                             title: "Today's insight",
                             subtitle: health.readinessMessage,
-                            onTap: () => context.go('/ask'),
+                            onTap: () => context.go(
+                              '/ask?prompt=${Uri.encodeQueryComponent("How am I doing today?")}',
+                            ),
                           ),
                         ],
                       );

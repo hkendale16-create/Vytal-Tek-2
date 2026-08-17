@@ -10,6 +10,7 @@ class PermissionDescriptor {
     required this.affectedWhenDenied,
     required this.platformPermission,
     this.opensAppSettingsWhenDenied = true,
+    this.unsupportedOnCurrentPlatform = false,
   });
 
   final String id;
@@ -18,6 +19,7 @@ class PermissionDescriptor {
   final String affectedWhenDenied;
   final ph.Permission? platformPermission;
   final bool opensAppSettingsWhenDenied;
+  final bool unsupportedOnCurrentPlatform;
 }
 
 /// Central permission definitions. Request only what Vytal genuinely needs.
@@ -86,17 +88,32 @@ abstract final class PermissionCatalog {
     platformPermission: ph.Permission.locationWhenInUse,
   );
 
-  static List<PermissionDescriptor> get core => [
-        bluetooth,
-        if (defaultTargetPlatform == TargetPlatform.android) ...[
-          bluetoothScan,
-          bluetoothConnect,
-          location,
-          activity,
-        ],
+  static List<PermissionDescriptor> get core {
+    if (kIsWeb) {
+      return [
+        PermissionDescriptor(
+          id: bluetooth.id,
+          title: bluetooth.title,
+          whyNeeded: bluetooth.whyNeeded,
+          affectedWhenDenied: bluetooth.affectedWhenDenied,
+          platformPermission: null,
+          unsupportedOnCurrentPlatform: true,
+        ),
         notifications,
-        if (defaultTargetPlatform == TargetPlatform.iOS) sensors,
       ];
+    }
+    return [
+      bluetooth,
+      if (defaultTargetPlatform == TargetPlatform.android) ...[
+        bluetoothScan,
+        bluetoothConnect,
+        location,
+        activity,
+      ],
+      notifications,
+      if (defaultTargetPlatform == TargetPlatform.iOS) sensors,
+    ];
+  }
 }
 
 enum VytalPermissionStatus {
@@ -107,17 +124,19 @@ enum VytalPermissionStatus {
   restricted,
   limited,
   notApplicable,
+  unsupported,
 }
 
 extension VytalPermissionStatusX on VytalPermissionStatus {
   String get label => switch (this) {
-        VytalPermissionStatus.unknown => 'Not checked',
+        VytalPermissionStatus.unknown => 'Disabled',
         VytalPermissionStatus.granted => 'Enabled',
-        VytalPermissionStatus.denied => 'Disabled',
-        VytalPermissionStatus.permanentlyDenied => 'Blocked in system settings',
+        VytalPermissionStatus.denied => 'Denied',
+        VytalPermissionStatus.permanentlyDenied => 'Permanently Denied',
         VytalPermissionStatus.restricted => 'Restricted',
         VytalPermissionStatus.limited => 'Limited',
-        VytalPermissionStatus.notApplicable => 'Not required on this platform',
+        VytalPermissionStatus.notApplicable => 'Not Required',
+        VytalPermissionStatus.unsupported => 'Unsupported',
       };
 
   bool get isEffectivelyGranted =>

@@ -4,9 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../../core/motion/vytal_motion.dart';
 import '../../core/theme/vytal_colors.dart';
-import '../shared/health_ui.dart';
 
-enum BodyRegion { chest, legs, head }
+enum BodyRegion { chest, legs, head, shoulders, core }
 
 /// Phase 5 — interactive holographic body / wearable stage.
 ///
@@ -113,11 +112,17 @@ class _LiveBodyStageState extends State<LiveBodyStage>
               ? null
               : (details) {
                   final h = constraints.maxHeight;
+                  final w = constraints.maxWidth;
                   final y = details.localPosition.dy / h;
-                  if (y < 0.28) {
+                  final x = details.localPosition.dx / w;
+                  if (y < 0.22) {
                     widget.onRegionSelected!(BodyRegion.head);
-                  } else if (y < 0.55) {
+                  } else if (y < 0.38 && (x < 0.32 || x > 0.68)) {
+                    widget.onRegionSelected!(BodyRegion.shoulders);
+                  } else if (y < 0.52) {
                     widget.onRegionSelected!(BodyRegion.chest);
+                  } else if (y < 0.62) {
+                    widget.onRegionSelected!(BodyRegion.core);
                   } else {
                     widget.onRegionSelected!(BodyRegion.legs);
                   }
@@ -145,8 +150,8 @@ class _LiveBodyStageState extends State<LiveBodyStage>
                         borderRadius: BorderRadius.circular(40),
                         boxShadow: [
                           BoxShadow(
-                            color: VytalColors.cyan.withValues(alpha: 0.25 + breath * 0.15),
-                            blurRadius: 28,
+                            color: VytalColors.cyan.withValues(alpha: 0.12 + breath * 0.08),
+                            blurRadius: 16,
                             spreadRadius: 2,
                           ),
                         ],
@@ -163,7 +168,18 @@ class _LiveBodyStageState extends State<LiveBodyStage>
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        BodySilhouette(highlightHeart: widget.highlightHeart),
+                        CustomPaint(
+                          size: Size(
+                            constraints.maxWidth * 0.55,
+                            constraints.maxHeight * 0.78,
+                          ),
+                          painter: _HumanMeshPainter(
+                            yaw: yaw,
+                            pitch: pitch,
+                            breath: breath,
+                            highlightHeart: widget.highlightHeart,
+                          ),
+                        ),
                         if (widget.showRing)
                           Positioned(
                             right: constraints.maxWidth * 0.18,
@@ -209,8 +225,8 @@ class _WearableRingGlyph extends StatelessWidget {
         border: Border.all(color: VytalColors.cyan, width: 3),
         boxShadow: [
           BoxShadow(
-            color: VytalColors.cyan.withValues(alpha: 0.45),
-            blurRadius: 12 + pulse * 8,
+            color: VytalColors.cyan.withValues(alpha: 0.22),
+            blurRadius: 8 + pulse * 4,
           ),
         ],
         gradient: RadialGradient(
@@ -222,4 +238,93 @@ class _WearableRingGlyph extends StatelessWidget {
       ),
     );
   }
+}
+
+class _HumanMeshPainter extends CustomPainter {
+  _HumanMeshPainter({
+    required this.yaw,
+    required this.pitch,
+    required this.breath,
+    required this.highlightHeart,
+  });
+
+  final double yaw;
+  final double pitch;
+  final double breath;
+  final bool highlightHeart;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height * 0.46;
+    void ellipsoid(Offset c, double rx, double ry, Color color) {
+      final paint = Paint()
+        ..shader = RadialGradient(
+          center: const Alignment(-0.3, -0.45),
+          colors: [
+            Color.lerp(color, Colors.white, 0.22)!,
+            color,
+            Color.lerp(color, Colors.black, 0.28)!,
+          ],
+        ).createShader(
+          Rect.fromCenter(center: c, width: rx * 2, height: ry * 2),
+        );
+      canvas.drawOval(
+        Rect.fromCenter(center: c, width: rx * 2, height: ry * 2),
+        paint,
+      );
+    }
+
+    final sway = math.sin(yaw) * 10;
+    final lift = breath * 4;
+    final skin = const Color(0xFF7FD3C7).withValues(alpha: 0.55);
+    final limb = VytalColors.teal.withValues(alpha: 0.42);
+
+    ellipsoid(
+      Offset(cx + sway * 0.15, cy - size.height * 0.32 + lift),
+      22,
+      26,
+      skin,
+    );
+    ellipsoid(Offset(cx + sway, cy - size.height * 0.08 + lift), 48, 70, skin);
+    ellipsoid(
+      Offset(cx - 58 + sway, cy - size.height * 0.12 + lift),
+      16,
+      48,
+      limb,
+    );
+    ellipsoid(
+      Offset(cx + 58 + sway, cy - size.height * 0.12 + lift),
+      16,
+      48,
+      limb,
+    );
+    ellipsoid(
+      Offset(cx - 18 + sway * 0.4, cy + size.height * 0.22 + lift * 0.4),
+      18,
+      70,
+      limb,
+    );
+    ellipsoid(
+      Offset(cx + 18 + sway * 0.4, cy + size.height * 0.22 + lift * 0.4),
+      18,
+      70,
+      limb,
+    );
+    if (highlightHeart) {
+      canvas.drawCircle(
+        Offset(cx + 8 + sway, cy - size.height * 0.12 + lift),
+        7 + breath * 2,
+        Paint()
+          ..color = VytalColors.teal.withValues(alpha: 0.55)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _HumanMeshPainter oldDelegate) =>
+      oldDelegate.yaw != yaw ||
+      oldDelegate.breath != breath ||
+      oldDelegate.highlightHeart != highlightHeart;
 }

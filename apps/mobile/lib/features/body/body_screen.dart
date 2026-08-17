@@ -52,6 +52,10 @@ class BodyScreen extends ConsumerWidget {
                     context.push('/workouts');
                   case BodyRegion.head:
                     context.push('/recovery');
+                  case BodyRegion.shoulders:
+                    context.push('/workouts/muscles?group=shoulders');
+                  case BodyRegion.core:
+                    context.push('/recovery');
                 }
               },
               childOverlay: Stack(
@@ -146,7 +150,7 @@ class BodyScreen extends ConsumerWidget {
           const SizedBox(height: 8),
           Text(
             connected || demo
-                ? 'Tap a region or a tile. Missing sensors stay blank.'
+                ? 'Tap chest, shoulders, core, or legs. Missing sensors stay blank — this is not a diagnosis.'
                 : 'App-Only: the stage stays available with no fabricated vitals.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(

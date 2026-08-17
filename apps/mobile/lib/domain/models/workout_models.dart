@@ -42,6 +42,53 @@ extension WorkoutActivityKindX on WorkoutActivityKind {
 
 enum WorkoutPlayMode { idle, routine, activity, stopwatch }
 
+enum MuscleGroup {
+  chest,
+  back,
+  shoulders,
+  biceps,
+  triceps,
+  forearms,
+  core,
+  glutes,
+  quadriceps,
+  hamstrings,
+  calves,
+  fullBody,
+}
+
+extension MuscleGroupX on MuscleGroup {
+  String get label => switch (this) {
+        MuscleGroup.chest => 'Chest',
+        MuscleGroup.back => 'Back',
+        MuscleGroup.shoulders => 'Shoulders',
+        MuscleGroup.biceps => 'Biceps',
+        MuscleGroup.triceps => 'Triceps',
+        MuscleGroup.forearms => 'Forearms',
+        MuscleGroup.core => 'Core',
+        MuscleGroup.glutes => 'Glutes',
+        MuscleGroup.quadriceps => 'Quadriceps',
+        MuscleGroup.hamstrings => 'Hamstrings',
+        MuscleGroup.calves => 'Calves',
+        MuscleGroup.fullBody => 'Full Body',
+      };
+
+  String get aiHint => switch (this) {
+        MuscleGroup.chest => 'chest',
+        MuscleGroup.back => 'back',
+        MuscleGroup.shoulders => 'shoulder',
+        MuscleGroup.biceps => 'bicep',
+        MuscleGroup.triceps => 'tricep',
+        MuscleGroup.forearms => 'forearm',
+        MuscleGroup.core => 'core',
+        MuscleGroup.glutes => 'glute',
+        MuscleGroup.quadriceps => 'quad',
+        MuscleGroup.hamstrings => 'hamstring',
+        MuscleGroup.calves => 'calf',
+        MuscleGroup.fullBody => 'full body',
+      };
+}
+
 class WorkoutExercise {
   const WorkoutExercise({
     required this.id,
@@ -52,6 +99,8 @@ class WorkoutExercise {
     this.restSeconds = 60,
     this.weightKg,
     this.notes,
+    this.muscleGroup,
+    this.equipment,
   });
 
   final String id;
@@ -62,6 +111,8 @@ class WorkoutExercise {
   final int restSeconds;
   final double? weightKg;
   final String? notes;
+  final MuscleGroup? muscleGroup;
+  final String? equipment;
 
   WorkoutExercise copyWith({
     String? name,
@@ -71,6 +122,8 @@ class WorkoutExercise {
     int? restSeconds,
     double? weightKg,
     String? notes,
+    MuscleGroup? muscleGroup,
+    String? equipment,
     bool clearWeight = false,
     bool clearReps = false,
     bool clearDuration = false,
@@ -85,6 +138,8 @@ class WorkoutExercise {
       restSeconds: restSeconds ?? this.restSeconds,
       weightKg: clearWeight ? null : (weightKg ?? this.weightKg),
       notes: notes ?? this.notes,
+      muscleGroup: muscleGroup ?? this.muscleGroup,
+      equipment: equipment ?? this.equipment,
     );
   }
 
@@ -97,6 +152,8 @@ class WorkoutExercise {
         'restSeconds': restSeconds,
         'weightKg': weightKg,
         'notes': notes,
+        'muscleGroup': muscleGroup?.name,
+        'equipment': equipment,
       };
 
   factory WorkoutExercise.fromJson(Map<String, dynamic> json) =>
@@ -109,7 +166,17 @@ class WorkoutExercise {
         restSeconds: json['restSeconds'] as int? ?? 60,
         weightKg: (json['weightKg'] as num?)?.toDouble(),
         notes: json['notes'] as String?,
+        muscleGroup: _muscleGroupFrom(json['muscleGroup'] as String?),
+        equipment: json['equipment'] as String?,
       );
+}
+
+MuscleGroup? _muscleGroupFrom(String? name) {
+  if (name == null || name.isEmpty) return null;
+  for (final group in MuscleGroup.values) {
+    if (group.name == name) return group;
+  }
+  return null;
 }
 
 class WorkoutRoutine {
@@ -190,6 +257,8 @@ class WorkoutRoutine {
           WorkoutExercise(
             id: uuid.v4(),
             name: 'Bodyweight squat',
+            muscleGroup: MuscleGroup.quadriceps,
+            equipment: 'Bodyweight',
             sets: 3,
             reps: 12,
             restSeconds: 45,
@@ -197,6 +266,8 @@ class WorkoutRoutine {
           WorkoutExercise(
             id: uuid.v4(),
             name: 'Push-up',
+            muscleGroup: MuscleGroup.chest,
+            equipment: 'Bodyweight',
             sets: 3,
             reps: 10,
             restSeconds: 45,
@@ -204,6 +275,8 @@ class WorkoutRoutine {
           WorkoutExercise(
             id: uuid.v4(),
             name: 'Plank',
+            muscleGroup: MuscleGroup.core,
+            equipment: 'Bodyweight',
             sets: 3,
             durationSeconds: 40,
             restSeconds: 30,
@@ -241,6 +314,8 @@ class TimerPhase {
     this.setsTotal,
     this.reps,
     this.weightKg,
+    this.muscleGroup,
+    this.equipment,
   });
 
   final WorkoutTimerKind kind;
@@ -252,6 +327,8 @@ class TimerPhase {
   final int? setsTotal;
   final int? reps;
   final double? weightKg;
+  final MuscleGroup? muscleGroup;
+  final String? equipment;
 }
 
 class WorkoutHistoryEntry {
@@ -268,6 +345,8 @@ class WorkoutHistoryEntry {
     this.notes,
     this.routineId,
     this.playMode = WorkoutPlayMode.activity,
+    this.estimatedCalories,
+    this.trainingVolumeKg,
   });
 
   final String id;
@@ -282,6 +361,8 @@ class WorkoutHistoryEntry {
   final String? notes;
   final String? routineId;
   final WorkoutPlayMode playMode;
+  final int? estimatedCalories;
+  final double? trainingVolumeKg;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -296,6 +377,8 @@ class WorkoutHistoryEntry {
         'notes': notes,
         'routineId': routineId,
         'playMode': playMode.name,
+        'estimatedCalories': estimatedCalories,
+        'trainingVolumeKg': trainingVolumeKg,
       };
 
   factory WorkoutHistoryEntry.fromJson(Map<String, dynamic> json) =>
@@ -319,27 +402,29 @@ class WorkoutHistoryEntry {
           (e) => e.name == json['playMode'],
           orElse: () => WorkoutPlayMode.activity,
         ),
+        estimatedCalories: json['estimatedCalories'] as int?,
+        trainingVolumeKg: (json['trainingVolumeKg'] as num?)?.toDouble(),
       );
 }
 
 /// Catalog used by the routine builder — names only, not sensor data.
 abstract final class ExerciseCatalog {
   static const names = <String>[
-    'Bodyweight squat',
+    'Bench Press',
     'Push-up',
-    'Plank',
-    'Dumbbell press',
-    'Incline press',
-    'Dumbbell row',
+    'Incline Dumbbell Press',
+    'Barbell Row',
+    'Dumbbell Row',
+    'Shoulder Press',
+    'Bicep Curl',
+    'Tricep Dip',
+    'Bodyweight squat',
     'Lunges',
-    'Glute bridge',
-    'Shoulder press',
-    'Bicep curl',
-    'Tricep dip',
-    'Mountain climber',
-    'Jumping jack',
-    'Burpee',
+    'Glute Bridge',
+    'Plank',
     'Deadlift',
-    'Kettlebell swing',
+    'Kettlebell Swing',
+    'Burpee',
+    'Mountain Climber',
   ];
 }

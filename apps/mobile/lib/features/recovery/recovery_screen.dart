@@ -106,20 +106,31 @@ class RecoveryScreen extends ConsumerWidget {
             subtitle: 'Baseline learning starts after enough verified days.',
           ),
           const SizedBox(height: 16),
-          GlassPanel(
-            child: Text(
-              demo
-                  ? 'Demo: this score is a labeled UI stand-in — not a clinical recovery index.'
-                  : (health?.readinessMessage ??
-                      'Vytal will not invent a recovery score. Contributing metrics stay blank until they sync.'),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: extras.textMuted,
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => context.push(
+                '/ask?prompt=${Uri.encodeQueryComponent("How is my recovery?")}',
+              ),
+              child: GlassPanel(
+                child: Text(
+                  demo
+                      ? 'Demo: this score is a labeled UI stand-in — not a clinical recovery index.'
+                      : (health?.readinessMessage ??
+                          'Vytal will not invent a recovery score. Contributing metrics stay blank until they sync.'),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: extras.textMuted,
+                  ),
+                ),
               ),
             ),
           ),
           const SizedBox(height: 8),
           TextButton.icon(
-            onPressed: () => context.push('/ask'),
+            onPressed: () => context.push(
+              '/ask?prompt=${Uri.encodeQueryComponent("How is my recovery?")}',
+            ),
             icon: const Icon(Icons.auto_awesome_outlined),
             label: const Text('Ask Vytal about my recovery'),
           ),

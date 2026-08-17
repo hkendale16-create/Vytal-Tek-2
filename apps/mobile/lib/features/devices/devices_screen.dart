@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/permissions/permission_catalog.dart';
+import '../../core/permissions/permission_prompt.dart';
 import '../../core/theme/vytal_colors.dart';
 import '../../devices/connection/device_connection_controller.dart';
 import '../../devices/connection/device_connection_exception.dart';
+import '../../devices/connection/pairing_platform.dart';
 import '../../domain/devices/device_connection_state.dart';
 import '../../domain/devices/wearable_device.dart';
 import '../../domain/models/data_provenance.dart';
@@ -48,6 +51,26 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _addDevice() async {
+    if (!ref.read(appSessionProvider).demoModeEnabled) {
+      final ok = await ensureVytalPermission(
+        context: context,
+        ref: ref,
+        item: PairingPlatform.isAndroid
+            ? PermissionCatalog.bluetoothScan
+            : PermissionCatalog.bluetooth,
+        headline: 'Connect a Vytal device',
+        explanation:
+            'Vytal uses Bluetooth to find and pair your wearable. '
+            'This is requested only when you choose to connect a device.',
+      );
+      if (!ok && PairingPlatform.blePairingSupported) {
+        // Still try — the scan path re-requests and surfaces the OS error.
+      }
+    }
+    await ref.read(deviceConnectionProvider.notifier).scanForDevices();
   }
 
   String _freshnessLabel(HealthMetricReading<int>? battery) {
@@ -153,23 +176,33 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
           ],
           const SizedBox(height: 16),
           if (device == null) ...[
+            if (!PairingPlatform.blePairingSupported &&
+                !session.demoModeEnabled) ...[
+              EmptyMetricCard(
+                title: 'Pairing on ${PairingPlatform.shortName}',
+                message: PairingPlatform.limitationMessage(
+                  demoModeEnabled: session.demoModeEnabled,
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
             FilledButton.icon(
               onPressed: connection.isScanning
                   ? null
-                  : () => _run(
-                        () => ref
-                            .read(deviceConnectionProvider.notifier)
-                            .scanForDevices(),
-                      ),
+                  : () => _run(_addDevice),
               icon: connection.isScanning
                   ? const SizedBox(
                       width: 16,
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.bluetooth_searching),
+                  : const Icon(Icons.add),
               label: Text(
-                connection.isScanning ? 'Scanning…' : 'Scan for devices',
+                connection.isScanning
+                    ? 'Scanning…'
+                    : connection.state == DeviceConnectionState.connecting
+                        ? 'Connecting…'
+                        : 'Add Device',
               ),
             ),
             if (!session.demoModeEnabled) ...[
@@ -264,7 +297,7 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
           ],
           if (connection.discovered.isNotEmpty) ...[
             const SizedBox(height: 20),
-            Text('Nearby devices', style: theme.textTheme.titleMedium),
+            Text('Select a device', style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             for (final item in connection.discovered)
               GlassPanel(
@@ -285,15 +318,31 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
                     ].join(' · '),
                   ),
                   trailing: FilledButton(
-                    onPressed: () => _run(
-                      () => ref
-                          .read(deviceConnectionProvider.notifier)
-                          .pairDiscovered(item),
+                    onPressed: connection.state ==
+                            DeviceConnectionState.connecting
+                        ? null
+                        : () => _run(
+                              () => ref
+                                  .read(deviceConnectionProvider.notifier)
+                                  .pairDiscovered(item),
+                            ),
+                    child: Text(
+                      connection.state == DeviceConnectionState.connecting
+                          ? 'Connecting'
+                          : 'Pair',
                     ),
-                    child: const Text('Pair'),
                   ),
                 ),
               ),
+          ] else if (!connection.isScanning &&
+              device == null &&
+              connection.lastError?.code == 'no_devices') ...[
+            const SizedBox(height: 12),
+            const EmptyMetricCard(
+              title: 'No device found',
+              message:
+                  'Make sure Bluetooth is on, the ring is charged and nearby, then scan again.',
+            ),
           ],
           const SizedBox(height: 16),
           Text(

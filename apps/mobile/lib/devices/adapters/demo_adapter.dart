@@ -94,7 +94,9 @@ class DemoWearableAdapter implements WearableDevice {
   @override
   Future<void> connect({WearableDeviceInfo? knownDevice}) async {
     _setState(DeviceConnectionState.pairing);
-    await Future<void>.delayed(const Duration(milliseconds: 500));
+    await Future<void>.delayed(const Duration(milliseconds: 180));
+    _setState(DeviceConnectionState.connecting);
+    await Future<void>.delayed(const Duration(milliseconds: 320));
     final device = knownDevice ??
         WearableDeviceInfo(
           id: const Uuid().v4(),
