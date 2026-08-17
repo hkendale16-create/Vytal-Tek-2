@@ -82,7 +82,7 @@ void main() {
       find.text('Connect a Vytal device to begin receiving this measurement.'),
       findsWidgets,
     );
-    expect(find.text('Heart Rate'), findsWidgets);
+    expect(find.text('HEART RATE'), findsWidgets);
     expect(find.text('Workouts'), findsOneWidget);
   });
 
