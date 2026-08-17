@@ -7,6 +7,7 @@ import '../../domain/models/entitlements.dart';
 import '../../subscription/subscription_controller.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
+import 'subscription_legal_footer.dart';
 
 class SubscriptionScreen extends ConsumerWidget {
   const SubscriptionScreen({super.key});
@@ -143,6 +144,8 @@ class SubscriptionScreen extends ConsumerWidget {
             style: theme.textTheme.bodySmall,
             textAlign: TextAlign.center,
           ),
+          const SizedBox(height: 16),
+          const SubscriptionLegalFooter(),
         ],
       ),
     );

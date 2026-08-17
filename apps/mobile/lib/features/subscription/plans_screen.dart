@@ -8,6 +8,7 @@ import '../../subscription/product_catalog.dart';
 import '../../subscription/subscription_controller.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
+import 'subscription_legal_footer.dart';
 
 class PlansScreen extends ConsumerWidget {
   const PlansScreen({super.key});
@@ -79,6 +80,8 @@ class PlansScreen extends ConsumerWidget {
                 ],
               ),
             ),
+          const SizedBox(height: 12),
+          const SubscriptionLegalFooter(),
         ],
       ),
     );

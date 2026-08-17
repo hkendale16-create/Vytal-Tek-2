@@ -19,17 +19,19 @@ Client architecture for B–F is in place. This checklist is the go-live gate fo
 - [x] Upgrade / downgrade confirmation copy
 - [x] Soft paywalls on paid features
 - [x] Phase F local tamper protections
-- [ ] Point `HttpEntitlementVerifier` at production entitlement API
-- [ ] Privacy policy + Terms links from Subscription / Plans
-- [ ] Subscription disclosure copy (auto-renew, cancel path) for store review
+- [x] Point `HttpEntitlementVerifier` at production entitlement API via `VYTAL_ENTITLEMENT_API` dart-define (release fails closed if unset)
+- [x] Privacy policy + Terms links from Subscription / Plans (`VytalLegalLinks`)
+- [x] Subscription disclosure copy (auto-renew, cancel path) for store review
 
 ## Server
 
+- [x] Schema + Edge Function stub under `services/entitlements/` (fails closed without store secrets)
+- [ ] Deploy to a dedicated Vytal backend project (not shared unrelated databases)
 - [ ] Verify App Store JWS / transaction APIs
 - [ ] Verify Google Play purchase tokens
 - [ ] App Store Server Notifications V2
 - [ ] Google Play Real-time Developer Notifications
-- [ ] Authoritative entitlement store (per user)
+- [ ] Authoritative entitlement store (per user) wired from live verifies
 - [ ] Grace / billing retry / refund / revoke mapping to `SubscriptionLifecycle`
 
 ## Store review
@@ -38,12 +40,22 @@ Client architecture for B–F is in place. This checklist is the go-live gate fo
 - [ ] Restore purchases works on fresh install
 - [ ] No premium unlock without purchase in reviewer flow
 - [ ] Guidelines 3.1.1 / Play billing policy compliance reviewed
+- [ ] Publish `docs/legal/PRIVACY.md` + `docs/legal/TERMS.md` to live URLs
+
+## Build flags
+
+```bash
+flutter build ipa \
+  --dart-define=VYTAL_ENTITLEMENT_API=https://<host>/functions/v1/verify-entitlement \
+  --dart-define=VYTAL_PRIVACY_URL=https://vytaltek.com/privacy \
+  --dart-define=VYTAL_TERMS_URL=https://vytaltek.com/terms
+```
 
 ## Sign-off
 
 | Role | Date | Notes |
 |---|---|---|
-| Engineering | | |
-| Backend | | |
-| App Store review prep | | |
-| Play review prep | | |
+| Engineering | 2026-08-17 | Client G items + entitlement stub landed |
+| Backend | | Deploy stub + Apple/Google verify |
+| App Store review prep | | Console products + legal URLs |
+| Play review prep | | Console products + license testers |

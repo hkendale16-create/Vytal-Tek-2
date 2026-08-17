@@ -7,6 +7,8 @@ import 'billing/iap_billing_platform.dart';
 import 'billing/sandbox_billing_platform.dart';
 import 'entitlement_service.dart';
 import 'product_catalog.dart';
+import 'verification/entitlement_api_config.dart';
+import 'verification/entitlement_http.dart';
 import 'verification/entitlement_verifier.dart';
 
 final subscriptionCatalogProvider = Provider<SubscriptionCatalog>((ref) {
@@ -18,13 +20,27 @@ final billingPlatformProvider = Provider<BillingPlatform>((ref) {
   return createDefaultBillingPlatform();
 });
 
-/// Override in tests with [MockEntitlementVerifier].
+/// Production uses [HttpEntitlementVerifier] when `VYTAL_ENTITLEMENT_API` is set.
+/// Release builds without an API fail closed (no mock sandbox grants).
+/// Debug/profile keeps [MockEntitlementVerifier] for sandbox drills only.
 final entitlementVerifierProvider = Provider<EntitlementVerifier>((ref) {
-  // Production builds should inject [HttpEntitlementVerifier] with a real API.
-  // Default mock accepts sandbox tokens only — StoreKit/Play need HTTP verify.
-  return MockEntitlementVerifier(
-    catalog: ref.watch(subscriptionCatalogProvider),
-  );
+  final catalog = ref.watch(subscriptionCatalogProvider);
+  final config = EntitlementApiConfig.fromEnvironment();
+  if (config.isConfigured) {
+    return HttpEntitlementVerifier(
+      endpoint: config.endpoint!,
+      catalog: catalog,
+      postJson: defaultEntitlementHttpPost,
+    );
+  }
+  if (kReleaseMode) {
+    return HttpEntitlementVerifier(
+      endpoint: Uri.parse('https://api.vytaltek.com/v1/entitlements/verify'),
+      catalog: catalog,
+      // postJson omitted → fail closed until dart-define is supplied.
+    );
+  }
+  return MockEntitlementVerifier(catalog: catalog);
 });
 
 final entitlementServiceProvider = Provider<EntitlementService>((ref) {
