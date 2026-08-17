@@ -9,7 +9,7 @@ import '../../state/app_session_controller.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
 
-/// Profile tab matching mockup bottom nav — settings + identity.
+/// Identity, goals, and onboarding details. Feature hubs live in More.
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
@@ -18,10 +18,12 @@ class ProfileScreen extends ConsumerWidget {
     final session = ref.watch(appSessionProvider);
     final themeMode = ref.watch(themeModeProvider);
     final theme = Theme.of(context);
-    final name = session.profile.displayName?.trim();
+    final profile = session.profile;
+    final name = profile.displayName?.trim();
 
     return SectionScaffold(
       title: 'Profile',
+      subtitle: 'Personal information used by Coach and workouts.',
       child: Column(
         children: [
           GlassPanel(
@@ -52,6 +54,77 @@ class ProfileScreen extends ConsumerWidget {
                         style: theme.textTheme.bodySmall,
                       ),
                     ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          _InfoPanel(
+            title: 'Personal information',
+            rows: [
+              ('Age range', profile.ageRange),
+              (
+                'Height',
+                profile.heightCm == null
+                    ? null
+                    : '${profile.heightCm!.toStringAsFixed(0)} cm',
+              ),
+              (
+                'Weight',
+                profile.weightKg == null
+                    ? null
+                    : '${profile.weightKg!.toStringAsFixed(0)} kg',
+              ),
+              ('Typical wake', profile.typicalWakeTime),
+              ('Typical bedtime', profile.typicalBedtime),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _InfoPanel(
+            title: 'Fitness goals',
+            rows: [
+              ('Goals', _join(profile.goals)),
+              ('Experience', profile.fitnessExperience),
+              ('Limitations', _join(profile.limitations)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _InfoPanel(
+            title: 'Workout preferences',
+            rows: [
+              ('Preferred workouts', _join(profile.preferredWorkouts)),
+              ('Equipment', _join(profile.availableEquipment)),
+              (
+                'Typical duration',
+                profile.preferredWorkoutDurationMinutes == null
+                    ? null
+                    : '${profile.preferredWorkoutDurationMinutes} min',
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          GlassPanel(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.auto_awesome_outlined),
+                  title: const Text('AI personalization'),
+                  subtitle: const Text(
+                    'Coach uses this profile plus today’s summary — not your full history.',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.go('/ask'),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.tune),
+                  title: const Text('Onboarding details'),
+                  subtitle: Text(
+                    profile.skippedSensitiveQuestions.isEmpty
+                        ? 'Answers from first launch stay on-device.'
+                        : 'Skipped: ${profile.skippedSensitiveQuestions.join(', ')}',
                   ),
                 ),
               ],
@@ -102,15 +175,24 @@ class ProfileScreen extends ConsumerWidget {
                 SwitchListTile(
                   secondary: const Icon(Icons.science_outlined),
                   title: const Text('Demo mode'),
-                  subtitle: const Text('Labeled demo wearable only — never production'),
+                  subtitle: const Text(
+                    'Labeled demo wearable only — never production',
+                  ),
                   value: session.demoModeEnabled,
                   onChanged: (value) =>
                       ref.read(appSessionProvider.notifier).setDemoMode(value),
                 ),
-                const Divider(height: 1),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          GlassPanel(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
                 ListTile(
                   leading: const Icon(Icons.settings_outlined),
-                  title: const Text('All settings'),
+                  title: const Text('Settings'),
                   onTap: () => context.push('/settings'),
                 ),
                 ListTile(
@@ -123,51 +205,6 @@ class ProfileScreen extends ConsumerWidget {
                   leading: const Icon(Icons.watch_outlined),
                   title: const Text('Devices'),
                   onTap: () => context.push('/devices'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.battery_charging_full_outlined),
-                  title: const Text('Battery'),
-                  onTap: () => context.push('/battery'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.favorite_outline),
-                  title: const Text('Vitals'),
-                  onTap: () => context.push('/vitals'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.bolt_outlined),
-                  title: const Text('Recovery'),
-                  onTap: () => context.push('/recovery'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.timer_outlined),
-                  title: const Text('Timers'),
-                  onTap: () => context.push('/timers'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.fitness_center_outlined),
-                  title: const Text('Workouts'),
-                  onTap: () => context.push('/workouts'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.auto_awesome_outlined),
-                  title: const Text('Coach Vital'),
-                  onTap: () => context.push('/ask'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.note_alt_outlined),
-                  title: const Text('Notes'),
-                  onTap: () => context.push('/notes'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.alarm_outlined),
-                  title: const Text('Reminders'),
-                  onTap: () => context.push('/reminders'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.accessibility_new_outlined),
-                  title: const Text('Live Body'),
-                  onTap: () => context.push('/body'),
                 ),
               ],
             ),
@@ -183,6 +220,53 @@ class ProfileScreen extends ConsumerWidget {
               color: VytalColors.teal,
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  String? _join(List<String> values) =>
+      values.isEmpty ? null : values.join(', ');
+}
+
+class _InfoPanel extends StatelessWidget {
+  const _InfoPanel({required this.title, required this.rows});
+
+  final String title;
+  final List<(String, String?)> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GlassPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          for (final row in rows) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 128,
+                    child: Text(
+                      row.$1,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      row.$2 == null || row.$2!.isEmpty ? 'Not set' : row.$2!,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

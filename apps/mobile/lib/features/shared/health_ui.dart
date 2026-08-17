@@ -622,6 +622,8 @@ class MetricHudTile extends StatelessWidget {
     this.icon,
     this.provenance,
     this.emptyMessage,
+    this.status,
+    this.timestampLabel,
     this.onTap,
     this.compact = false,
     this.accent,
@@ -633,6 +635,9 @@ class MetricHudTile extends StatelessWidget {
   final IconData? icon;
   final DataProvenance? provenance;
   final String? emptyMessage;
+  /// Live / Last synced (or similar). Omit when the empty message already covers it.
+  final String? status;
+  final String? timestampLabel;
   final VoidCallback? onTap;
   final bool compact;
   final Color? accent;
@@ -709,6 +714,18 @@ class MetricHudTile extends StatelessWidget {
                 fontSize: compact ? 10 : 12,
               ),
             ),
+          if (hasValue && (status != null || timestampLabel != null)) ...[
+            SizedBox(height: compact ? 4 : 6),
+            Text(
+              [status, timestampLabel].whereType<String>().join(' · '),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: context.vytalExtras.textMuted,
+                fontSize: compact ? 9 : 11,
+              ),
+            ),
+          ],
         ],
       ),
     );

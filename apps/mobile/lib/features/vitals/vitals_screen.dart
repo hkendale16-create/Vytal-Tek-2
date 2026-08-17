@@ -52,7 +52,7 @@ class VitalsScreen extends ConsumerWidget {
                 physics: const NeverScrollableScrollPhysics(),
                 mainAxisSpacing: 10,
                 crossAxisSpacing: 10,
-                childAspectRatio: 1.28,
+                childAspectRatio: 1.12,
                 children: [
                   for (final item in items)
                     MetricHudTile(
@@ -63,6 +63,9 @@ class VitalsScreen extends ConsumerWidget {
                       icon: item.icon,
                       provenance: item.provenance,
                       emptyMessage: item.empty,
+                      status: item.value == null ? null : item.status,
+                      timestampLabel:
+                          item.value == null ? null : item.timestampLabel,
                       onTap: () => context.push('/vitals/${item.key}'),
                     ),
                 ],
@@ -89,6 +92,14 @@ class VitalsScreen extends ConsumerWidget {
       return fallback;
     }
 
+    String? stamp(DateTime? at) {
+      if (at == null) return null;
+      final local = at.toLocal();
+      final h = local.hour.toString().padLeft(2, '0');
+      final m = local.minute.toString().padLeft(2, '0');
+      return '$h:$m';
+    }
+
     return [
       _VitalRow(
         key: HealthMetricKeys.heartRate,
@@ -97,6 +108,8 @@ class VitalsScreen extends ConsumerWidget {
         unit: 'BPM',
         icon: Icons.favorite_outline,
         provenance: health.heartRate.provenance,
+        status: health.heartRate.freshness.label,
+        timestampLabel: stamp(health.heartRate.capturedAt),
         empty: hardwareEmpty(
           health.heartRate.statusLabel ?? health.heartRate.freshness.label,
         ),
@@ -117,6 +130,8 @@ class VitalsScreen extends ConsumerWidget {
         unit: 'ms',
         icon: Icons.graphic_eq,
         provenance: health.hrv.provenance,
+        status: health.hrv.freshness.label,
+        timestampLabel: stamp(health.hrv.capturedAt),
         empty: hardwareEmpty(
           health.hrv.statusLabel ?? health.hrv.freshness.label,
         ),
@@ -128,6 +143,8 @@ class VitalsScreen extends ConsumerWidget {
         unit: '%',
         icon: Icons.water_drop_outlined,
         provenance: health.spo2.provenance,
+        status: health.spo2.freshness.label,
+        timestampLabel: stamp(health.spo2.capturedAt),
         empty: hardwareEmpty(
           health.spo2.statusLabel ?? health.spo2.freshness.label,
         ),
@@ -141,6 +158,8 @@ class VitalsScreen extends ConsumerWidget {
         unit: '°C',
         icon: Icons.thermostat,
         provenance: health.temperature.provenance,
+        status: health.temperature.freshness.label,
+        timestampLabel: stamp(health.temperature.capturedAt),
         empty: hardwareEmpty(
           health.temperature.statusLabel ?? health.temperature.freshness.label,
         ),
@@ -161,6 +180,7 @@ class VitalsScreen extends ConsumerWidget {
         unit: '',
         icon: Icons.directions_walk,
         provenance: health.steps == null ? DataProvenance.wearable : health.provenance,
+        status: health.steps == null ? null : ReadingFreshness.lastSynced.label,
         empty: hardwareEmpty('No recent reading'),
       ),
       _VitalRow(
@@ -171,6 +191,7 @@ class VitalsScreen extends ConsumerWidget {
         icon: Icons.local_fire_department_outlined,
         provenance:
             health.calories == null ? DataProvenance.wearable : health.provenance,
+        status: health.calories == null ? null : ReadingFreshness.lastSynced.label,
         empty: hardwareEmpty('No recent reading'),
       ),
     ];
@@ -186,6 +207,8 @@ class _VitalRow {
     required this.icon,
     required this.provenance,
     required this.empty,
+    this.status,
+    this.timestampLabel,
   });
 
   final String key;
@@ -195,6 +218,8 @@ class _VitalRow {
   final IconData icon;
   final DataProvenance provenance;
   final String empty;
+  final String? status;
+  final String? timestampLabel;
 }
 
 class VitalDetailScreen extends ConsumerStatefulWidget {

@@ -93,7 +93,7 @@ class MoreScreen extends StatelessWidget {
           HudStrip(
             icon: Icons.person_outline,
             title: 'Profile',
-            subtitle: 'Identity, demo, appearance',
+            subtitle: 'Identity, goals, workout preferences',
             onTap: () => context.push('/profile'),
           ),
           const SizedBox(height: 8),
@@ -105,9 +105,16 @@ class MoreScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           HudStrip(
+            icon: Icons.shield_outlined,
+            title: 'Permissions',
+            subtitle: 'Bluetooth, notifications, activity — one place',
+            onTap: () => context.push('/settings/permissions'),
+          ),
+          const SizedBox(height: 8),
+          HudStrip(
             icon: Icons.settings_outlined,
             title: 'Settings',
-            subtitle: 'Appearance, permissions, privacy',
+            subtitle: 'Appearance, monitoring, privacy, account',
             onTap: () => context.push('/settings'),
           ),
         ],

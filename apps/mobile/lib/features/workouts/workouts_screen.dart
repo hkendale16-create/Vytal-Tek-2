@@ -336,7 +336,7 @@ class ActiveWorkoutScreen extends ConsumerWidget {
         title: 'Workout',
         child: EmptyMetricCard(
           title: 'No active workout',
-          message: 'Start a workout from Home or Workouts.',
+          message: 'Start a workout from Today or Workouts.',
         ),
       );
     }
