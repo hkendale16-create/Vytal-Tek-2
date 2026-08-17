@@ -36,19 +36,19 @@ Client architecture for B–F is in place. This checklist is the go-live gate fo
 
 ## Store review
 
-- [ ] Demo account with active Plus (or clear sandbox instructions)
+- [ ] Demo account with active Plus (or clear sandbox instructions) — `docs/store/REVIEW_NOTES.md`
 - [ ] Restore purchases works on fresh install
 - [ ] No premium unlock without purchase in reviewer flow
 - [ ] Guidelines 3.1.1 / Play billing policy compliance reviewed
-- [ ] Publish `docs/legal/PRIVACY.md` + `docs/legal/TERMS.md` to live URLs
+- [x] Privacy / Terms hosted from `site/` (GitHub Pages workflow) — enable Pages in repo settings
 
 ## Build flags
 
 ```bash
 flutter build ipa \
   --dart-define=VYTAL_ENTITLEMENT_API=https://<host>/functions/v1/verify-entitlement \
-  --dart-define=VYTAL_PRIVACY_URL=https://vytaltek.com/privacy \
-  --dart-define=VYTAL_TERMS_URL=https://vytaltek.com/terms
+  --dart-define=VYTAL_PRIVACY_URL=https://hkendale16-create.github.io/VytalTek/privacy/ \
+  --dart-define=VYTAL_TERMS_URL=https://hkendale16-create.github.io/VytalTek/terms/
 ```
 
 ## Sign-off

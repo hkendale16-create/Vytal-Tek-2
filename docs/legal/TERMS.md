@@ -2,7 +2,7 @@
 
 _Last updated: 2026-08-17_
 
-Publish at `VYTAL_TERMS_URL` (default `https://vytaltek.com/terms`). Have counsel review before submission.
+Publish at `VYTAL_TERMS_URL` (default GitHub Pages `…/VytalTek/terms/`). Have counsel review before submission.
 
 ## Service
 Vytal Tek provides personal health and performance tools. It is not a medical device and does not diagnose, treat, or prescribe.

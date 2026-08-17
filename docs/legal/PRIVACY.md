@@ -3,7 +3,7 @@
 _Last updated: 2026-08-17_
 
 This draft is intended for publishing at the URL configured as `VYTAL_PRIVACY_URL`
-(default `https://vytaltek.com/privacy`). Replace with counsel-reviewed text before store submission.
+(default GitHub Pages `…/VytalTek/privacy/`). Replace with counsel-reviewed text before store submission.
 
 ## What we collect
 - Account identifiers you provide
