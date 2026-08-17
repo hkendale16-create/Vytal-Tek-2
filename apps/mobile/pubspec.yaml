@@ -18,6 +18,10 @@ dependencies:
   collection: ^1.19.1
   meta: ^1.16.0
   uuid: ^4.5.1
+  in_app_purchase: ^3.2.3
+  url_launcher: ^6.3.2
+  in_app_purchase_android: ^0.4.0+5
+  in_app_purchase_storekit: ^0.4.4
 
 dev_dependencies:
   flutter_test:

@@ -19,10 +19,10 @@ apps/mobile/     Flutter app (iOS, Android, web shell)
 | QRing SDK packages | Vendored under `third_party/qring/` (Android AAR + iOS framework) |
 | QRing native bridge | Android + iOS MethodChannels wired into `QRingWearableAdapter` |
 | 4 Core Health UI | Complete on branch history — Home/Activity/Sleep/Insights/Profile |
-| Subscription A | In progress — entitlement service, catalog, soft paywalls (no live IAP) |
+| Subscription A | Complete — entitlement service, catalog, soft paywalls |
+| Subscription B–E | In progress — StoreKit/Play adapters, server verify, plan changes |
 | 5 3D Experience | Not started |
 | 6 AI Coach | Not started |
-| 5+ previously | Split: 3D / AI / billing are separate tracks |
 
 ## Run (mobile)
 

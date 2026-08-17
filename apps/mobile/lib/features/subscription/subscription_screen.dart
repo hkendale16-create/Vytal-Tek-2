@@ -112,6 +112,19 @@ class SubscriptionScreen extends ConsumerWidget {
             child: const Text('Restore purchases'),
           ),
           const SizedBox(height: 8),
+          if (snapshot.isPaidTier) ...[
+            OutlinedButton(
+              onPressed: () async {
+                final result = await controller.cancelSubscription();
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(result.message)),
+                );
+              },
+              child: const Text('Cancel subscription'),
+            ),
+            const SizedBox(height: 8),
+          ],
           TextButton(
             onPressed: () async {
               final result = await controller.openManageSubscriptions();
@@ -125,8 +138,8 @@ class SubscriptionScreen extends ConsumerWidget {
           const SizedBox(height: 20),
           Text(
             'Digital subscriptions use Apple StoreKit and Google Play Billing. '
-            'Client-side flags are not authoritative — server verification '
-            'arrives in Subscription Phase D.',
+            'Purchases are verified on Vytal servers before premium unlocks. '
+            'The client never grants access from isPremium alone.',
             style: theme.textTheme.bodySmall,
             textAlign: TextAlign.center,
           ),

@@ -14,21 +14,28 @@ class PlansScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final catalog = ref.watch(subscriptionCatalogProvider);
-    final current = ref.watch(entitlementServiceProvider).tier;
+    final current = ref.watch(entitlementServiceProvider);
     final controller = ref.read(subscriptionControllerProvider);
     final theme = Theme.of(context);
 
     return SectionScaffold(
       title: 'Plans',
       subtitle:
-          'Compare tiers. Prices shown are placeholders until store products go live.',
+          'Compare tiers. Store prices replace placeholders once products are live.',
       child: Column(
         children: [
           for (final product in catalog.products) ...[
             _PlanCard(
               product: product,
-              isCurrent: product.tier == current,
+              isCurrent: product.tier == current.tier,
+              actionLabel: _actionLabel(current.tier, product.tier),
               onSelect: () async {
+                final confirmed = await _confirmChange(
+                  context,
+                  from: current.tier,
+                  to: product,
+                );
+                if (!confirmed || !context.mounted) return;
                 final result = await controller.purchase(product);
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -78,17 +85,66 @@ class PlansScreen extends ConsumerWidget {
       ),
     );
   }
+
+  String _actionLabel(SubscriptionTier current, SubscriptionTier target) {
+    if (current == target) return 'Current plan';
+    if (target == SubscriptionTier.free) return 'Downgrade to Free';
+    if (current == SubscriptionTier.free) return 'Subscribe';
+    if (target.index > current.index) return 'Upgrade';
+    return 'Downgrade';
+  }
+
+  Future<bool> _confirmChange(
+    BuildContext context, {
+    required SubscriptionTier from,
+    required SubscriptionProduct to,
+  }) async {
+    if (from == to.tier) return false;
+    final isUpgrade = to.tier.index > from.index;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(isUpgrade ? 'Confirm upgrade' : 'Confirm plan change'),
+        content: Text(
+          isUpgrade
+              ? 'Upgrade from ${from.displayLabel} to ${to.displayName}.\n\n'
+                  'New features activate after store confirmation and Vytal '
+                  'server verification. Billing uses the platform’s official '
+                  'proration — Vytal never invents a charge difference.'
+              : to.tier == SubscriptionTier.free
+                  ? 'Paid cancellations are managed in the App Store / Play '
+                      'subscription sheet. Access continues until the period ends.'
+                  : 'Change from ${from.displayLabel} to ${to.displayName}.\n\n'
+                      'Downgrades follow marketplace timing. You keep current '
+                      'access until the change takes effect.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(isUpgrade ? 'Continue' : 'Continue'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
 }
 
 class _PlanCard extends StatelessWidget {
   const _PlanCard({
     required this.product,
     required this.isCurrent,
+    required this.actionLabel,
     required this.onSelect,
   });
 
   final SubscriptionProduct product;
   final bool isCurrent;
+  final String actionLabel;
   final VoidCallback onSelect;
 
   @override
@@ -144,14 +200,8 @@ class _PlanCard extends StatelessWidget {
             ),
           const SizedBox(height: 8),
           FilledButton(
-            onPressed: isCurrent && product.tier == SubscriptionTier.free
-                ? null
-                : onSelect,
-            child: Text(
-              product.tier == SubscriptionTier.free
-                  ? (isCurrent ? 'Current plan' : 'Switch to Free')
-                  : (isCurrent ? 'Current plan' : 'Subscribe'),
-            ),
+            onPressed: isCurrent ? null : onSelect,
+            child: Text(actionLabel),
           ),
         ],
       ),

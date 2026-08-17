@@ -17,11 +17,8 @@ This is **not** master plan Phase 5 (3D Experience). It is **Subscription Phase 
 
 | Phase | Work |
 |---|---|
-| B | StoreKit sandbox + lifecycle |
-| C | Google Play Billing testing |
-| D | Backend entitlement verification + store notifications |
-| E | Upgrade / downgrade / cancel / restore end-to-end |
-| F | Security audit |
+| B–E | See `PHASES_B_E.md` — StoreKit/Play, server verify, plan changes |
+| F | Full security audit |
 | G | Marketplace readiness |
 
 Master Phase 5 remains **3D Experience**. Phase 6 remains **AI Coach**.
