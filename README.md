@@ -6,7 +6,7 @@ Personal health and performance platform. The app is valuable before hardware ar
 
 ```
 apps/mobile/     Flutter app (iOS, Android, web shell)
-site/            Privacy / Terms pages (GitHub Pages)
+site/            Public landing + Privacy / Terms (Netlify publish dir)
 ```
 
 ## Phase status
