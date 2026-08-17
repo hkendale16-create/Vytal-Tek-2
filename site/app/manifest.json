@@ -1,11 +1,11 @@
 {
-    "name": "Vytal Tek",
-    "short_name": "Vytal Tek",
+    "name": "vytal_tek",
+    "short_name": "vytal_tek",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#070b12",
-    "theme_color": "#00e0d0",
-    "description": "Personal health and performance. App-Only until a Vytal ring is paired.",
+    "background_color": "#0175C2",
+    "theme_color": "#0175C2",
+    "description": "A new Flutter project.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -1,6 +1,5 @@
-# Netlify — legal / marketing static site
-# Connect this GitHub repo in Netlify and set publish directory to `site`
-# (or leave as-is; this file already sets it).
+# Netlify — marketing landing + Flutter web app
+# Connect this GitHub repo in Netlify. Publish directory is `site`.
 
 [build]
   publish = "site"
@@ -14,3 +13,15 @@
   from = "/terms"
   to = "/terms/"
   status = 301
+
+[[redirects]]
+  from = "/app"
+  to = "/app/"
+  status = 301
+
+# Flutter uses hash routes (/app/#/today). This only kicks in when a real
+# file is missing, so /app/main.dart.js still serves as a static asset.
+[[redirects]]
+  from = "/app/*"
+  to = "/app/index.html"
+  status = 200
