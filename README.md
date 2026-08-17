@@ -21,8 +21,9 @@ apps/mobile/     Flutter app (iOS, Android, web shell)
 | 4 Core Health UI | Complete on branch history — Home/Activity/Sleep/Insights/Profile |
 | Subscription A | Complete — entitlement service, catalog, soft paywalls |
 | Subscription B–E | Complete — StoreKit/Play adapters, server verify, plan changes |
-| Subscription F | In progress — security hardening + persist tamper protections |
-| Subscription G | Checklist — marketplace readiness (`docs/subscription/PHASE_G.md`) |
+| Subscription F | Complete — persist tamper protections + canUse hardening |
+| Subscription G | Checklist ready — marketplace go-live (`docs/subscription/PHASE_G.md`) |
+| Data usage audit | Hardened — selective health watches, no unpaired sensor ticks |
 | 5 3D Experience | Not started |
 | 6 AI Coach | Not started |
 

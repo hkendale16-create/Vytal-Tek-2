@@ -4,7 +4,9 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../devices/connection/device_connection_controller.dart';
+import '../domain/devices/device_connection_state.dart';
 import '../domain/models/monitoring_mode.dart';
+import '../domain/models/operating_mode.dart';
 import '../state/app_session_controller.dart';
 import 'background_monitoring_gate.dart';
 import 'monitoring_engine.dart';
@@ -125,6 +127,12 @@ class MonitoringController extends StateNotifier<MonitoringRuntimeState>
         backgroundMonitoringEnabled: next.backgroundMonitoringEnabled,
         manualMode: next.monitoringMode,
       );
+      // Pairing / unpairing changes how often we should wake the eval loop.
+      final wasPaired = previous?.pairedDevice != null;
+      final isPaired = next.pairedDevice != null;
+      if (wasPaired != isPaired) {
+        _restartEvalTimer();
+      }
     });
 
     _ref.listen(deviceConnectionProvider, (previous, next) {
@@ -133,6 +141,11 @@ class MonitoringController extends StateNotifier<MonitoringRuntimeState>
         wearableBatteryPercent:
             next.battery?.value ?? next.activeDevice?.batteryPercent,
       );
+      final wasLinked = previous?.activeDevice != null;
+      final isLinked = next.activeDevice != null;
+      if (wasLinked != isLinked) {
+        _restartSensorTimer();
+      }
     });
   }
 
@@ -335,7 +348,14 @@ class MonitoringController extends StateNotifier<MonitoringRuntimeState>
 
   void _restartEvalTimer() {
     _evalTimer?.cancel();
-    _evalTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+    final session = _ref.read(appSessionProvider);
+    final unpaired = session.pairedDevice == null &&
+        session.operatingMode != OperatingMode.connected;
+    // App-Only / unpaired: evaluate rarely — no BLE work to schedule.
+    final period = unpaired
+        ? const Duration(minutes: 2)
+        : const Duration(seconds: 15);
+    _evalTimer = Timer.periodic(period, (_) {
       if (_disposed) return;
       _applySignals(state.signals);
     });
@@ -349,10 +369,16 @@ class MonitoringController extends StateNotifier<MonitoringRuntimeState>
       return;
     }
 
+    final session = _ref.read(appSessionProvider);
+    final unpaired = session.pairedDevice == null &&
+        !_ref.read(deviceConnectionProvider).state.isLinked;
+    // No hardware → no sensor poll ticks (policy intervals stay documented only).
+    if (unpaired) return;
+
     _sensorTimer = Timer.periodic(state.policy.sensorPollInterval, (_) {
       if (_disposed) return;
-      // Phase 3 records monitoring intent ticks only.
-      // Actual sensor polls attach in Phase 4 once readings are displayed.
+      // Intent ticks only — live BLE sampling stays gated to explicit sync /
+      // workout paths so Active 1s policy does not hammer the radio.
       state = state.copyWith(tickCount: state.tickCount + 1);
     });
   }

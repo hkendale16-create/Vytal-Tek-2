@@ -206,6 +206,8 @@ class SubscriptionController {
   }
 
   /// Phase F — after launch, re-verify if disk restore left an untrusted hint.
+  ///
+  /// Free users / no product hint: no store traffic.
   Future<BillingOperationResult?> refreshAfterLaunch() async {
     final snapshot = entitlements.snapshot;
     if (!EntitlementSecurity.shouldAttemptRestore(snapshot)) {
