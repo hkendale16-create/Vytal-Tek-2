@@ -27,6 +27,9 @@ apps/mobile/     Flutter app (iOS, Android, web shell)
 | 5 3D Experience | Complete on branch — interactive Live Body stage |
 | 6 AI Coach | Complete on branch — grounded Coach Vital chat |
 | 7 Notes & Reminders | Complete on branch — local notes/reminders + AI context |
+| 8 Battery Intelligence | Complete on branch — alerts, estimates, tips (no invented %) |
+| 9 Performance + QA | Complete on branch — selective watches + regression tests |
+| Workouts / Timers | Complete on branch — routines + timer engine (App-Only safe) |
 
 ## Run (mobile)
 

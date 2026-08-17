@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../domain/models/data_provenance.dart';
 import '../../state/app_session_controller.dart';
@@ -81,10 +82,10 @@ class ActivityScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 12),
-          const EmptyMetricCard(
-            title: 'Routines & timers',
-            message:
-                'Custom routines and background-safe timers land in later phases. This screen shows activity rings matching the approved mockups.',
+          FilledButton.tonalIcon(
+            onPressed: () => context.push('/workouts'),
+            icon: const Icon(Icons.fitness_center_outlined),
+            label: const Text('Open workouts & timers'),
           ),
         ],
       ),

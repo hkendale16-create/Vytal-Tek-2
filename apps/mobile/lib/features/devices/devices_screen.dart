@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme/vytal_colors.dart';
 import '../../devices/connection/device_connection_controller.dart';
@@ -135,6 +136,12 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
                 ],
               ),
             ),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => context.push('/battery'),
+            icon: const Icon(Icons.battery_charging_full_outlined),
+            label: const Text('Battery insights'),
           ),
           if (connection.lastError != null) ...[
             const SizedBox(height: 12),

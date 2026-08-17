@@ -6,6 +6,7 @@ import '../../state/app_session_controller.dart';
 import '../../features/activity/activity_screen.dart';
 import '../../features/ai/ai_coach_screen.dart';
 import '../../features/analytics/analytics_screen.dart';
+import '../../features/battery/battery_screen.dart';
 import '../../features/body/body_screen.dart';
 import '../../features/devices/devices_screen.dart';
 import '../../features/onboarding/first_launch_screen.dart';
@@ -20,6 +21,8 @@ import '../../features/subscription/subscription_screen.dart';
 import '../../features/notes/notes_screen.dart';
 import '../../features/notes/reminders_screen.dart';
 import '../../features/today/today_screen.dart';
+import '../../features/workouts/workout_session_screen.dart';
+import '../../features/workouts/workouts_screen.dart';
 
 final _rootKey = GlobalKey<NavigatorState>();
 
@@ -107,6 +110,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/reminders',
         builder: (context, state) => const RemindersScreen(),
+      ),
+      GoRoute(
+        path: '/battery',
+        builder: (context, state) => const BatteryScreen(),
+      ),
+      GoRoute(
+        path: '/workouts',
+        builder: (context, state) => const WorkoutsScreen(),
+      ),
+      GoRoute(
+        path: '/workouts/session',
+        builder: (context, state) => const WorkoutSessionScreen(),
       ),
       GoRoute(
         path: '/devices',
