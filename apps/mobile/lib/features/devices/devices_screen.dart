@@ -66,7 +66,7 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
             'Vytal uses Bluetooth to find and pair your wearable. '
             'This is requested only when you choose to connect a device.',
       );
-      if (!context.mounted) return;
+      if (!mounted) return;
       if (PairingPlatform.isAndroid) {
         await ensureVytalPermission(
           context: context,
@@ -77,7 +77,7 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
               'Android requires location while scanning for nearby Bluetooth wearables. '
               'Vytal does not upload your GPS for pairing.',
         );
-        if (!context.mounted) return;
+        if (!mounted) return;
       }
     }
     await ref.read(deviceConnectionProvider.notifier).scanForDevices();
