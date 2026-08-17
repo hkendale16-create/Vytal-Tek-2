@@ -61,6 +61,29 @@ class BatteryScreen extends ConsumerWidget {
                   const SizedBox(height: 8),
                   const StatusPill(label: 'Demo battery', emphasis: true),
                 ],
+                if (insight.estimatedHoursRemaining != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'About ${insight.estimatedHoursRemaining} hours remaining at ${monitoring.mode.label} (estimate).',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ],
+                const SizedBox(height: 8),
+                Text(
+                  insight.charging
+                      ? 'Charging'
+                      : 'Charging state unknown until the wearable reports it.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall,
+                ),
+                Text(
+                  insight.lastChargeAt == null
+                      ? 'Last charge: not reported'
+                      : 'Last charge: ${insight.lastChargeAt!.toLocal()}',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall,
+                ),
                 if (insight.estimatedSyncWindows != null) ...[
                   const SizedBox(height: 12),
                   Text(

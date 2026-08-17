@@ -1,6 +1,9 @@
+import 'package:uuid/uuid.dart';
+
 import '../../domain/models/data_provenance.dart';
 import '../../domain/models/health_metric.dart';
 import '../../domain/models/operating_mode.dart';
+import '../../domain/models/workout_models.dart';
 import '../../features/today/today_health_provider.dart';
 import '../../state/app_session_controller.dart';
 
@@ -33,6 +36,13 @@ class CoachMessage {
       );
 }
 
+class CoachReply {
+  const CoachReply({required this.text, this.workout});
+
+  final String text;
+  final WorkoutRoutine? workout;
+}
+
 /// Grounded, non-diagnostic Coach Vital replies.
 ///
 /// Never invents wearable vitals. States missing data as missing.
@@ -41,6 +51,15 @@ class CoachVitalEngine {
 
   static const safetyFooter =
       'Vytal is not a physician and does not diagnose conditions.';
+
+  static const suggestedPrompts = [
+    'How am I doing today?',
+    'Should I train today?',
+    'Why is my recovery lower?',
+    'How did I sleep?',
+    'Build me a 30-minute workout.',
+    'How has my HRV changed?',
+  ];
 
   String welcome({
     required OperatingMode mode,
@@ -123,6 +142,131 @@ class CoachVitalEngine {
     final greet = (name == null || name.isEmpty) ? '' : '$name, ';
     return '${greet}I’m here in $mode. Ask about sleep, heart rate, HRV, notes, or a workout plan — '
         'I’ll only use verified data and will say when something is missing.\n\n$safetyFooter';
+  }
+
+  CoachReply compose({
+    required String userText,
+    required AppSession session,
+    required TodayHealthSnapshot? health,
+    required List<String> recentNoteSnippets,
+    required bool advanced,
+  }) {
+    final text = reply(
+      userText: userText,
+      session: session,
+      health: health,
+      recentNoteSnippets: recentNoteSnippets,
+      advanced: advanced,
+    );
+    final workout = tryBuildWorkout(userText);
+    if (workout == null) return CoachReply(text: text);
+    return CoachReply(
+      text: '$text\n\nStructured session: ${workout.name}. '
+          'Start it, save it to My Routines, or ask me to regenerate.',
+      workout: workout,
+    );
+  }
+
+  WorkoutRoutine? tryBuildWorkout(String userText) {
+    final lower = userText.toLowerCase();
+    final wants = lower.contains('build') ||
+        lower.contains('create a workout') ||
+        lower.contains('generate') ||
+        (lower.contains('workout') &&
+            (lower.contains('plan') ||
+                lower.contains('routine') ||
+                lower.contains('session') ||
+                lower.contains('30') ||
+                lower.contains('minute')));
+    if (!wants &&
+        !(lower.contains('workout') &&
+            (lower.contains('me') || lower.contains('make')))) {
+      return null;
+    }
+    return buildStructuredWorkout(userText);
+  }
+
+  WorkoutRoutine buildStructuredWorkout(String userText) {
+    final lower = userText.toLowerCase();
+    final minutes = _parseMinutes(lower) ?? 30;
+    final uuid = const Uuid();
+    if (lower.contains('run') || lower.contains('walk')) {
+      return WorkoutRoutine(
+        id: uuid.v4(),
+        name: 'Outdoor cardio — $minutes min',
+        activityKind: WorkoutActivityKind.cardio,
+        source: 'ai',
+        exercises: [
+          WorkoutExercise(
+            id: uuid.v4(),
+            name: 'Easy walk / jog',
+            sets: 1,
+            durationSeconds: (minutes * 60 * 0.7).round().clamp(60, 3600),
+            restSeconds: 0,
+          ),
+          WorkoutExercise(
+            id: uuid.v4(),
+            name: 'Strides',
+            sets: 4,
+            durationSeconds: 30,
+            restSeconds: 45,
+          ),
+        ],
+      );
+    }
+    if (lower.contains('hiit') || lower.contains('interval')) {
+      final rounds = (minutes / 1.5).round().clamp(6, 16);
+      return WorkoutRoutine(
+        id: uuid.v4(),
+        name: 'HIIT intervals — $minutes min',
+        activityKind: WorkoutActivityKind.hiit,
+        source: 'ai',
+        exercises: [
+          WorkoutExercise(
+            id: uuid.v4(),
+            name: 'Work',
+            sets: rounds,
+            durationSeconds: 30,
+            restSeconds: 30,
+          ),
+        ],
+      );
+    }
+    return WorkoutRoutine(
+      id: uuid.v4(),
+      name: 'Chest Strength — $minutes min',
+      activityKind: WorkoutActivityKind.strength,
+      source: 'ai',
+      exercises: [
+        WorkoutExercise(
+          id: uuid.v4(),
+          name: 'Dumbbell Press',
+          sets: 3,
+          reps: 10,
+          restSeconds: 60,
+        ),
+        WorkoutExercise(
+          id: uuid.v4(),
+          name: 'Incline Press',
+          sets: 3,
+          reps: 10,
+          restSeconds: 60,
+        ),
+        WorkoutExercise(
+          id: uuid.v4(),
+          name: 'Push-ups',
+          sets: 3,
+          reps: 12,
+          restSeconds: 45,
+        ),
+      ],
+    );
+  }
+
+  int? _parseMinutes(String lower) {
+    final match = RegExp(r'(\d+)\s*(min|minute)').firstMatch(lower);
+    if (match != null) return int.tryParse(match.group(1)!);
+    return null;
   }
 
   bool _looksLikeDiagnosisRequest(String lower) {

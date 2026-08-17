@@ -5,7 +5,42 @@ enum WorkoutTimerKind {
   rest,
   interval,
   stopwatch,
+  activity,
 }
+
+enum WorkoutActivityKind {
+  walking,
+  running,
+  cycling,
+  strength,
+  cardio,
+  hiit,
+  custom,
+}
+
+extension WorkoutActivityKindX on WorkoutActivityKind {
+  String get label => switch (this) {
+        WorkoutActivityKind.walking => 'Walking',
+        WorkoutActivityKind.running => 'Running',
+        WorkoutActivityKind.cycling => 'Cycling',
+        WorkoutActivityKind.strength => 'Strength',
+        WorkoutActivityKind.cardio => 'Cardio',
+        WorkoutActivityKind.hiit => 'HIIT',
+        WorkoutActivityKind.custom => 'Custom',
+      };
+
+  String get motionHint => switch (this) {
+        WorkoutActivityKind.walking => 'walking',
+        WorkoutActivityKind.running => 'running',
+        WorkoutActivityKind.cycling => 'cycling',
+        WorkoutActivityKind.strength => 'strength',
+        WorkoutActivityKind.cardio => 'cardio',
+        WorkoutActivityKind.hiit => 'hiit',
+        WorkoutActivityKind.custom => 'custom',
+      };
+}
+
+enum WorkoutPlayMode { idle, routine, activity, stopwatch }
 
 class WorkoutExercise {
   const WorkoutExercise({
@@ -15,6 +50,7 @@ class WorkoutExercise {
     this.reps,
     this.durationSeconds,
     this.restSeconds = 60,
+    this.weightKg,
     this.notes,
   });
 
@@ -24,7 +60,33 @@ class WorkoutExercise {
   final int? reps;
   final int? durationSeconds;
   final int restSeconds;
+  final double? weightKg;
   final String? notes;
+
+  WorkoutExercise copyWith({
+    String? name,
+    int? sets,
+    int? reps,
+    int? durationSeconds,
+    int? restSeconds,
+    double? weightKg,
+    String? notes,
+    bool clearWeight = false,
+    bool clearReps = false,
+    bool clearDuration = false,
+  }) {
+    return WorkoutExercise(
+      id: id,
+      name: name ?? this.name,
+      sets: sets ?? this.sets,
+      reps: clearReps ? null : (reps ?? this.reps),
+      durationSeconds:
+          clearDuration ? null : (durationSeconds ?? this.durationSeconds),
+      restSeconds: restSeconds ?? this.restSeconds,
+      weightKg: clearWeight ? null : (weightKg ?? this.weightKg),
+      notes: notes ?? this.notes,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -33,6 +95,7 @@ class WorkoutExercise {
         'reps': reps,
         'durationSeconds': durationSeconds,
         'restSeconds': restSeconds,
+        'weightKg': weightKg,
         'notes': notes,
       };
 
@@ -44,6 +107,7 @@ class WorkoutExercise {
         reps: json['reps'] as int?,
         durationSeconds: json['durationSeconds'] as int?,
         restSeconds: json['restSeconds'] as int? ?? 60,
+        weightKg: (json['weightKg'] as num?)?.toDouble(),
         notes: json['notes'] as String?,
       );
 }
@@ -55,6 +119,8 @@ class WorkoutRoutine {
     required this.exercises,
     this.builtIn = false,
     this.favorite = false,
+    this.activityKind = WorkoutActivityKind.strength,
+    this.source = 'user',
   });
 
   final String id;
@@ -62,6 +128,28 @@ class WorkoutRoutine {
   final List<WorkoutExercise> exercises;
   final bool builtIn;
   final bool favorite;
+  final WorkoutActivityKind activityKind;
+  final String source;
+
+  WorkoutRoutine copyWith({
+    String? id,
+    String? name,
+    List<WorkoutExercise>? exercises,
+    bool? builtIn,
+    bool? favorite,
+    WorkoutActivityKind? activityKind,
+    String? source,
+  }) {
+    return WorkoutRoutine(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      exercises: exercises ?? this.exercises,
+      builtIn: builtIn ?? this.builtIn,
+      favorite: favorite ?? this.favorite,
+      activityKind: activityKind ?? this.activityKind,
+      source: source ?? this.source,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -69,6 +157,8 @@ class WorkoutRoutine {
         'exercises': exercises.map((e) => e.toJson()).toList(),
         'builtIn': builtIn,
         'favorite': favorite,
+        'activityKind': activityKind.name,
+        'source': source,
       };
 
   factory WorkoutRoutine.fromJson(Map<String, dynamic> json) => WorkoutRoutine(
@@ -80,6 +170,11 @@ class WorkoutRoutine {
             .toList(),
         builtIn: json['builtIn'] as bool? ?? false,
         favorite: json['favorite'] as bool? ?? false,
+        activityKind: WorkoutActivityKind.values.firstWhere(
+          (e) => e.name == json['activityKind'],
+          orElse: () => WorkoutActivityKind.strength,
+        ),
+        source: json['source'] as String? ?? 'user',
       );
 
   static List<WorkoutRoutine> builtIns() {
@@ -89,6 +184,8 @@ class WorkoutRoutine {
         id: 'builtin-full-body',
         name: 'Vytal Full Body',
         builtIn: true,
+        activityKind: WorkoutActivityKind.strength,
+        source: 'builtin',
         exercises: [
           WorkoutExercise(
             id: uuid.v4(),
@@ -117,6 +214,8 @@ class WorkoutRoutine {
         id: 'builtin-intervals',
         name: '30/30 Intervals',
         builtIn: true,
+        activityKind: WorkoutActivityKind.hiit,
+        source: 'builtin',
         exercises: [
           WorkoutExercise(
             id: uuid.v4(),
@@ -136,9 +235,111 @@ class TimerPhase {
     required this.kind,
     required this.label,
     required this.seconds,
+    this.exerciseId,
+    this.exerciseName,
+    this.setNumber,
+    this.setsTotal,
+    this.reps,
+    this.weightKg,
   });
 
   final WorkoutTimerKind kind;
   final String label;
   final int seconds;
+  final String? exerciseId;
+  final String? exerciseName;
+  final int? setNumber;
+  final int? setsTotal;
+  final int? reps;
+  final double? weightKg;
+}
+
+class WorkoutHistoryEntry {
+  const WorkoutHistoryEntry({
+    required this.id,
+    required this.name,
+    required this.activityKind,
+    required this.durationSeconds,
+    required this.completedAt,
+    this.calories,
+    this.averageHr,
+    this.maxHr,
+    this.distanceMeters,
+    this.notes,
+    this.routineId,
+    this.playMode = WorkoutPlayMode.activity,
+  });
+
+  final String id;
+  final String name;
+  final WorkoutActivityKind activityKind;
+  final int durationSeconds;
+  final DateTime completedAt;
+  final int? calories;
+  final int? averageHr;
+  final int? maxHr;
+  final double? distanceMeters;
+  final String? notes;
+  final String? routineId;
+  final WorkoutPlayMode playMode;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'activityKind': activityKind.name,
+        'durationSeconds': durationSeconds,
+        'completedAt': completedAt.toIso8601String(),
+        'calories': calories,
+        'averageHr': averageHr,
+        'maxHr': maxHr,
+        'distanceMeters': distanceMeters,
+        'notes': notes,
+        'routineId': routineId,
+        'playMode': playMode.name,
+      };
+
+  factory WorkoutHistoryEntry.fromJson(Map<String, dynamic> json) =>
+      WorkoutHistoryEntry(
+        id: json['id'] as String? ?? const Uuid().v4(),
+        name: json['name'] as String? ?? 'Workout',
+        activityKind: WorkoutActivityKind.values.firstWhere(
+          (e) => e.name == json['activityKind'],
+          orElse: () => WorkoutActivityKind.custom,
+        ),
+        durationSeconds: json['durationSeconds'] as int? ?? 0,
+        completedAt: DateTime.tryParse(json['completedAt'] as String? ?? '') ??
+            DateTime.now().toUtc(),
+        calories: json['calories'] as int?,
+        averageHr: json['averageHr'] as int?,
+        maxHr: json['maxHr'] as int?,
+        distanceMeters: (json['distanceMeters'] as num?)?.toDouble(),
+        notes: json['notes'] as String?,
+        routineId: json['routineId'] as String?,
+        playMode: WorkoutPlayMode.values.firstWhere(
+          (e) => e.name == json['playMode'],
+          orElse: () => WorkoutPlayMode.activity,
+        ),
+      );
+}
+
+/// Catalog used by the routine builder — names only, not sensor data.
+abstract final class ExerciseCatalog {
+  static const names = <String>[
+    'Bodyweight squat',
+    'Push-up',
+    'Plank',
+    'Dumbbell press',
+    'Incline press',
+    'Dumbbell row',
+    'Lunges',
+    'Glute bridge',
+    'Shoulder press',
+    'Bicep curl',
+    'Tricep dip',
+    'Mountain climber',
+    'Jumping jack',
+    'Burpee',
+    'Deadlift',
+    'Kettlebell swing',
+  ];
 }

@@ -65,7 +65,12 @@ class NotesController extends StateNotifier<NotesState> {
     }
   }
 
-  Future<void> addNote(String body, {List<String> tags = const []}) async {
+  Future<void> addNote(
+    String body, {
+    List<String> tags = const [],
+    String category = 'general',
+    DateTime? attachedDate,
+  }) async {
     final trimmed = body.trim();
     if (trimmed.isEmpty) return;
     final note = VytalNote(
@@ -73,8 +78,35 @@ class NotesController extends StateNotifier<NotesState> {
       body: trimmed,
       createdAt: DateTime.now().toUtc(),
       tags: tags,
+      category: category,
+      attachedDate: attachedDate,
     );
     state = state.copyWith(notes: [note, ...state.notes]);
+    await _persist();
+  }
+
+  Future<void> updateNote(
+    String id, {
+    required String body,
+    String? category,
+    DateTime? attachedDate,
+  }) async {
+    final trimmed = body.trim();
+    if (trimmed.isEmpty) return;
+    state = state.copyWith(
+      notes: state.notes
+          .map(
+            (n) => n.id == id
+                ? n.copyWith(
+                    body: trimmed,
+                    category: category,
+                    attachedDate: attachedDate,
+                    updatedAt: DateTime.now().toUtc(),
+                  )
+                : n,
+          )
+          .toList(),
+    );
     await _persist();
   }
 
@@ -92,6 +124,9 @@ class NotesController extends StateNotifier<NotesState> {
     required String title,
     required DateTime when,
     String? noteId,
+    String category = 'custom',
+    String repeat = 'none',
+    bool notify = true,
   }) async {
     final trimmed = title.trim();
     if (trimmed.isEmpty) return;
@@ -101,6 +136,9 @@ class NotesController extends StateNotifier<NotesState> {
       when: when.toUtc(),
       createdAt: DateTime.now().toUtc(),
       noteId: noteId,
+      category: category,
+      repeat: repeat,
+      notify: notify,
     );
     state = state.copyWith(
       reminders: [...state.reminders, reminder]
@@ -121,6 +159,28 @@ class NotesController extends StateNotifier<NotesState> {
   Future<void> deleteReminder(String id) async {
     state = state.copyWith(
       reminders: state.reminders.where((r) => r.id != id).toList(),
+    );
+    await _persist();
+  }
+
+  Future<void> updateReminder(VytalReminder reminder) async {
+    state = state.copyWith(
+      reminders: state.reminders
+          .map((r) => r.id == reminder.id ? reminder : r)
+          .toList()
+        ..sort((a, b) => a.when.compareTo(b.when)),
+    );
+    await _persist();
+  }
+
+  Future<void> snoozeReminder(String id, {Duration by = const Duration(minutes: 10)}) async {
+    state = state.copyWith(
+      reminders: state.reminders
+          .map(
+            (r) => r.id == id ? r.copyWith(when: r.when.add(by), done: false) : r,
+          )
+          .toList()
+        ..sort((a, b) => a.when.compareTo(b.when)),
     );
     await _persist();
   }

@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/vytal_colors.dart';
 import '../../domain/models/entitlements.dart';
+import '../../domain/models/workout_models.dart';
 import '../../state/app_session_controller.dart';
+import '../../workouts/workout_controllers.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
 import '../subscription/soft_paywall.dart';
 import 'coach_chat_controller.dart';
+import 'coach_vital_engine.dart';
 
 class AiCoachScreen extends ConsumerStatefulWidget {
   const AiCoachScreen({super.key});
@@ -94,6 +98,27 @@ class _AiCoachScreenState extends ConsumerState<AiCoachScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final prompt in CoachVitalEngine.suggestedPrompts)
+                ActionChip(
+                  label: Text(prompt),
+                  onPressed: !canAsk || chat.isThinking
+                      ? null
+                      : () async {
+                          _controller.text = prompt;
+                          await _send();
+                        },
+                ),
+            ],
+          ),
+          if (chat.generatedWorkout != null) ...[
+            const SizedBox(height: 12),
+            _GeneratedWorkoutCard(routine: chat.generatedWorkout!),
+          ],
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -143,6 +168,77 @@ class _AiCoachScreenState extends ConsumerState<AiCoachScreen> {
                 'Adaptive coaching is on — recovery-aware planning uses verified wearable context when present.',
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GeneratedWorkoutCard extends ConsumerWidget {
+  const _GeneratedWorkoutCard({required this.routine});
+
+  final WorkoutRoutine routine;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    return GlassPanel(
+      glow: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(routine.name, style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          for (var i = 0; i < routine.exercises.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                '${i + 1}. ${routine.exercises[i].name}  '
+                '${routine.exercises[i].sets} × '
+                '${routine.exercises[i].reps ?? '${routine.exercises[i].durationSeconds}s'}',
+              ),
+            ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton(
+                onPressed: () {
+                  ref.read(workoutSessionProvider.notifier).startRoutine(routine);
+                  context.push('/workouts/active');
+                },
+                child: const Text('Start Workout'),
+              ),
+              OutlinedButton(
+                onPressed: () async {
+                  final saved = await ref
+                      .read(workoutLibraryProvider.notifier)
+                      .addCustomRoutine(routine.copyWith(source: 'ai'));
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        saved == null
+                            ? 'Custom routines need workouts.custom.'
+                            : 'Saved to My Routines.',
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('Save Routine'),
+              ),
+              OutlinedButton(
+                onPressed: () => context.push('/workouts/builder'),
+                child: const Text('Modify'),
+              ),
+              TextButton(
+                onPressed: () =>
+                    ref.read(coachChatProvider.notifier).regenerateWorkout(),
+                child: const Text('Regenerate'),
+              ),
+            ],
           ),
         ],
       ),

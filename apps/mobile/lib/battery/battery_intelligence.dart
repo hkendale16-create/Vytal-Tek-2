@@ -17,6 +17,9 @@ class BatteryInsight {
     required this.estimatedSyncWindows,
     required this.isDemo,
     required this.hasWearableReading,
+    this.estimatedHoursRemaining,
+    this.charging = false,
+    this.lastChargeAt,
   });
 
   final int? wearablePercent;
@@ -28,6 +31,9 @@ class BatteryInsight {
   final int? estimatedSyncWindows;
   final bool isDemo;
   final bool hasWearableReading;
+  final int? estimatedHoursRemaining;
+  final bool charging;
+  final DateTime? lastChargeAt;
 }
 
 /// Phase 8 — battery alerts, coarse estimates, and charging tips.
@@ -78,6 +84,12 @@ class BatteryIntelligence {
       MonitoringMode.normal => 4,
       MonitoringMode.standby => 2,
     };
+    final hoursAtFull = switch (monitoringMode) {
+      MonitoringMode.active => 10,
+      MonitoringMode.normal => 28,
+      MonitoringMode.standby => 48,
+    };
+    final hours = ((wearablePercent / 100) * hoursAtFull).round();
     final windows = (wearablePercent / syncCost).floor().clamp(0, 40);
 
     final tips = <String>[
@@ -111,6 +123,34 @@ class BatteryIntelligence {
       estimatedSyncWindows: windows,
       isDemo: isDemo,
       hasWearableReading: true,
+      estimatedHoursRemaining: hours,
     );
   }
+}
+
+/// Notify once per low/critical band. Crossing 20% then 19% does not re-alert.
+class BatteryAlertDedup {
+  BatteryAlertLevel? _lastNotified;
+  int? _lastPercentBand;
+
+  /// Returns true only when entering a new alert band from a healthier state.
+  bool shouldNotify(BatteryAlertLevel level, int? percent) {
+    if (percent == null) return false;
+    if (level != BatteryAlertLevel.low && level != BatteryAlertLevel.critical) {
+      if (percent >= BatteryIntelligence.lowThreshold + 5) {
+        _lastNotified = BatteryAlertLevel.ok;
+      }
+      return false;
+    }
+    if (_lastNotified == level) return false;
+    if (_lastNotified == BatteryAlertLevel.critical &&
+        level == BatteryAlertLevel.low) {
+      return false;
+    }
+    _lastNotified = level;
+    _lastPercentBand = percent <= 10 ? 10 : 20;
+    return true;
+  }
+
+  int? get lastPercentBand => _lastPercentBand;
 }

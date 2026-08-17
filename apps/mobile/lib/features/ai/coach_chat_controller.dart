@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../domain/models/entitlements.dart';
+import '../../domain/models/workout_models.dart';
 import '../../notes/notes_controller.dart';
 import '../../state/app_session_controller.dart';
 import '../today/today_health_provider.dart';
@@ -16,18 +17,24 @@ class CoachChatState {
   const CoachChatState({
     required this.messages,
     required this.isThinking,
+    this.generatedWorkout,
   });
 
   final List<CoachMessage> messages;
   final bool isThinking;
+  final WorkoutRoutine? generatedWorkout;
 
   CoachChatState copyWith({
     List<CoachMessage>? messages,
     bool? isThinking,
+    WorkoutRoutine? generatedWorkout,
+    bool clearWorkout = false,
   }) {
     return CoachChatState(
       messages: messages ?? this.messages,
       isThinking: isThinking ?? this.isThinking,
+      generatedWorkout:
+          clearWorkout ? null : (generatedWorkout ?? this.generatedWorkout),
     );
   }
 }
@@ -107,7 +114,7 @@ class CoachChatController extends StateNotifier<CoachChatState> {
         .map((b) => b.length > 80 ? '${b.substring(0, 80)}…' : b)
         .toList();
 
-    final replyText = _engine.reply(
+    final composed = _engine.compose(
       userText: trimmed,
       session: session,
       health: health,
@@ -118,12 +125,14 @@ class CoachChatController extends StateNotifier<CoachChatState> {
     final reply = CoachMessage(
       id: _uuid.v4(),
       fromCoach: true,
-      text: replyText,
+      text: composed.text,
       at: DateTime.now().toUtc(),
     );
     state = state.copyWith(
       messages: [...state.messages, reply],
       isThinking: false,
+      generatedWorkout: composed.workout,
+      clearWorkout: composed.workout == null,
     );
     await _persist();
   }
@@ -133,6 +142,28 @@ class CoachChatController extends StateNotifier<CoachChatState> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_chatKey);
     await restore();
+  }
+
+  void dismissGeneratedWorkout() {
+    state = state.copyWith(clearWorkout: true);
+  }
+
+  Future<void> regenerateWorkout() async {
+    final session = _ref.read(appSessionProvider);
+    if (!session.entitlements.canUse(EntitlementKeys.aiBasic)) return;
+    final workout = _engine.buildStructuredWorkout('Build me a 30-minute workout.');
+    final reply = CoachMessage(
+      id: _uuid.v4(),
+      fromCoach: true,
+      text:
+          'Here’s a regenerated structured session: ${workout.name}. Start, save, or modify it.',
+      at: DateTime.now().toUtc(),
+    );
+    state = state.copyWith(
+      messages: [...state.messages, reply],
+      generatedWorkout: workout,
+    );
+    await _persist();
   }
 
   Future<void> _persist() async {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/models/notes_models.dart';
 import '../../notes/notes_controller.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
@@ -14,6 +15,10 @@ class RemindersScreen extends ConsumerStatefulWidget {
 
 class _RemindersScreenState extends ConsumerState<RemindersScreen> {
   final _title = TextEditingController();
+  DateTime _when = DateTime.now().add(const Duration(hours: 2));
+  String _category = ReminderCategories.custom;
+  String _repeat = 'none';
+  bool _notify = true;
 
   @override
   void dispose() {
@@ -22,18 +27,43 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
   }
 
   Future<void> _add() async {
-    final when = DateTime.now().toUtc().add(const Duration(hours: 2));
     await ref.read(notesProvider.notifier).addReminder(
           title: _title.text,
-          when: when,
+          when: _when,
+          category: _category,
+          repeat: _repeat,
+          notify: _notify,
         );
     _title.clear();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Reminder saved for ~2 hours from now (local).'),
+      SnackBar(
+        content: Text(
+          _notify
+              ? 'Reminder saved. In-app alert is on (OS push arrives with notification permission).'
+              : 'Reminder saved without notification.',
+        ),
       ),
     );
+    setState(() {});
+  }
+
+  Future<void> _pickWhen() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _when,
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_when),
+    );
+    if (time == null) return;
+    setState(() {
+      _when = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    });
   }
 
   @override
@@ -43,7 +73,7 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
 
     return SectionScaffold(
       title: 'Reminders',
-      subtitle: 'Lightweight local reminders — system notifications come later.',
+      subtitle: 'Date, time, repeat, and complete/snooze — local until OS push is enabled.',
       child: Column(
         children: [
           GlassPanel(
@@ -58,6 +88,39 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    for (final cat in ReminderCategories.all)
+                      ChoiceChip(
+                        label: Text(ReminderCategories.label(cat)),
+                        selected: _category == cat,
+                        onSelected: (_) => setState(() => _category = cat),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    for (final repeat in const ['none', 'daily', 'weekly'])
+                      ChoiceChip(
+                        label: Text(repeat),
+                        selected: _repeat == repeat,
+                        onSelected: (_) => setState(() => _repeat = repeat),
+                      ),
+                  ],
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Notification'),
+                  value: _notify,
+                  onChanged: (v) => setState(() => _notify = v),
+                ),
+                TextButton(
+                  onPressed: _pickWhen,
+                  child: Text('When ${_format(_when.toUtc())}'),
+                ),
                 FilledButton(
                   onPressed: _add,
                   child: const Text('Add reminder'),
@@ -69,36 +132,52 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
           if (reminders.isEmpty)
             const EmptyMetricCard(
               title: 'No reminders',
-              message: 'Create a reminder to nudge habits. OS push arrives later.',
+              message: 'Create a reminder to nudge habits.',
             )
           else
             ...reminders.map(
               (reminder) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: GlassPanel(
-                  child: ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Checkbox(
-                      value: reminder.done,
-                      onChanged: (_) => ref
-                          .read(notesProvider.notifier)
-                          .toggleReminder(reminder.id),
-                    ),
-                    title: Text(
-                      reminder.title,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        decoration: reminder.done
-                            ? TextDecoration.lineThrough
-                            : null,
+                  child: Column(
+                    children: [
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Checkbox(
+                          value: reminder.done,
+                          onChanged: (_) => ref
+                              .read(notesProvider.notifier)
+                              .toggleReminder(reminder.id),
+                        ),
+                        title: Text(
+                          reminder.title,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            decoration: reminder.done
+                                ? TextDecoration.lineThrough
+                                : null,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '${ReminderCategories.label(reminder.category)} · '
+                          '${reminder.repeat} · ${_format(reminder.when)}',
+                        ),
+                        trailing: IconButton(
+                          onPressed: () => ref
+                              .read(notesProvider.notifier)
+                              .deleteReminder(reminder.id),
+                          icon: const Icon(Icons.delete_outline),
+                        ),
                       ),
-                    ),
-                    subtitle: Text(_format(reminder.when)),
-                    trailing: IconButton(
-                      onPressed: () => ref
-                          .read(notesProvider.notifier)
-                          .deleteReminder(reminder.id),
-                      icon: const Icon(Icons.delete_outline),
-                    ),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton(
+                          onPressed: () => ref
+                              .read(notesProvider.notifier)
+                              .snoozeReminder(reminder.id),
+                          child: const Text('Snooze 10 min'),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),

@@ -110,10 +110,27 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          const EmptyMetricCard(
-            title: 'Privacy & Data',
-            message:
-                'Export, deletion, and AI personalization controls are planned. Health data will use secure storage and RLS-backed backend access.',
+          Card(
+            child: ListTile(
+              title: const Text('Privacy & Data'),
+              subtitle: const Text(
+                'Export, deletion, and AI personalization controls are planned. Health data uses secure storage and RLS-backed backend access.',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                showModalBottomSheet<void>(
+                  context: context,
+                  builder: (context) => const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text(
+                      'Vytal Tek does not sell health data. Export and deletion '
+                      'tools ship with the backend privacy controls. Until then, '
+                      'notes and routines stay on-device.',
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),

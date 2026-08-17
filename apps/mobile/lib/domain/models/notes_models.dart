@@ -7,6 +7,8 @@ class VytalNote {
     required this.createdAt,
     this.updatedAt,
     this.tags = const [],
+    this.category = 'general',
+    this.attachedDate,
   });
 
   final String id;
@@ -14,11 +16,15 @@ class VytalNote {
   final DateTime createdAt;
   final DateTime? updatedAt;
   final List<String> tags;
+  final String category;
+  final DateTime? attachedDate;
 
   VytalNote copyWith({
     String? body,
     DateTime? updatedAt,
     List<String>? tags,
+    String? category,
+    DateTime? attachedDate,
   }) {
     return VytalNote(
       id: id,
@@ -26,6 +32,8 @@ class VytalNote {
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       tags: tags ?? this.tags,
+      category: category ?? this.category,
+      attachedDate: attachedDate ?? this.attachedDate,
     );
   }
 
@@ -35,6 +43,8 @@ class VytalNote {
         'createdAt': createdAt.toIso8601String(),
         'updatedAt': updatedAt?.toIso8601String(),
         'tags': tags,
+        'category': category,
+        'attachedDate': attachedDate?.toIso8601String(),
       };
 
   factory VytalNote.fromJson(Map<String, dynamic> json) => VytalNote(
@@ -45,7 +55,27 @@ class VytalNote {
         updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? ''),
         tags: (json['tags'] as List?)?.map((e) => e.toString()).toList() ??
             const [],
+        category: json['category'] as String? ?? 'general',
+        attachedDate: DateTime.tryParse(json['attachedDate'] as String? ?? ''),
       );
+}
+
+abstract final class NoteCategories {
+  static const general = 'general';
+  static const workout = 'workout';
+  static const sleep = 'sleep';
+  static const recovery = 'recovery';
+  static const health = 'health';
+
+  static const all = [general, workout, sleep, recovery, health];
+
+  static String label(String key) => switch (key) {
+        workout => 'Workout',
+        sleep => 'Sleep',
+        recovery => 'Recovery',
+        health => 'Health reading',
+        _ => 'General day',
+      };
 }
 
 class VytalReminder {
@@ -56,6 +86,9 @@ class VytalReminder {
     required this.createdAt,
     this.done = false,
     this.noteId,
+    this.category = 'custom',
+    this.repeat = 'none',
+    this.notify = true,
   });
 
   final String id;
@@ -64,12 +97,18 @@ class VytalReminder {
   final DateTime createdAt;
   final bool done;
   final String? noteId;
+  final String category;
+  final String repeat;
+  final bool notify;
 
   VytalReminder copyWith({
     String? title,
     DateTime? when,
     bool? done,
     String? noteId,
+    String? category,
+    String? repeat,
+    bool? notify,
   }) {
     return VytalReminder(
       id: id,
@@ -78,6 +117,9 @@ class VytalReminder {
       createdAt: createdAt,
       done: done ?? this.done,
       noteId: noteId ?? this.noteId,
+      category: category ?? this.category,
+      repeat: repeat ?? this.repeat,
+      notify: notify ?? this.notify,
     );
   }
 
@@ -88,6 +130,9 @@ class VytalReminder {
         'createdAt': createdAt.toIso8601String(),
         'done': done,
         'noteId': noteId,
+        'category': category,
+        'repeat': repeat,
+        'notify': notify,
       };
 
   factory VytalReminder.fromJson(Map<String, dynamic> json) => VytalReminder(
@@ -99,5 +144,26 @@ class VytalReminder {
             DateTime.now().toUtc(),
         done: json['done'] as bool? ?? false,
         noteId: json['noteId'] as String?,
+        category: json['category'] as String? ?? 'custom',
+        repeat: json['repeat'] as String? ?? 'none',
+        notify: json['notify'] as bool? ?? true,
       );
+}
+
+abstract final class ReminderCategories {
+  static const workout = 'workout';
+  static const hydration = 'hydration';
+  static const bedtime = 'bedtime';
+  static const charge = 'charge';
+  static const custom = 'custom';
+
+  static const all = [workout, hydration, bedtime, charge, custom];
+
+  static String label(String key) => switch (key) {
+        workout => 'Workout',
+        hydration => 'Hydration',
+        bedtime => 'Bedtime',
+        charge => 'Charge wearable',
+        _ => 'Custom',
+      };
 }

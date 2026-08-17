@@ -6,6 +6,8 @@ import '../../core/motion/vytal_motion.dart';
 import '../../core/theme/vytal_colors.dart';
 import '../shared/health_ui.dart';
 
+enum BodyRegion { chest, legs, head }
+
 /// Phase 5 — interactive holographic body / wearable stage.
 ///
 /// Uses perspective transforms + ambient motion (not a full GPU mesh). Animations
@@ -17,12 +19,14 @@ class LiveBodyStage extends StatefulWidget {
     this.ambientMotionLevel = 2,
     this.showRing = true,
     this.childOverlay,
+    this.onRegionSelected,
   });
 
   final bool highlightHeart;
   final int ambientMotionLevel;
   final bool showRing;
   final Widget? childOverlay;
+  final ValueChanged<BodyRegion>? onRegionSelected;
 
   @override
   State<LiveBodyStage> createState() => _LiveBodyStageState();
@@ -98,6 +102,19 @@ class _LiveBodyStageState extends State<LiveBodyStage>
             _dragYaw = 0;
             _dragPitch = 0;
           }),
+          onTapUp: widget.onRegionSelected == null
+              ? null
+              : (details) {
+                  final h = constraints.maxHeight;
+                  final y = details.localPosition.dy / h;
+                  if (y < 0.28) {
+                    widget.onRegionSelected!(BodyRegion.head);
+                  } else if (y < 0.55) {
+                    widget.onRegionSelected!(BodyRegion.chest);
+                  } else {
+                    widget.onRegionSelected!(BodyRegion.legs);
+                  }
+                },
           child: AnimatedBuilder(
             animation: Listenable.merge([_breath, _spin]),
             builder: (context, _) {
@@ -135,7 +152,7 @@ class _LiveBodyStageState extends State<LiveBodyStage>
                       ..setEntry(3, 2, 0.0016)
                       ..rotateY(yaw)
                       ..rotateX(pitch)
-                      ..scaleByDouble(scale, scale, scale, 1),
+                      ..multiply(Matrix4.diagonal3Values(scale, scale, scale)),
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
@@ -152,8 +169,8 @@ class _LiveBodyStageState extends State<LiveBodyStage>
                   if (widget.childOverlay != null) widget.childOverlay!,
                   Positioned(
                     bottom: 0,
-                    child: Text(
-                      'Drag to rotate · double-tap to reset',
+                    child:                 Text(
+                  'Drag to rotate · tap chest for heart, legs for training load · double-tap to reset',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                             color: VytalColors.teal.withValues(alpha: 0.8),
                           ),

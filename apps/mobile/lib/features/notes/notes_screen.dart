@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../domain/models/notes_models.dart';
 import '../../notes/notes_controller.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
@@ -15,21 +16,50 @@ class NotesScreen extends ConsumerStatefulWidget {
 
 class _NotesScreenState extends ConsumerState<NotesScreen> {
   final _controller = TextEditingController();
+  final _search = TextEditingController();
+  String _category = NoteCategories.general;
+  DateTime _date = DateTime.now();
+  String? _editingId;
 
   @override
   void dispose() {
     _controller.dispose();
+    _search.dispose();
     super.dispose();
   }
 
-  Future<void> _add() async {
-    await ref.read(notesProvider.notifier).addNote(_controller.text);
+  Future<void> _save() async {
+    if (_editingId != null) {
+      await ref.read(notesProvider.notifier).updateNote(
+            _editingId!,
+            body: _controller.text,
+            category: _category,
+            attachedDate: _date,
+          );
+      _editingId = null;
+    } else {
+      await ref.read(notesProvider.notifier).addNote(
+            _controller.text,
+            category: _category,
+            attachedDate: _date,
+            tags: [_category],
+          );
+    }
     _controller.clear();
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
     final notes = ref.watch(notesProvider).notes;
+    final query = _search.text.trim().toLowerCase();
+    final filtered = notes.where((n) {
+      final matchesQuery =
+          query.isEmpty || n.body.toLowerCase().contains(query);
+      final matchesCat =
+          _category == NoteCategories.general || n.category == _category;
+      return matchesQuery && matchesCat;
+    }).toList();
     final theme = Theme.of(context);
 
     return SectionScaffold(
@@ -44,6 +74,28 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
       ],
       child: Column(
         children: [
+          TextField(
+            controller: _search,
+            decoration: const InputDecoration(
+              hintText: 'Search notes',
+              prefixIcon: Icon(Icons.search),
+              border: OutlineInputBorder(),
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final cat in NoteCategories.all)
+                ChoiceChip(
+                  label: Text(NoteCategories.label(cat)),
+                  selected: _category == cat,
+                  onSelected: (_) => setState(() => _category = cat),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
           GlassPanel(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -58,22 +110,35 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
+                TextButton(
+                  onPressed: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _date,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now().add(const Duration(days: 1)),
+                    );
+                    if (picked != null) setState(() => _date = picked);
+                  },
+                  child: Text(
+                    'Date ${_date.year}-${_date.month.toString().padLeft(2, '0')}-${_date.day.toString().padLeft(2, '0')}',
+                  ),
+                ),
                 FilledButton(
-                  onPressed: _add,
-                  child: const Text('Save note'),
+                  onPressed: _save,
+                  child: Text(_editingId == null ? 'Save note' : 'Update note'),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 12),
-          if (notes.isEmpty)
+          if (filtered.isEmpty)
             const EmptyMetricCard(
-              title: 'No notes yet',
-              message:
-                  'Notes stay on-device for now and can inform Coach Vital without inventing vitals.',
+              title: 'No notes',
+              message: 'Add a note to track how you feel.',
             )
           else
-            ...notes.map(
+            ...filtered.map(
               (note) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: GlassPanel(
@@ -82,11 +147,20 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
                     children: [
                       Text(note.body, style: theme.textTheme.bodyLarge),
                       const SizedBox(height: 8),
+                      Text(
+                        '${NoteCategories.label(note.category)} · ${_format(note.createdAt)}',
+                        style: theme.textTheme.labelSmall,
+                      ),
                       Row(
                         children: [
-                          Text(
-                            _format(note.createdAt),
-                            style: theme.textTheme.labelSmall,
+                          TextButton(
+                            onPressed: () {
+                              _controller.text = note.body;
+                              _category = note.category;
+                              _editingId = note.id;
+                              setState(() {});
+                            },
+                            child: const Text('Edit'),
                           ),
                           const Spacer(),
                           IconButton(
