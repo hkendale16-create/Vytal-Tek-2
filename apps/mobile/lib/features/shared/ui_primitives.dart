@@ -116,18 +116,26 @@ class BrandMark extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
+        CustomPaint(
+          size: Size(compact ? 36 : 56, compact ? 36 : 56),
+          painter: _VytalVPainter(
+            glow: isDark,
+            color: VytalColors.cyan,
+          ),
+        ),
+        SizedBox(height: compact ? 8 : 12),
         Text(
           'VYTAL',
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.w800,
-                letterSpacing: 4,
+                letterSpacing: 6,
                 color: isDark ? Colors.white : VytalColors.lightTextPrimary,
               ),
         ),
         if (!compact) ...[
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Row(
             children: [
               Expanded(child: Divider(color: VytalColors.teal.withValues(alpha: 0.5))),
@@ -137,7 +145,7 @@ class BrandMark extends StatelessWidget {
                   'TEK',
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
                         color: VytalColors.teal,
-                        letterSpacing: 3,
+                        letterSpacing: 4,
                       ),
                 ),
               ),
@@ -148,4 +156,52 @@ class BrandMark extends StatelessWidget {
       ],
     );
   }
+}
+
+class _VytalVPainter extends CustomPainter {
+  _VytalVPainter({required this.glow, required this.color});
+
+  final bool glow;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final path = Path()
+      ..moveTo(w * 0.12, h * 0.12)
+      ..lineTo(w * 0.48, h * 0.88)
+      ..lineTo(w * 0.62, h * 0.55)
+      ..moveTo(w * 0.72, h * 0.18)
+      ..lineTo(w * 0.88, h * 0.12);
+
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.11
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..color = color;
+
+    if (glow) {
+      canvas.drawPath(
+        path,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = w * 0.16
+          ..strokeCap = StrokeCap.round
+          ..color = color.withValues(alpha: 0.35)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+      );
+    }
+    canvas.drawPath(path, paint);
+    canvas.drawCircle(
+      Offset(w * 0.5, h * 0.62),
+      w * 0.055,
+      Paint()..color = color,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _VytalVPainter oldDelegate) =>
+      oldDelegate.glow != glow || oldDelegate.color != color;
 }

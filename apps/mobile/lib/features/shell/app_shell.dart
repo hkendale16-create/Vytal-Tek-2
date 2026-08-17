@@ -26,12 +26,7 @@ class AppShell extends StatelessWidget {
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home_rounded),
-            label: 'Today',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.insights_outlined),
-            selectedIcon: Icon(Icons.insights_rounded),
-            label: 'Analytics',
+            label: 'Home',
           ),
           NavigationDestination(
             icon: Icon(Icons.directions_run_outlined),
@@ -39,14 +34,19 @@ class AppShell extends StatelessWidget {
             label: 'Activity',
           ),
           NavigationDestination(
-            icon: Icon(Icons.accessibility_new_outlined),
-            selectedIcon: Icon(Icons.accessibility_new_rounded),
-            label: 'Body',
+            icon: Icon(Icons.bedtime_outlined),
+            selectedIcon: Icon(Icons.bedtime_rounded),
+            label: 'Sleep',
           ),
           NavigationDestination(
-            icon: Icon(Icons.auto_awesome_outlined),
-            selectedIcon: Icon(Icons.auto_awesome_rounded),
-            label: 'Ask Vytal',
+            icon: Icon(Icons.insights_outlined),
+            selectedIcon: Icon(Icons.insights_rounded),
+            label: 'Insights',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person_rounded),
+            label: 'Profile',
           ),
         ],
       ),

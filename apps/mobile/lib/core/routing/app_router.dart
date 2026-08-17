@@ -9,10 +9,12 @@ import '../../features/analytics/analytics_screen.dart';
 import '../../features/body/body_screen.dart';
 import '../../features/devices/devices_screen.dart';
 import '../../features/onboarding/first_launch_screen.dart';
+import '../../features/profile/profile_screen.dart';
 import '../../features/settings/monitoring_settings_screen.dart';
 import '../../features/settings/permissions_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/shell/app_shell.dart';
+import '../../features/sleep/sleep_screen.dart';
 import '../../features/today/today_screen.dart';
 
 final _rootKey = GlobalKey<NavigatorState>();
@@ -55,14 +57,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/analytics',
-                builder: (context, state) => const AnalyticsScreen(),
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
                 path: '/activity',
                 builder: (context, state) => const ActivityScreen(),
               ),
@@ -71,20 +65,36 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/body',
-                builder: (context, state) => const BodyScreen(),
+                path: '/sleep',
+                builder: (context, state) => const SleepScreen(),
               ),
             ],
           ),
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/ask',
-                builder: (context, state) => const AiCoachScreen(),
+                path: '/analytics',
+                builder: (context, state) => const AnalyticsScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/profile',
+                builder: (context, state) => const ProfileScreen(),
               ),
             ],
           ),
         ],
+      ),
+      GoRoute(
+        path: '/body',
+        builder: (context, state) => const BodyScreen(),
+      ),
+      GoRoute(
+        path: '/ask',
+        builder: (context, state) => const AiCoachScreen(),
       ),
       GoRoute(
         path: '/devices',

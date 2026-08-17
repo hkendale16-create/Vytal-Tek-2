@@ -18,15 +18,17 @@ class DemoWearableAdapter implements WearableDevice {
 
   static const adapterKey = 'demo';
 
-  /// Conservative demo capability set — still labeled Demo, not production.
+  /// Demo capability set for UI review — still labeled Demo, not production.
   static const demoCapabilities = DeviceCapabilities(
     supportsHeartRate: true,
     supportsRealtimeHeartRate: true,
     supportsBattery: true,
-    supportsHrv: false,
-    supportsSpo2: false,
-    supportsTemperature: false,
-    supportsSleep: false,
+    supportsHrv: true,
+    supportsSpo2: true,
+    supportsTemperature: true,
+    supportsSleep: true,
+    supportsSteps: true,
+    supportsCalories: true,
   );
 
   WearableDeviceInfo? _infoValue;
@@ -171,32 +173,74 @@ class DemoWearableAdapter implements WearableDevice {
   }
 
   @override
-  Future<HealthMetricReading<int>> getHrv() async => unsupportedReading(
+  Future<HealthMetricReading<int>> getHrv() async {
+    if (_infoValue == null) {
+      return unsupportedReading(
         key: HealthMetricKeys.hrv,
         displayName: 'HRV',
         unit: 'ms',
       );
+    }
+    return demoReading(
+      key: HealthMetricKeys.hrv,
+      displayName: 'HRV',
+      value: 65,
+      unit: 'ms',
+      statusLabel: 'Demo',
+    );
+  }
 
   @override
-  Future<HealthMetricReading<double>> getTemperature() async =>
-      unsupportedReading(
+  Future<HealthMetricReading<double>> getTemperature() async {
+    if (_infoValue == null) {
+      return unsupportedReading(
         key: HealthMetricKeys.temperature,
         displayName: 'Temperature',
         unit: '°C',
       );
+    }
+    return demoReading(
+      key: HealthMetricKeys.temperature,
+      displayName: 'Temperature',
+      value: 36.9,
+      unit: '°C',
+      statusLabel: 'Demo',
+    );
+  }
 
   @override
-  Future<HealthMetricReading<int>> getSpo2() async => unsupportedReading(
+  Future<HealthMetricReading<int>> getSpo2() async {
+    if (_infoValue == null) {
+      return unsupportedReading(
         key: HealthMetricKeys.spo2,
         displayName: 'SpO₂',
         unit: '%',
       );
+    }
+    return demoReading(
+      key: HealthMetricKeys.spo2,
+      displayName: 'SpO₂',
+      value: 98,
+      unit: '%',
+      statusLabel: 'Demo',
+    );
+  }
 
   @override
-  Future<HealthMetricReading<Duration>> getSleep() async => unsupportedReading(
+  Future<HealthMetricReading<Duration>> getSleep() async {
+    if (_infoValue == null) {
+      return unsupportedReading(
         key: HealthMetricKeys.sleepDuration,
         displayName: 'Sleep',
       );
+    }
+    return demoReading(
+      key: HealthMetricKeys.sleepDuration,
+      displayName: 'Sleep',
+      value: const Duration(hours: 7, minutes: 12),
+      statusLabel: 'Demo',
+    );
+  }
 
   @override
   Future<void> startWorkoutMonitoring() async {}

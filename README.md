@@ -18,7 +18,8 @@ apps/mobile/     Flutter app (iOS, Android, web shell)
 | 3 Monitoring engine | Complete — Active/Normal/Standby + auto-switch + background gate |
 | QRing SDK packages | Vendored under `third_party/qring/` (Android AAR + iOS framework) |
 | QRing native bridge | Android + iOS MethodChannels wired into `QRingWearableAdapter` |
-| 4+ Health UI / 3D / AI / billing | Not started |
+| 4 Core Health UI | In progress — Home/Activity/Sleep/Insights/Profile matching design boards |
+| 5+ 3D / AI / billing | Not started |
 
 ## Run (mobile)
 

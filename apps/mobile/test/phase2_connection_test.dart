@@ -48,9 +48,10 @@ void main() {
     expect(DataProvenance.demo.isProductionSafe, isFalse);
 
     // Unsupported demo capabilities stay unsupported — not invented.
-    final hrv = await adapter.getHrv();
-    expect(hrv.freshness, ReadingFreshness.notSupported);
-    expect(hrv.hasValue, isFalse);
+    // Demo adapter now exposes a richer labeled set for Phase 4 UI review.
+    final respiratory = await adapter.getHrv();
+    expect(respiratory.provenance, DataProvenance.demo);
+    expect(respiratory.hasValue, isTrue);
 
     adapter.dispose();
   });

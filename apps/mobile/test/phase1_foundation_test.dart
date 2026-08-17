@@ -60,10 +60,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.textContaining('without a device'));
+    final appOnly = find.textContaining('without a device');
+    await tester.scrollUntilVisible(appOnly, 80);
+    await tester.tap(appOnly);
     await tester.pumpAndSettle();
 
-    expect(find.text('Today'), findsWidgets);
+    expect(find.text('Home'), findsWidgets);
     expect(find.text(OperatingMode.appOnly.label), findsOneWidget);
   });
 }

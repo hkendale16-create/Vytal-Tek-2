@@ -27,8 +27,16 @@ class FirstLaunchScreen extends ConsumerWidget {
                       const BrandMark(),
                       const SizedBox(height: 28),
                       Text(
-                        'Live better. Perform stronger.',
+                        'Live Health. Real Feedback. Stronger You.',
                         style: theme.textTheme.headlineMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'LIVE BETTER. BECOME STRONGER. EVERY DAY.',
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: VytalColors.teal,
+                          letterSpacing: 1.2,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       Text(
