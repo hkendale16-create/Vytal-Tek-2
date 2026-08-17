@@ -55,7 +55,7 @@ void main() {
     adapter.dispose();
   });
 
-  test('qring adapter refuses production pairing without SDK', () async {
+  test('qring adapter refuses production pairing without native bridge', () async {
     final adapter = QRingWearableAdapter();
     await expectLater(
       adapter.scan(),
@@ -68,7 +68,15 @@ void main() {
       ),
     );
     await expectLater(
-      adapter.connect(),
+      adapter.connect(
+        knownDevice: const WearableDeviceInfo(
+          id: 'x',
+          displayName: 'QRing',
+          kind: VytalDeviceKind.smartRing,
+          adapterId: 'qring',
+          bluetoothId: 'AA:BB:CC:DD:EE:FF',
+        ),
+      ),
       throwsA(isA<DeviceConnectionException>()),
     );
     final heart = await adapter.getHeartRate();

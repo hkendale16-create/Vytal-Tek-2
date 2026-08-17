@@ -7,7 +7,7 @@ import '../../domain/devices/device_capabilities.dart';
 /// `SetTimeRsp` + `DeviceSupportFunctionRsp` (Android) / equivalent support
 /// flags (iOS) after GATT ready — never assume every ring supports every metric.
 abstract final class QRingSdkNotes {
-  static const androidPackage = 'qring_sdk_1.0.0.xx.aar';
+  static const androidPackage = 'qring_sdk_1.0.0.60.aar';
   static const iosFramework = 'QCBandSDK.framework';
   static const androidMinSdk = 26;
   static const iosMinVersion = '9.0';
@@ -72,6 +72,52 @@ class QRingDeviceSupportFlags {
 
   /// Unknown until capability responses are cached.
   static const pending = QRingDeviceSupportFlags();
+
+  /// Maps native MethodChannel capability payloads (Android SetTime +
+  /// DeviceSupport / iOS setTime featureList).
+  factory QRingDeviceSupportFlags.fromNativeMap(Map<String, dynamic> map) {
+    bool flag(String key) => map[key] == true;
+
+    return QRingDeviceSupportFlags(
+      supportHeart: flag('supportHeart'),
+      supportAppMeasure: flag('supportAppMeasure'),
+      supportManualHeart: flag('supportManualHeart'),
+      supportIntervalHeartRate: flag('supportIntervalHeartRate'),
+      supportHrv: flag('supportHrv'),
+      supportBloodOxygen: flag('supportBloodOxygen'),
+      supportManualBloodOxygen: flag('supportManualBloodOxygen'),
+      supportIntervalBloodOxygen: flag('supportIntervalBloodOxygen'),
+      supportTemperature: flag('supportTemperature'),
+      supportSkinTemperature: flag('supportSkinTemperature'),
+      supportIntervalTemperature: flag('supportIntervalTemperature'),
+      supportPressure: flag('supportPressure'),
+      supportBloodPressure: flag('supportBloodPressure'),
+      supportNewSleepProtocol: flag('supportNewSleepProtocol'),
+      supportEcg: flag('supportEcg'),
+      supportBlePair: flag('supportBlePair'),
+      supportFirmwareUpdate: map['supportFirmwareUpdate'] as bool? ?? true,
+    );
+  }
+
+  Map<String, dynamic> toNativeMap() => {
+        'supportHeart': supportHeart,
+        'supportAppMeasure': supportAppMeasure,
+        'supportManualHeart': supportManualHeart,
+        'supportIntervalHeartRate': supportIntervalHeartRate,
+        'supportHrv': supportHrv,
+        'supportBloodOxygen': supportBloodOxygen,
+        'supportManualBloodOxygen': supportManualBloodOxygen,
+        'supportIntervalBloodOxygen': supportIntervalBloodOxygen,
+        'supportTemperature': supportTemperature,
+        'supportSkinTemperature': supportSkinTemperature,
+        'supportIntervalTemperature': supportIntervalTemperature,
+        'supportPressure': supportPressure,
+        'supportBloodPressure': supportBloodPressure,
+        'supportNewSleepProtocol': supportNewSleepProtocol,
+        'supportEcg': supportEcg,
+        'supportBlePair': supportBlePair,
+        'supportFirmwareUpdate': supportFirmwareUpdate,
+      };
 
   /// Metrics the SDK documents as available **when flags allow**.
   /// Steps/sleep are standard health sync paths once a device is connected and

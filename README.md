@@ -14,9 +14,10 @@ apps/mobile/     Flutter app (iOS, Android, web shell)
 |---|---|
 | 0 Audit | Complete — repo was greenfield |
 | 1 Foundation | Complete on branch history |
-| 2 Wearable connection | Complete — lifecycle + demo adapter; QRing SDK pending |
+| 2 Wearable connection | Complete — lifecycle + demo adapter |
 | 3 Monitoring engine | Complete — Active/Normal/Standby + auto-switch + background gate |
 | QRing SDK packages | Vendored under `third_party/qring/` (Android AAR + iOS framework) |
+| QRing native bridge | Android + iOS MethodChannels wired into `QRingWearableAdapter` |
 | 4+ Health UI / 3D / AI / billing | Not started |
 
 ## Run (mobile)
@@ -33,13 +34,13 @@ flutter run
 - Light / Dark / System theme (shared brand tokens)
 - Navigation: Today, Analytics, Activity, Body, Ask Vytal + Devices / Settings
 - App session state: App-Only ↔ Connected, monitoring modes, demo flag, profile, entitlements keys
-- `WearableDevice` adapter interface + unpaired / QRing stub (no fabricated sensors)
+- `WearableDevice` adapter interface + unpaired / QRing native bridge (no fabricated sensors)
 - Permissions center catalog with request + system settings deep link
 - First-launch device arrival choices without forcing pairing
 
 ## Important rules
 
 - Never present manual or demo values as wearable readings
-- QRing capabilities stay unknown until official SDK docs/binaries are integrated
+- QRing capabilities stay unknown until the live device reports them after pairing
 - Subscription entitlement checks use keys (`ai.advanced`), not plan name strings
 - Client-side premium flags are not authoritative — server verification comes later

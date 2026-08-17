@@ -1,0 +1,342 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+
+import 'qring_capability_matrix.dart';
+
+/// Platform contract for the QRing / QCBand native SDK bridge.
+///
+/// Implementations must never invent vitals — return null / omit keys when the
+/// device or SDK has no reading.
+abstract class QRingNativeApi {
+  Future<bool> isAvailable();
+
+  Future<void> initialize();
+
+  /// Emits discovered devices until [stopScan] or timeout.
+  Stream<QRingScanResult> startScan({
+    Duration timeout = const Duration(seconds: 12),
+  });
+
+  Future<void> stopScan();
+
+  /// Connect + post-GATT handshake (SetTime + capability bitmap).
+  Future<QRingNativeConnectionResult> connect(String deviceId);
+
+  Future<void> disconnect({bool unbind = false});
+
+  Future<bool> isConnected();
+
+  Future<QRingDeviceSupportFlags> getCapabilities();
+
+  Future<QRingBatteryReading?> readBattery();
+
+  Future<QRingHealthSnapshot> syncHealth();
+
+  Future<void> startWorkoutMonitoring();
+
+  Future<void> stopWorkoutMonitoring();
+}
+
+class QRingScanResult {
+  const QRingScanResult({
+    required this.deviceId,
+    required this.name,
+    this.rssi,
+  });
+
+  final String deviceId;
+  final String name;
+  final int? rssi;
+
+  factory QRingScanResult.fromMap(Map<dynamic, dynamic> map) {
+    return QRingScanResult(
+      deviceId: map['deviceId'] as String? ?? '',
+      name: map['name'] as String? ?? 'QRing',
+      rssi: map['rssi'] as int?,
+    );
+  }
+}
+
+class QRingNativeConnectionResult {
+  const QRingNativeConnectionResult({
+    required this.deviceId,
+    required this.name,
+    required this.flags,
+    this.firmwareVersion,
+  });
+
+  final String deviceId;
+  final String name;
+  final QRingDeviceSupportFlags flags;
+  final String? firmwareVersion;
+
+  factory QRingNativeConnectionResult.fromMap(Map<dynamic, dynamic> map) {
+    return QRingNativeConnectionResult(
+      deviceId: map['deviceId'] as String? ?? '',
+      name: map['name'] as String? ?? 'QRing',
+      firmwareVersion: map['firmwareVersion'] as String?,
+      flags: QRingDeviceSupportFlags.fromNativeMap(
+        Map<String, dynamic>.from(
+          (map['capabilities'] as Map?)?.cast<String, dynamic>() ?? const {},
+        ),
+      ),
+    );
+  }
+}
+
+class QRingBatteryReading {
+  const QRingBatteryReading({
+    required this.percent,
+    this.charging = false,
+    this.rawLevel,
+  });
+
+  final int percent;
+  final bool charging;
+
+  /// iOS discrete 0–8 when provided.
+  final int? rawLevel;
+
+  factory QRingBatteryReading.fromMap(Map<dynamic, dynamic> map) {
+    return QRingBatteryReading(
+      percent: map['percent'] as int? ?? 0,
+      charging: map['charging'] as bool? ?? false,
+      rawLevel: map['rawLevel'] as int?,
+    );
+  }
+}
+
+/// Snapshot of capability-gated readings from a sync pass. Null fields mean
+/// no value was returned by the SDK (not fabricated).
+class QRingHealthSnapshot {
+  const QRingHealthSnapshot({
+    this.battery,
+    this.heartRateBpm,
+    this.hrvMs,
+    this.spo2Percent,
+    this.temperatureCelsius,
+    this.sleepMinutes,
+    this.steps,
+    this.calories,
+    this.distanceMeters,
+    this.sleepAvailable = false,
+    this.stepsAvailable = false,
+  });
+
+  final QRingBatteryReading? battery;
+  final int? heartRateBpm;
+  final int? hrvMs;
+  final int? spo2Percent;
+  final double? temperatureCelsius;
+  final int? sleepMinutes;
+  final int? steps;
+  final int? calories;
+  final int? distanceMeters;
+  final bool sleepAvailable;
+  final bool stepsAvailable;
+
+  factory QRingHealthSnapshot.fromMap(Map<dynamic, dynamic> map) {
+    final batteryMap = map['battery'];
+    return QRingHealthSnapshot(
+      battery: batteryMap is Map
+          ? QRingBatteryReading.fromMap(batteryMap)
+          : null,
+      heartRateBpm: map['heartRateBpm'] as int?,
+      hrvMs: map['hrvMs'] as int?,
+      spo2Percent: map['spo2Percent'] as int?,
+      temperatureCelsius: (map['temperatureCelsius'] as num?)?.toDouble(),
+      sleepMinutes: map['sleepMinutes'] as int?,
+      steps: map['steps'] as int?,
+      calories: map['calories'] as int?,
+      distanceMeters: map['distanceMeters'] as int?,
+      sleepAvailable: map['sleepAvailable'] as bool? ?? false,
+      stepsAvailable: map['stepsAvailable'] as bool? ?? false,
+    );
+  }
+}
+
+/// MethodChannel + EventChannel backed API (Android / iOS).
+class MethodChannelQRingNativeApi implements QRingNativeApi {
+  MethodChannelQRingNativeApi({
+    MethodChannel? methodChannel,
+    EventChannel? eventChannel,
+  })  : _methods = methodChannel ??
+            const MethodChannel('com.vytaltek.qring/methods'),
+        _events =
+            eventChannel ?? const EventChannel('com.vytaltek.qring/events');
+
+  final MethodChannel _methods;
+  final EventChannel _events;
+
+  StreamSubscription<dynamic>? _eventSub;
+  final _scanController = StreamController<QRingScanResult>.broadcast();
+  Completer<QRingNativeConnectionResult>? _connectCompleter;
+  bool _listening = false;
+
+  static const _unsupportedPlatforms = {
+    TargetPlatform.linux,
+    TargetPlatform.macOS,
+    TargetPlatform.windows,
+    TargetPlatform.fuchsia,
+  };
+
+  Future<T?> _invoke<T>(String method, [Map<String, dynamic>? args]) async {
+    try {
+      return await _methods.invokeMethod<T>(method, args);
+    } on MissingPluginException {
+      return null;
+    } on PlatformException {
+      rethrow;
+    }
+  }
+
+  Future<void> _ensureListening() async {
+    if (_listening) return;
+    _listening = true;
+    _eventSub = _events.receiveBroadcastStream().listen(_onEvent);
+  }
+
+  void _onEvent(dynamic event) {
+    if (event is! Map) return;
+    final type = event['type'] as String?;
+    final payload = event['payload'];
+    switch (type) {
+      case 'scanResult':
+        if (payload is Map) {
+          _scanController.add(QRingScanResult.fromMap(payload));
+        }
+      case 'connection':
+        if (payload is Map) {
+          final state = payload['state'] as String?;
+          if (state == 'connected' && _connectCompleter != null) {
+            _connectCompleter!.complete(
+              QRingNativeConnectionResult.fromMap(payload),
+            );
+            _connectCompleter = null;
+          } else if (state == 'error' && _connectCompleter != null) {
+            _connectCompleter!.completeError(
+              PlatformException(
+                code: payload['code'] as String? ?? 'connect_failed',
+                message: payload['message'] as String? ??
+                    'Could not connect to the wearable.',
+              ),
+            );
+            _connectCompleter = null;
+          }
+        }
+      default:
+        break;
+    }
+  }
+
+  @override
+  Future<bool> isAvailable() async {
+    if (kIsWeb || _unsupportedPlatforms.contains(defaultTargetPlatform)) {
+      return false;
+    }
+    final result = await _invoke<bool>('isAvailable');
+    return result ?? false;
+  }
+
+  @override
+  Future<void> initialize() async {
+    await _ensureListening();
+    await _invoke<void>('initialize');
+  }
+
+  @override
+  Stream<QRingScanResult> startScan({
+    Duration timeout = const Duration(seconds: 12),
+  }) {
+    unawaited(() async {
+      await _ensureListening();
+      await _invoke<void>('startScan', {
+        'timeoutMs': timeout.inMilliseconds,
+      });
+    }());
+    return _scanController.stream;
+  }
+
+  @override
+  Future<void> stopScan() async {
+    await _invoke<void>('stopScan');
+  }
+
+  @override
+  Future<QRingNativeConnectionResult> connect(String deviceId) async {
+    await _ensureListening();
+    final completer = Completer<QRingNativeConnectionResult>();
+    _connectCompleter = completer;
+    try {
+      final immediate = await _invoke<Map>('connect', {'deviceId': deviceId});
+      if (immediate != null && !completer.isCompleted) {
+        completer.complete(QRingNativeConnectionResult.fromMap(immediate));
+        _connectCompleter = null;
+      }
+    } on PlatformException {
+      _connectCompleter = null;
+      rethrow;
+    }
+    return completer.future.timeout(
+      const Duration(seconds: 60),
+      onTimeout: () {
+        _connectCompleter = null;
+        throw PlatformException(
+          code: 'connect_timeout',
+          message:
+              'Connecting timed out. Keep the ring nearby and try again.',
+        );
+      },
+    );
+  }
+
+  @override
+  Future<void> disconnect({bool unbind = false}) async {
+    await _invoke<void>('disconnect', {'unbind': unbind});
+  }
+
+  @override
+  Future<bool> isConnected() async {
+    return await _invoke<bool>('isConnected') ?? false;
+  }
+
+  @override
+  Future<QRingDeviceSupportFlags> getCapabilities() async {
+    final map = await _invoke<Map>('getCapabilities');
+    if (map == null) return QRingDeviceSupportFlags.pending;
+    return QRingDeviceSupportFlags.fromNativeMap(
+      Map<String, dynamic>.from(map.cast<String, dynamic>()),
+    );
+  }
+
+  @override
+  Future<QRingBatteryReading?> readBattery() async {
+    final map = await _invoke<Map>('readBattery');
+    if (map == null) return null;
+    return QRingBatteryReading.fromMap(map);
+  }
+
+  @override
+  Future<QRingHealthSnapshot> syncHealth() async {
+    final map = await _invoke<Map>('syncHealth');
+    if (map == null) return const QRingHealthSnapshot();
+    return QRingHealthSnapshot.fromMap(map);
+  }
+
+  @override
+  Future<void> startWorkoutMonitoring() async {
+    await _invoke<void>('startWorkoutMonitoring');
+  }
+
+  @override
+  Future<void> stopWorkoutMonitoring() async {
+    await _invoke<void>('stopWorkoutMonitoring');
+  }
+
+  void dispose() {
+    _eventSub?.cancel();
+    _scanController.close();
+  }
+}

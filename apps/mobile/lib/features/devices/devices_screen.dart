@@ -73,7 +73,7 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
     return SectionScaffold(
       title: 'Devices',
       subtitle:
-          'Pair, reconnect, sync, and manage wearables. Production QRing SDK pairing arrives when vendor binaries are provided.',
+          'Pair, reconnect, sync, and manage wearables. QRing pairing uses the native SDK on Android and iOS.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -167,7 +167,7 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
             if (!session.demoModeEnabled) ...[
               const SizedBox(height: 8),
               Text(
-                'Without Demo mode, scanning requires the QRing SDK. '
+                'Scan looks for nearby QRing devices over Bluetooth. '
                 'Enable Demo mode in Settings to exercise the full pair → sync lifecycle with clearly labeled demo devices.',
                 style: theme.textTheme.bodySmall,
               ),

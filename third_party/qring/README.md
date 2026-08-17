@@ -12,6 +12,8 @@ Vendored from the uploads on `main` (opaque zip hashes) and organized for Vytal 
 
 Primary Java entry points (inside AAR): `com.oudmon.ble.base.bluetooth.BleOperateManager`, command handlers, etc.
 
+Linked from `apps/mobile/android/app/build.gradle.kts` and hosted by `QRingSdkHost`.
+
 ## iOS
 
 | Path | Description |
@@ -22,9 +24,11 @@ Primary Java entry points (inside AAR): `com.oudmon.ble.base.bluetooth.BleOperat
 
 Primary APIs: `QCSDKManager`, `QCSDKCmdCreator` (umbrella `QCBandSDK.h`).
 
+Linked from the Runner Xcode project (`-ObjC`) and hosted by `QRingPlugin`.
+
 ## Notes
 
 - Do not invent sensor values. Capability flags from the device gate every metric.
 - Android BLE scan requires location permission.
-- iOS battery is a discrete 0–8 level; Android battery is 0–100%.
+- iOS battery may be a discrete 0–8 level; Android battery is 0–100%.
 - See also `docs/qring-sdk-notes.md` in the repo root docs folder.

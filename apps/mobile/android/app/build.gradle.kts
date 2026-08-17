@@ -20,11 +20,9 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.vytaltek.vytal_tek"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // QRing AAR requires minSdk 26.
+        minSdk = maxOf(flutter.minSdkVersion, 26)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -32,13 +30,25 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+        }
+    }
+
+    packaging {
+        jniLibs {
+            // Prefer app-packaged natives from the QRing AAR.
+            useLegacyPackaging = false
         }
     }
 }
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // Official QRing Android SDK (vendored).
+    implementation(files("../../../../third_party/qring/android/qring_sdk_1.0.0.60.aar"))
+    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
 }

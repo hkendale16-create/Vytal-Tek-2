@@ -1,32 +1,29 @@
 # QRing SDK — capability notes (from vendor docs)
 
-Source PDFs (uploaded to the agent, not committed as binaries):
-
-- `sdk_ring_external_access_en` — Android external integration guide
-- `sdk_ring_external_access_cn` — Chinese counterpart
-- `iOS_SDK_SDK_Development_Guide` — `QCBandSDK.framework`
+Source packages live under `third_party/qring/` (also PDF guides in
+`android/docs` and `ios/docs`).
 
 ## Packages in repo
-
-Located under `third_party/qring/`:
 
 | Platform | Artifact |
 |---|---|
 | Android | `third_party/qring/android/qring_sdk_1.0.0.60.aar` (minSdk 26) |
 | iOS | `third_party/qring/ios/QCBandSDK.framework` |
 
-Also included: Android/iOS PDF guides and `android/SDKSample.zip` for reference.
+## Native bridge (linked)
 
-## Former status (resolved)
+Flutter MethodChannel `com.vytaltek.qring/methods` + EventChannel
+`com.vytaltek.qring/events`:
 
-Previously required (now vendored):
-
-| Platform | Artifact |
+| Platform | Host |
 |---|---|
-| Android | `app/libs/qring_sdk_1.0.0.xx.aar` (minSdk 26) |
-| iOS | `QCBandSDK.framework` (iOS 9+, `-ObjC`, simulator arch excludes) |
+| Android | `VytalTekApplication` + `QRingSdkHost` (`BleOperateManager`) |
+| iOS | `QRingPlugin` (CoreBluetooth scan/connect + `QCSDKManager` / `QCSDKCmdCreator`) |
 
-Until these are linked, `QRingWearableAdapter` refuses scan/pair/sync with a user-facing SDK-unavailable error.
+`QRingWearableAdapter` calls the bridge for scan / connect / sync / metrics.
+Capabilities are cached from SetTime + DeviceSupport (Android) or `setTime`
+featureList (iOS) before health queries. Unsupported metrics stay
+`notSupported` / null — never fabricated.
 
 ## Connection lifecycle (Android)
 
@@ -41,7 +38,7 @@ Until these are linked, `QRingWearableAdapter` refuses scan/pair/sync with a use
 
 | Metric | Notes |
 |---|---|
-| Battery | Android `BatteryRsp` 0–100% + charging; iOS level **0–8** (convert carefully) |
+| Battery | Android `BatteryRsp` 0–100% + charging; iOS may be discrete 0–8 (convert carefully) |
 | Heart rate | Timed history + manual; realtime needs `mSupportAppMeasure` / `RealTimeHeartRate` |
 | SpO₂ | Setting + manual / interval; PPG raw available |
 | HRV | Setting + measurement (`QCMeasuringTypeHRV`) |

@@ -11,7 +11,7 @@
 
     <application
         android:label="Vytal Tek"
-        android:name="${applicationName}"
+        android:name=".VytalTekApplication"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"

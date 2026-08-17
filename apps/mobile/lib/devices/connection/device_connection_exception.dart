@@ -22,8 +22,9 @@ class DeviceConnectionException implements Exception {
   static const sdkUnavailable = DeviceConnectionException(
     code: 'sdk_unavailable',
     userMessage:
-        'Vytal can’t pair this wearable yet. The official device SDK still needs to be added.',
-    technicalDetail: 'QRingWearableAdapter not wired to vendor SDK',
+        'Vytal can’t reach the wearable SDK on this platform yet. Use an Android or iOS device, or enable Demo mode.',
+    technicalDetail:
+        'QRing native bridge unavailable (MissingPlugin / unsupported platform)',
     canRetry: false,
   );
 
