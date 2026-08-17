@@ -8,12 +8,13 @@ class VytalLegalLinks {
 
   static const privacyUrl = String.fromEnvironment(
     'VYTAL_PRIVACY_URL',
-    defaultValue: 'https://vytaltek.com/privacy',
+    defaultValue:
+        'https://hkendale16-create.github.io/VytalTek/privacy/',
   );
 
   static const termsUrl = String.fromEnvironment(
     'VYTAL_TERMS_URL',
-    defaultValue: 'https://vytaltek.com/terms',
+    defaultValue: 'https://hkendale16-create.github.io/VytalTek/terms/',
   );
 
   static Uri get privacyUri => Uri.parse(privacyUrl);
