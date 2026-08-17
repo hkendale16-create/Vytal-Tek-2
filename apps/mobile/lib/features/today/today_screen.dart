@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/theme/vytal_colors.dart';
 import '../../core/theme/vytal_theme.dart';
 import '../../devices/connection/device_connection_controller.dart';
 import '../../domain/devices/device_connection_state.dart';
@@ -43,9 +44,23 @@ class TodayScreen extends ConsumerWidget {
             slivers: [
               SliverAppBar(
                 pinned: true,
+                toolbarHeight: 72,
                 backgroundColor: Colors.transparent,
                 surfaceTintColor: Colors.transparent,
-                title: Text(greeting),
+                title: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'TODAY',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: VytalColors.teal,
+                        letterSpacing: 2.4,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(greeting),
+                  ],
+                ),
                 actions: [
                   IconButton(
                     tooltip: 'Devices',

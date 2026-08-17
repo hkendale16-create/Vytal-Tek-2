@@ -65,7 +65,7 @@ void main() {
     await tester.tap(appOnly);
     await tester.pumpAndSettle();
 
-    expect(find.text('Today'), findsWidgets);
+    expect(find.text('TODAY'), findsWidgets);
     expect(find.text(OperatingMode.appOnly.label), findsOneWidget);
   });
 }
