@@ -6,24 +6,38 @@ on:
     paths:
       - 'apps/mobile/**'
       - '.github/workflows/flutter.yml'
+      - '.github/scripts/install-flutter.sh'
   pull_request:
     paths:
       - 'apps/mobile/**'
       - '.github/workflows/flutter.yml'
+      - '.github/scripts/install-flutter.sh'
+
+concurrency:
+  group: flutter-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   analyze-and-test:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/mobile
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
+
+      # Install from Google storage. subosito/flutter-action is a third-party
+      # GitHub download and 429'd this workflow before any Flutter step ran.
+      - name: Install Flutter SDK
+        working-directory: ${{ github.workspace }}
+        env:
+          FLUTTER_CHANNEL: stable
+          FLUTTER_ROOT: ${{ runner.tool_cache }}/flutter
+        run: bash .github/scripts/install-flutter.sh
+
       - run: flutter --version
+        working-directory: apps/mobile
       - run: flutter pub get
+        working-directory: apps/mobile
       - run: flutter analyze --fatal-infos
+        working-directory: apps/mobile
       - run: flutter test
+        working-directory: apps/mobile
