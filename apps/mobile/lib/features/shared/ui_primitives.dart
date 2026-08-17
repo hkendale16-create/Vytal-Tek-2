@@ -28,11 +28,7 @@ class SectionScaffold extends StatelessWidget {
     final extras = context.vytalExtras;
     final scroll = CustomScrollView(
       slivers: [
-        SliverAppBar(
-          pinned: true,
-          title: Text(title),
-          actions: actions,
-        ),
+        SliverAppBar(pinned: true, title: Text(title), actions: actions),
         if (subtitle != null)
           SliverToBoxAdapter(
             child: Padding(
@@ -51,22 +47,23 @@ class SectionScaffold extends StatelessWidget {
         ),
       ],
     );
-    if (!glow) return scroll;
-    return Stack(
-      children: [
-        AmbientCanvasGlow(includeViolet: violetGlow),
-        scroll,
-      ],
+    if (!glow) {
+      return Scaffold(backgroundColor: extras.canvas, body: scroll);
+    }
+    return Scaffold(
+      backgroundColor: extras.canvas,
+      body: Stack(
+        children: [
+          AmbientCanvasGlow(includeViolet: violetGlow),
+          scroll,
+        ],
+      ),
     );
   }
 }
 
 class StatusPill extends StatelessWidget {
-  const StatusPill({
-    super.key,
-    required this.label,
-    this.emphasis = false,
-  });
+  const StatusPill({super.key, required this.label, this.emphasis = false});
 
   final String label;
   final bool emphasis;
@@ -86,8 +83,8 @@ class StatusPill extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: emphasis ? VytalColors.teal : null,
-            ),
+          color: emphasis ? VytalColors.teal : null,
+        ),
       ),
     );
   }
@@ -135,36 +132,37 @@ class BrandMark extends StatelessWidget {
       children: [
         CustomPaint(
           size: Size(compact ? 36 : 56, compact ? 36 : 56),
-          painter: _VytalVPainter(
-            glow: isDark,
-            color: VytalColors.cyan,
-          ),
+          painter: _VytalVPainter(glow: isDark, color: VytalColors.cyan),
         ),
         SizedBox(height: compact ? 8 : 12),
         Text(
           'VYTAL',
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-                letterSpacing: 6,
-                color: isDark ? Colors.white : VytalColors.lightTextPrimary,
-              ),
+            fontWeight: FontWeight.w800,
+            letterSpacing: 6,
+            color: isDark ? Colors.white : VytalColors.lightTextPrimary,
+          ),
         ),
         if (!compact) ...[
           const SizedBox(height: 4),
           Row(
             children: [
-              Expanded(child: Divider(color: VytalColors.teal.withValues(alpha: 0.5))),
+              Expanded(
+                child: Divider(color: VytalColors.teal.withValues(alpha: 0.5)),
+              ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: Text(
                   'TEK',
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: VytalColors.teal,
-                        letterSpacing: 4,
-                      ),
+                    color: VytalColors.teal,
+                    letterSpacing: 4,
+                  ),
                 ),
               ),
-              Expanded(child: Divider(color: VytalColors.teal.withValues(alpha: 0.5))),
+              Expanded(
+                child: Divider(color: VytalColors.teal.withValues(alpha: 0.5)),
+              ),
             ],
           ),
         ],

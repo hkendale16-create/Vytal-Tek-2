@@ -26,7 +26,9 @@ class TodayScreen extends ConsumerWidget {
     final monitoring = ref.watch(monitoringControllerProvider);
     final healthAsync = ref.watch(todayHealthProvider);
     final name = session.profile.displayName?.trim();
-    final greeting = (name == null || name.isEmpty) ? 'Welcome' : 'Hello, $name';
+    final greeting = (name == null || name.isEmpty)
+        ? 'Welcome'
+        : 'Hello, $name';
     final device = connection.activeDevice ?? session.pairedDevice;
     final theme = Theme.of(context);
     final extras = context.vytalExtras;
@@ -62,6 +64,12 @@ class TodayScreen extends ConsumerWidget {
                   ],
                 ),
                 actions: [
+                  TextButton.icon(
+                    key: const Key('today-analytics-appbar'),
+                    onPressed: () => context.push('/analytics'),
+                    icon: const Icon(Icons.insights_outlined, size: 18),
+                    label: const Text('Analytics'),
+                  ),
                   IconButton(
                     tooltip: 'Devices',
                     onPressed: () => context.push('/devices'),
@@ -86,8 +94,8 @@ class TodayScreen extends ConsumerWidget {
                     data: (health) {
                       final monitoringCaption =
                           session.automaticMonitoringEnabled
-                              ? 'Automatic — ${monitoring.mode.label}'
-                              : monitoring.mode.label;
+                          ? 'Automatic — ${monitoring.mode.label}'
+                          : monitoring.mode.label;
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -121,11 +129,19 @@ class TodayScreen extends ConsumerWidget {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 12),
+                          HudStrip(
+                            key: const Key('today-analytics'),
+                            icon: Icons.insights_outlined,
+                            title: 'Analytics',
+                            subtitle: '7 day / 30 day / 90 day / 1 year trends',
+                            onTap: () => context.push('/analytics'),
+                          ),
+                          const SizedBox(height: 16),
                           SizedBox(
                             height: 420,
                             child: Stack(
-                              clipBehavior: Clip.none,
+                              clipBehavior: Clip.hardEdge,
                               children: [
                                 Align(
                                   alignment: Alignment.center,
@@ -138,9 +154,9 @@ class TodayScreen extends ConsumerWidget {
                                       subtitle: health.readinessScore == null
                                           ? null
                                           : health.provenance ==
-                                                  DataProvenance.demo
-                                              ? 'Demo presentation'
-                                              : 'Baseline learning',
+                                                DataProvenance.demo
+                                          ? 'Demo presentation'
+                                          : 'Baseline learning',
                                       provenance: health.readinessScore == null
                                           ? null
                                           : health.provenance,
@@ -240,6 +256,12 @@ class TodayScreen extends ConsumerWidget {
                                 onTap: () => context.go('/vitals'),
                               ),
                               HudAction(
+                                key: const Key('today-orb-analytics'),
+                                icon: Icons.insights_outlined,
+                                label: 'Analytics',
+                                onTap: () => context.push('/analytics'),
+                              ),
+                              HudAction(
                                 icon: Icons.timer_outlined,
                                 label: 'Timer',
                                 onTap: () => context.push('/timers/countdown'),
@@ -248,11 +270,6 @@ class TodayScreen extends ConsumerWidget {
                                 icon: Icons.timer_outlined,
                                 label: 'Stopwatch',
                                 onTap: () => context.push('/timers/stopwatch'),
-                              ),
-                              HudAction(
-                                icon: Icons.note_alt_outlined,
-                                label: 'Note',
-                                onTap: () => context.push('/notes'),
                               ),
                               HudAction(
                                 icon: Icons.auto_awesome_outlined,
@@ -270,8 +287,8 @@ class TodayScreen extends ConsumerWidget {
                             subtitle: device == null
                                 ? 'Connect a ring to light live metrics'
                                 : '${connection.state.label}'
-                                    '${device.isDemo ? ' · Demo' : ''}'
-                                    '${health.battery.value != null ? ' · ${health.battery.value}%' : ''}',
+                                      '${device.isDemo ? ' · Demo' : ''}'
+                                      '${health.battery.value != null ? ' · ${health.battery.value}%' : ''}',
                             trailing: health.battery.hasValue
                                 ? IconButton(
                                     tooltip: 'Battery',

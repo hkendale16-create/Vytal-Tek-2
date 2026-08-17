@@ -24,60 +24,70 @@ void main() {
   Future<void> tapNav(WidgetTester tester, String label) async {
     await tester.tap(
       find.descendant(
-        of: find.byKey(const Key('vytal-hud-dock')),
-        matching: find.text(label.toUpperCase()),
+        of: find.byType(NavigationBar),
+        matching: find.text(label),
       ),
     );
     await tester.pumpAndSettle();
   }
 
-  testWidgets('bottom nav is Today, Vitals, Workouts, Coach, More', (tester) async {
+  testWidgets('bottom nav is Today, Vitals, Workouts, Coach, More', (
+    tester,
+  ) async {
     await enterAppOnly(tester);
 
-    expect(find.byKey(const Key('vytal-hud-dock')), findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.byKey(const Key('vytal-hud-dock')),
-        matching: find.text('TODAY'),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: find.byKey(const Key('vytal-hud-dock')),
-        matching: find.text('VITALS'),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: find.byKey(const Key('vytal-hud-dock')),
-        matching: find.text('WORKOUTS'),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: find.byKey(const Key('vytal-hud-dock')),
-        matching: find.text('COACH'),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: find.byKey(const Key('vytal-hud-dock')),
-        matching: find.text('MORE'),
-      ),
-      findsOneWidget,
-    );
-    expect(find.byType(NavigationBar), findsNothing);
+    expect(find.byType(NavigationBar), findsOneWidget);
+    final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
+    final labels = bar.destinations
+        .map((d) => (d as NavigationDestination).label)
+        .toList();
+    expect(labels, ['Today', 'Vitals', 'Workouts', 'Coach', 'More']);
     expect(find.text('Home'), findsNothing);
-    expect(find.text('Insights'), findsNothing);
     expect(find.text(OperatingMode.appOnly.label), findsOneWidget);
+
+    // Lazy tabs: only Today is built. IndexedStack used to keep all five alive.
+    expect(find.text('Missing values stay missing.'), findsNothing);
+    expect(find.text('My Routines'), findsNothing);
+    expect(find.textContaining('grounded in your data'), findsNothing);
+    expect(find.text('Recovery / Readiness'), findsNothing);
   });
 
-  testWidgets('More opens existing recovery, sleep, analytics, and settings',
-      (tester) async {
+  testWidgets('Home Analytics control opens the Analytics screen', (
+    tester,
+  ) async {
+    await enterAppOnly(tester);
+
+    await tester.tap(find.byKey(const Key('today-analytics')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Daily totals'), findsOneWidget);
+  });
+
+  testWidgets('each bottom tab actually switches screens', (tester) async {
+    await enterAppOnly(tester);
+
+    await tapNav(tester, 'Vitals');
+    expect(find.text('Missing values stay missing.'), findsOneWidget);
+
+    await tapNav(tester, 'Workouts');
+    expect(find.text('My Routines'), findsOneWidget);
+
+    await tapNav(tester, 'Coach');
+    expect(find.text('Ask Vytal'), findsOneWidget);
+
+    await tapNav(tester, 'More');
+    expect(find.text('Recovery / Readiness'), findsOneWidget);
+
+    await tapNav(tester, 'Today');
+    expect(find.text('Missing values stay missing.'), findsNothing);
+    expect(find.text('My Routines'), findsNothing);
+    expect(find.textContaining('grounded in your data'), findsNothing);
+    expect(find.text('Recovery / Readiness'), findsNothing);
+  });
+
+  testWidgets('More opens existing recovery, sleep, analytics, and settings', (
+    tester,
+  ) async {
     await enterAppOnly(tester);
 
     await tapNav(tester, 'More');
@@ -93,18 +103,19 @@ void main() {
 
     await tester.tap(find.text('Recovery / Readiness'));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('vytal-hud-dock')), findsNothing);
+    expect(find.byType(NavigationBar), findsNothing);
 
     await tester.pageBack();
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Sleep').first);
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('vytal-hud-dock')), findsNothing);
+    expect(find.byType(NavigationBar), findsNothing);
   });
 
-  testWidgets('App-Only Vitals asks to connect instead of blocking the app',
-      (tester) async {
+  testWidgets('App-Only Vitals asks to connect instead of blocking the app', (
+    tester,
+  ) async {
     await enterAppOnly(tester);
 
     await tapNav(tester, 'Vitals');
@@ -114,23 +125,27 @@ void main() {
       findsWidgets,
     );
     expect(find.text('HEART RATE'), findsWidgets);
-    expect(find.text('WORKOUTS'), findsOneWidget);
+    expect(find.text('Workouts'), findsOneWidget);
   });
 
-  testWidgets('Workouts hub exposes routines, AI, and tools without extra tabs',
-      (tester) async {
-    await enterAppOnly(tester);
+  testWidgets(
+    'Workouts hub exposes routines, AI, and tools without extra tabs',
+    (tester) async {
+      await enterAppOnly(tester);
 
-    await tapNav(tester, 'Workouts');
+      await tapNav(tester, 'Workouts');
 
-    expect(find.text('My Routines'), findsOneWidget);
-    expect(find.text('AI Workouts'), findsOneWidget);
-    expect(find.text('Workout Tools'), findsOneWidget);
-    expect(find.text('Interval timer'), findsOneWidget);
-    expect(find.text('Rest timer'), findsOneWidget);
-  });
+      expect(find.text('My Routines'), findsOneWidget);
+      expect(find.text('AI Workouts'), findsOneWidget);
+      expect(find.text('Workout Tools'), findsOneWidget);
+      expect(find.text('Interval timer'), findsOneWidget);
+      expect(find.text('Rest timer'), findsOneWidget);
+    },
+  );
 
-  testWidgets('Coach tab is Ask Vytal with suggested questions', (tester) async {
+  testWidgets('Coach tab is Ask Vytal with suggested questions', (
+    tester,
+  ) async {
     await enterAppOnly(tester);
 
     await tapNav(tester, 'Coach');

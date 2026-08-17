@@ -7,28 +7,28 @@ import 'vytal_colors.dart';
 /// Builds Light and Dark Material themes from one brand system.
 abstract final class VytalTheme {
   static ThemeData light() => _build(
-        brightness: Brightness.light,
-        canvas: VytalColors.lightCanvas,
-        surface: VytalColors.lightSurface,
-        elevated: VytalColors.lightElevated,
-        border: VytalColors.lightBorder,
-        textPrimary: VytalColors.lightTextPrimary,
-        textSecondary: VytalColors.lightTextSecondary,
-        textMuted: VytalColors.lightTextMuted,
-        glowOpacity: 0.12,
-      );
+    brightness: Brightness.light,
+    canvas: VytalColors.lightCanvas,
+    surface: VytalColors.lightSurface,
+    elevated: VytalColors.lightElevated,
+    border: VytalColors.lightBorder,
+    textPrimary: VytalColors.lightTextPrimary,
+    textSecondary: VytalColors.lightTextSecondary,
+    textMuted: VytalColors.lightTextMuted,
+    glowOpacity: 0.12,
+  );
 
   static ThemeData dark() => _build(
-        brightness: Brightness.dark,
-        canvas: VytalColors.darkCanvas,
-        surface: VytalColors.darkSurface,
-        elevated: VytalColors.darkElevated,
-        border: VytalColors.darkBorder,
-        textPrimary: VytalColors.darkTextPrimary,
-        textSecondary: VytalColors.darkTextSecondary,
-        textMuted: VytalColors.darkTextMuted,
-        glowOpacity: 0.28,
-      );
+    brightness: Brightness.dark,
+    canvas: VytalColors.darkCanvas,
+    surface: VytalColors.darkSurface,
+    elevated: VytalColors.darkElevated,
+    border: VytalColors.darkBorder,
+    textPrimary: VytalColors.darkTextPrimary,
+    textSecondary: VytalColors.darkTextSecondary,
+    textMuted: VytalColors.darkTextMuted,
+    glowOpacity: 0.28,
+  );
 
   static ThemeData _build({
     required Brightness brightness,
@@ -61,10 +61,7 @@ abstract final class VytalTheme {
 
     final baseText = GoogleFonts.manropeTextTheme(
       ThemeData(brightness: brightness).textTheme,
-    ).apply(
-      bodyColor: textPrimary,
-      displayColor: textPrimary,
-    );
+    ).apply(bodyColor: textPrimary, displayColor: textPrimary);
 
     final display = GoogleFonts.soraTextTheme(baseText);
 
@@ -108,7 +105,7 @@ abstract final class VytalTheme {
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: surface.withValues(alpha: 0.94),
+        backgroundColor: surface,
         indicatorColor: VytalColors.teal.withValues(alpha: glowOpacity),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);

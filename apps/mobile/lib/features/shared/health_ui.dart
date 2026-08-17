@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
@@ -31,6 +30,8 @@ class GlassPanel extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
+        color: extras.glassFill,
+        border: Border.all(color: edge.withValues(alpha: isDark ? 0.45 : 0.28)),
         boxShadow: [
           if (glow || isDark)
             BoxShadow(
@@ -46,23 +47,8 @@ class GlassPanel extends StatelessWidget {
             ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: isDark ? 18 : 10, sigmaY: isDark ? 18 : 10),
-          child: Container(
-            padding: padding,
-            decoration: BoxDecoration(
-              color: extras.glassFill,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: edge.withValues(alpha: isDark ? 0.45 : 0.28),
-              ),
-            ),
-            child: child,
-          ),
-        ),
-      ),
+      padding: padding,
+      child: child,
     );
   }
 }
@@ -206,11 +192,13 @@ class _FloatingHudState extends State<FloatingHud>
 
 class HudAction {
   const HudAction({
+    this.key,
     required this.icon,
     required this.label,
     required this.onTap,
   });
 
+  final Key? key;
   final IconData icon;
   final String label;
   final VoidCallback onTap;
@@ -241,7 +229,7 @@ class HudActionRail extends StatelessWidget {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 2),
-                    child: _HudOrb(action: action),
+                    child: _HudOrb(key: action.key, action: action),
                   ),
                 ),
               if (rows[r].length < 3)
@@ -256,53 +244,56 @@ class HudActionRail extends StatelessWidget {
 }
 
 class _HudOrb extends StatelessWidget {
-  const _HudOrb({required this.action});
+  const _HudOrb({super.key, required this.action});
 
   final HudAction action;
 
   @override
   Widget build(BuildContext context) {
     final extras = context.vytalExtras;
-    return InkWell(
-      onTap: action.onTap,
-      borderRadius: BorderRadius.circular(28),
-      child: Column(
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  VytalColors.teal.withValues(alpha: 0.22),
-                  extras.glassFill,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: action.onTap,
+        customBorder: const CircleBorder(),
+        child: Column(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    VytalColors.teal.withValues(alpha: 0.22),
+                    extras.glassFill,
+                  ],
+                ),
+                border: Border.all(
+                  color: VytalColors.teal.withValues(alpha: 0.55),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: VytalColors.teal.withValues(alpha: 0.38),
+                    blurRadius: 22,
+                  ),
                 ],
               ),
-              border: Border.all(
-                color: VytalColors.teal.withValues(alpha: 0.55),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: VytalColors.teal.withValues(alpha: 0.38),
-                  blurRadius: 22,
-                ),
-              ],
+              child: Icon(action.icon, color: VytalColors.teal, size: 22),
             ),
-            child: Icon(action.icon, color: VytalColors.teal, size: 22),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            action.label,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: extras.textMuted,
-                  letterSpacing: 0.2,
-                ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              action.label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: extras.textMuted,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -343,17 +334,17 @@ class HudStrip extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
                 ),
                 Text(
                   subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: extras.textMuted,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: extras.textMuted),
                 ),
               ],
             ),
@@ -429,7 +420,9 @@ class ReadinessGauge extends StatelessWidget {
                   letterSpacing: hasScore ? -2.4 : 0,
                   height: 0.92,
                   fontSize: size * (hasScore ? 0.28 : 0.14),
-                  color: hasScore ? color : theme.colorScheme.onSurface.withValues(alpha: 0.45),
+                  color: hasScore
+                      ? color
+                      : theme.colorScheme.onSurface.withValues(alpha: 0.45),
                   shadows: isDark && hasScore
                       ? [
                           Shadow(
@@ -473,8 +466,8 @@ class ReadinessGauge extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        customBorder: const CircleBorder(),
         onTap: onTap,
+        customBorder: const CircleBorder(),
         child: gauge,
       ),
     );
@@ -545,11 +538,7 @@ class _HudGaugePainter extends CustomPainter {
       ..shader = SweepGradient(
         startAngle: start,
         endAngle: start + sweep,
-        colors: [
-          accent.withValues(alpha: 0.15),
-          accent,
-          VytalColors.cyan,
-        ],
+        colors: [accent.withValues(alpha: 0.15), accent, VytalColors.cyan],
       ).createShader(rect)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 14
@@ -635,6 +624,7 @@ class MetricHudTile extends StatelessWidget {
   final IconData? icon;
   final DataProvenance? provenance;
   final String? emptyMessage;
+
   /// Live / Last synced (or similar). Omit when the empty message already covers it.
   final String? status;
   final String? timestampLabel;
@@ -733,8 +723,8 @@ class MetricHudTile extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
         onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
         child: panel,
       ),
     );
@@ -778,8 +768,8 @@ class _SparklinePainter extends CustomPainter {
     final path = Path();
     for (var i = 0; i < values.length; i++) {
       final x = size.width * (i / (values.length - 1));
-      final y = size.height *
-          (1 - ((values[i] - minV) / (maxV - minV)).clamp(0, 1));
+      final y =
+          size.height * (1 - ((values[i] - minV) / (maxV - minV)).clamp(0, 1));
       if (i == 0) {
         path.moveTo(x, y);
       } else {
@@ -1039,10 +1029,22 @@ class SleepStageLegend extends StatelessWidget {
             height: 12,
             child: Row(
               children: [
-                Expanded(flex: (rem * 100).round().clamp(1, 100), child: Container(color: VytalColors.violet)),
-                Expanded(flex: (deep * 100).round().clamp(1, 100), child: Container(color: const Color(0xFF3D6BFF))),
-                Expanded(flex: (light * 100).round().clamp(1, 100), child: Container(color: VytalColors.cyan)),
-                Expanded(flex: (awake * 100).round().clamp(1, 100), child: Container(color: VytalColors.caution)),
+                Expanded(
+                  flex: (rem * 100).round().clamp(1, 100),
+                  child: Container(color: VytalColors.violet),
+                ),
+                Expanded(
+                  flex: (deep * 100).round().clamp(1, 100),
+                  child: Container(color: const Color(0xFF3D6BFF)),
+                ),
+                Expanded(
+                  flex: (light * 100).round().clamp(1, 100),
+                  child: Container(color: VytalColors.cyan),
+                ),
+                Expanded(
+                  flex: (awake * 100).round().clamp(1, 100),
+                  child: Container(color: VytalColors.caution),
+                ),
               ],
             ),
           ),
