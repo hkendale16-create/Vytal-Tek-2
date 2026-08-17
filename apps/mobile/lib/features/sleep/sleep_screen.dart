@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/vytal_colors.dart';
 import '../../domain/models/data_provenance.dart';
+import '../../domain/models/entitlements.dart';
 import '../../domain/models/health_metric.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
+import '../subscription/soft_paywall.dart';
 import '../today/today_health_provider.dart';
 
 class SleepScreen extends ConsumerWidget {
@@ -51,26 +53,30 @@ class SleepScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 16),
-          GlassPanel(
-            accent: const Color(0xFF3D6BFF),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Stages', style: theme.textTheme.titleMedium),
-                const SizedBox(height: 12),
-                if (isDemo)
-                  const SleepStageLegend(
-                    rem: 1.4,
-                    deep: 1.8,
-                    light: 3.5,
-                    awake: 0.4,
-                  )
-                else
-                  Text(
-                    'Stage breakdown stays empty until the wearable reports sleep.',
-                    style: theme.textTheme.bodyMedium,
-                  ),
-              ],
+          EntitlementGate(
+            entitlementKey: EntitlementKeys.sleepAdvanced,
+            compactPaywall: true,
+            child: GlassPanel(
+              accent: const Color(0xFF3D6BFF),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Stages', style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 12),
+                  if (isDemo)
+                    const SleepStageLegend(
+                      rem: 1.4,
+                      deep: 1.8,
+                      light: 3.5,
+                      awake: 0.4,
+                    )
+                  else
+                    Text(
+                      'Stage breakdown stays empty until the wearable reports sleep.',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                ],
+              ),
             ),
           ),
         ],

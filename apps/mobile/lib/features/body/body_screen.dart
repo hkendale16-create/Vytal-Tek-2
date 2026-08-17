@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../domain/models/data_provenance.dart';
+import '../../domain/models/entitlements.dart';
 import '../../domain/models/operating_mode.dart';
 import '../../state/app_session_controller.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
+import '../subscription/soft_paywall.dart';
 import '../today/today_health_provider.dart';
 
 class BodyScreen extends ConsumerWidget {
@@ -120,10 +122,15 @@ class BodyScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          const EmptyMetricCard(
-            title: '3D upgrade',
-            message:
-                'Full holographic body, breathing motion, and rotation land in Phase 5. This silhouette matches the mockup HUD layout.',
+          const EntitlementGate(
+            entitlementKey: EntitlementKeys.digitalBodyAdvanced,
+            compactPaywall: true,
+            child: EmptyMetricCard(
+              title: 'Digital-body insights',
+              message:
+                  'Region-level coaching and holographic depth unlock with Pro. '
+                  'Full 3D experience is a separate Phase 5 workstream.',
+            ),
           ),
         ],
       ),

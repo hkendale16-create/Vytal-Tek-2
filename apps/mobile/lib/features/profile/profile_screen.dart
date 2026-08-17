@@ -115,6 +115,12 @@ class ProfileScreen extends ConsumerWidget {
                   onTap: () => context.push('/settings'),
                 ),
                 ListTile(
+                  leading: const Icon(Icons.workspace_premium_outlined),
+                  title: const Text('Subscription'),
+                  subtitle: Text(session.entitlements.statusLabel),
+                  onTap: () => context.push('/settings/subscription'),
+                ),
+                ListTile(
                   leading: const Icon(Icons.watch_outlined),
                   title: const Text('Devices'),
                   onTap: () => context.push('/devices'),

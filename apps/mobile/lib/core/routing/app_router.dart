@@ -15,6 +15,8 @@ import '../../features/settings/permissions_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/shell/app_shell.dart';
 import '../../features/sleep/sleep_screen.dart';
+import '../../features/subscription/plans_screen.dart';
+import '../../features/subscription/subscription_screen.dart';
 import '../../features/today/today_screen.dart';
 
 final _rootKey = GlobalKey<NavigatorState>();
@@ -103,6 +105,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/settings',
         builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/settings/subscription',
+        builder: (context, state) => const SubscriptionScreen(),
+      ),
+      GoRoute(
+        path: '/settings/subscription/plans',
+        builder: (context, state) => const PlansScreen(),
       ),
       GoRoute(
         path: '/settings/permissions',

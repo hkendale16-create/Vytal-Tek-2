@@ -111,6 +111,7 @@ class AppSession {
         'backgroundMonitoringEnabled': backgroundMonitoringEnabled,
         'demoModeEnabled': demoModeEnabled,
         'profile': profile.toJson(),
+        'entitlements': entitlements.toJson(),
         'baselineState': baselineState.name,
         'connectionState': connectionState.name,
         'pairedDevice': pairedDevice?.toJson(),
@@ -118,6 +119,12 @@ class AppSession {
 
   factory AppSession.fromJson(Map<String, dynamic> json) {
     final paired = json['pairedDevice'] as Map<String, dynamic>?;
+    final entitlementsRaw = json['entitlements'];
+    // Never accept a client-only "isPremium" flag. Only restore structured
+    // entitlement snapshots; server verification replaces this in Phase D.
+    final entitlements = entitlementsRaw is Map<String, dynamic>
+        ? EntitlementSnapshot.fromJson(entitlementsRaw)
+        : EntitlementSnapshot.freeDefaults;
     return AppSession(
       hasCompletedFirstLaunch: json['hasCompletedFirstLaunch'] as bool? ?? false,
       deviceArrivalChoice: DeviceArrivalChoice.values.firstWhere(
@@ -140,7 +147,7 @@ class AppSession {
       profile: json['profile'] is Map<String, dynamic>
           ? PersonalProfile.fromJson(json['profile'] as Map<String, dynamic>)
           : const PersonalProfile(),
-      entitlements: EntitlementSnapshot.freeDefaults,
+      entitlements: entitlements,
       baselineState: BaselineCalibrationState.values.firstWhere(
         (e) => e.name == json['baselineState'],
         orElse: () => BaselineCalibrationState.notStarted,
@@ -239,6 +246,15 @@ class AppSessionController extends StateNotifier<AppSession> {
 
   Future<void> setDemoMode(bool enabled) async {
     state = state.copyWith(demoModeEnabled: enabled);
+    await _persist();
+  }
+
+  /// Updates entitlements through the session layer.
+  ///
+  /// Callers must not invent paid access. Production grants require
+  /// server-verified snapshots (Subscription Phase D).
+  Future<void> setEntitlements(EntitlementSnapshot entitlements) async {
+    state = state.copyWith(entitlements: entitlements);
     await _persist();
   }
 

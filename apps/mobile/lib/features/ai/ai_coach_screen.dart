@@ -7,6 +7,7 @@ import '../../domain/models/operating_mode.dart';
 import '../../state/app_session_controller.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
+import '../subscription/soft_paywall.dart';
 
 class AiCoachScreen extends ConsumerWidget {
   const AiCoachScreen({super.key});
@@ -79,6 +80,16 @@ class AiCoachScreen extends ConsumerWidget {
           Text(
             'Full conversational coaching lands in Phase 6. This UI matches the approved Coach Vital surface.',
             style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: 16),
+          const EntitlementGate(
+            entitlementKey: EntitlementKeys.aiAdvanced,
+            compactPaywall: true,
+            child: GlassPanel(
+              child: Text(
+                'Adaptive coaching (Pro) will use verified wearable context and your profile. Phase 6 wires the model.',
+              ),
+            ),
           ),
         ],
       ),

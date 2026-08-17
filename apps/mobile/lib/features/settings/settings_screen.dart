@@ -100,10 +100,14 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          const EmptyMetricCard(
-            title: 'Subscription',
-            message:
-                'Entitlement keys are defined. StoreKit / Play Billing and server verification arrive in Subscription phases.',
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.workspace_premium_outlined),
+              title: const Text('Subscription'),
+              subtitle: Text(session.entitlements.statusLabel),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/settings/subscription'),
+            ),
           ),
           const SizedBox(height: 12),
           const EmptyMetricCard(
