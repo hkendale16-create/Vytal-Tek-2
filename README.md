@@ -15,7 +15,8 @@ apps/mobile/     Flutter app (iOS, Android, web shell)
 | 0 Audit | Complete — repo was greenfield |
 | 1 Foundation | Complete on branch history |
 | 2 Wearable connection | Complete — lifecycle + demo adapter; QRing SDK pending |
-| 3 Monitoring engine | In progress — Active/Normal/Standby + auto-switch + background gate |
+| 3 Monitoring engine | Complete — Active/Normal/Standby + auto-switch + background gate |
+| QRing SDK matrix | Documented from vendor PDFs; AAR/framework binaries still required |
 | 4+ Health UI / 3D / AI / billing | Not started |
 
 ## Run (mobile)

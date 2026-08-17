@@ -75,13 +75,23 @@ abstract final class PermissionCatalog {
     platformPermission: ph.Permission.sensors,
   );
 
-  /// Location is listed only if a future SDK genuinely requires it for BLE.
-  /// Not requested by default in Phase 1.
+  /// Required by the official QRing Android SDK for BLE scanning.
+  static const location = PermissionDescriptor(
+    id: 'location',
+    title: 'Location',
+    whyNeeded:
+        'Android requires location permission for Bluetooth scanning when pairing a Vytal wearable. Vytal does not use your location for tracking.',
+    affectedWhenDenied:
+        'Vytal cannot discover nearby wearables to pair on Android.',
+    platformPermission: ph.Permission.locationWhenInUse,
+  );
+
   static List<PermissionDescriptor> get core => [
         bluetooth,
         if (defaultTargetPlatform == TargetPlatform.android) ...[
           bluetoothScan,
           bluetoothConnect,
+          location,
           activity,
         ],
         notifications,

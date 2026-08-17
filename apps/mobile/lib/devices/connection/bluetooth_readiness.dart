@@ -55,6 +55,8 @@ class BluetoothReadinessChecker {
       if (defaultTargetPlatform == TargetPlatform.android) ...[
         ph.Permission.bluetoothScan,
         ph.Permission.bluetoothConnect,
+        // Official QRing Android SDK requires location for BLE scan.
+        ph.Permission.locationWhenInUse,
       ],
     ];
 

@@ -73,7 +73,7 @@ void main() {
     );
     final heart = await adapter.getHeartRate();
     expect(heart.hasValue, isFalse);
-    expect(heart.freshness, ReadingFreshness.unavailable);
+    expect(heart.freshness, ReadingFreshness.notSupported);
     adapter.dispose();
   });
 
