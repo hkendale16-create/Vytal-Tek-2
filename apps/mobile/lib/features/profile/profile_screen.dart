@@ -22,7 +22,6 @@ class ProfileScreen extends ConsumerWidget {
 
     return SectionScaffold(
       title: 'Profile',
-      subtitle: 'Account, appearance, and demo controls.',
       child: Column(
         children: [
           GlassPanel(

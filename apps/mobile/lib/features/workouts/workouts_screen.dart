@@ -29,7 +29,6 @@ class WorkoutsScreen extends ConsumerWidget {
 
     return SectionScaffold(
       title: 'Workouts',
-      subtitle: 'Start, build, and replay sessions — works App-Only.',
       actions: [
         IconButton(
           tooltip: 'Timers',
@@ -43,39 +42,40 @@ class WorkoutsScreen extends ConsumerWidget {
           if (session.running || session.summaryPending || session.completed)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: FilledButton.tonal(
-                onPressed: () => context.push(
+              child: HudStrip(
+                icon: Icons.play_circle_outline,
+                title: session.summaryPending
+                    ? 'View workout summary'
+                    : 'Resume active workout',
+                subtitle: 'Session continues if you leave this screen',
+                onTap: () => context.push(
                   session.summaryPending ? '/workouts/summary' : '/workouts/active',
-                ),
-                child: Text(
-                  session.summaryPending
-                      ? 'View workout summary'
-                      : 'Resume active workout',
                 ),
               ),
             ),
-          FilledButton.icon(
-            onPressed: () => context.push('/workouts/start'),
-            icon: const Icon(Icons.play_arrow_rounded),
-            label: const Text('Start Workout'),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => context.push('/workouts/history'),
-                  child: const Text('History'),
-                ),
+          HudActionRail(
+            actions: [
+              HudAction(
+                icon: Icons.play_arrow_rounded,
+                label: 'Start',
+                onTap: () => context.push('/workouts/start'),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: canCustom
-                      ? () => context.push('/workouts/builder')
-                      : null,
-                  child: const Text('Create Routine'),
-                ),
+              HudAction(
+                icon: Icons.history,
+                label: 'History',
+                onTap: () => context.push('/workouts/history'),
+              ),
+              HudAction(
+                icon: Icons.timer_outlined,
+                label: 'Timers',
+                onTap: () => context.push('/timers'),
+              ),
+              HudAction(
+                icon: Icons.playlist_add,
+                label: 'Create',
+                onTap: canCustom
+                    ? () => context.push('/workouts/builder')
+                    : () => context.push('/settings/subscription'),
               ),
             ],
           ),
@@ -245,7 +245,7 @@ class ActivityPickerScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return SectionScaffold(
       title: 'Start Workout',
-      subtitle: 'Choose an activity. The session keeps running if you leave.',
+      subtitle: 'Choose an activity.',
       child: Column(
         children: [
           for (final kind in WorkoutActivityKind.values) ...[

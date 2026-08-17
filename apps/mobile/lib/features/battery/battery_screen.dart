@@ -21,7 +21,7 @@ class BatteryScreen extends ConsumerWidget {
 
     return SectionScaffold(
       title: 'Battery',
-      subtitle: 'Alerts, coarse estimates, and charging tips — no invented %.',
+      subtitle: 'Alerts and charging tips — no invented %.',
       actions: [
         IconButton(
           tooltip: 'Devices',

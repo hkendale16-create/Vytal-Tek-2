@@ -12,6 +12,7 @@ import '../../domain/models/health_metric.dart';
 import '../../domain/models/monitoring_mode.dart';
 import '../../domain/models/operating_mode.dart';
 import '../../state/app_session_controller.dart';
+import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
 
 class DevicesScreen extends ConsumerStatefulWidget {
@@ -73,43 +74,44 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
 
     return SectionScaffold(
       title: 'Devices',
-      subtitle:
-          'Pair, reconnect, sync, and manage wearables. QRing pairing uses the native SDK on Android and iOS.',
+      subtitle: 'Pair, reconnect, and sync. Pairing never resets your account.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Wrap(
             spacing: 8,
             runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               StatusPill(
                 label: session.operatingMode.label,
                 emphasis: true,
               ),
-              StatusPill(label: connection.state.label),
-              StatusPill(label: 'Monitoring · ${session.monitoringMode.label}'),
               if (session.demoModeEnabled)
                 const StatusPill(label: 'Demo mode', emphasis: true),
+              Text(
+                '${connection.state.label} · Monitoring · ${session.monitoringMode.label}',
+                style: theme.textTheme.bodySmall,
+              ),
             ],
           ),
           const SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+          GlassPanel(
+            glow: device != null,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  device?.displayName ?? 'No device connected',
+                  style: theme.textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                if (device == null)
                   Text(
-                    device?.displayName ?? 'No device connected',
-                    style: theme.textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  if (device == null)
-                    Text(
-                      'Operating in ${session.operatingMode.label}. '
-                      'Pairing will not reset your account, goals, or history.',
-                      style: theme.textTheme.bodyMedium,
-                    )
+                    'Operating in ${session.operatingMode.label}. '
+                    'Pairing will not reset your account, goals, or history.',
+                    style: theme.textTheme.bodyMedium,
+                  )
                   else ...[
                     Text(
                       [
@@ -135,7 +137,6 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
                   ],
                 ],
               ),
-            ),
           ),
           const SizedBox(height: 8),
           OutlinedButton.icon(
@@ -266,7 +267,8 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
             Text('Nearby devices', style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             for (final item in connection.discovered)
-              Card(
+              GlassPanel(
+                padding: EdgeInsets.zero,
                 child: ListTile(
                   leading: Icon(
                     item.kind == VytalDeviceKind.fitnessBand

@@ -1,5 +1,8 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
+import '../../core/motion/vytal_motion.dart';
 import '../../core/theme/vytal_colors.dart';
 import '../../core/theme/vytal_theme.dart';
 import '../../domain/models/data_provenance.dart';
@@ -25,13 +28,8 @@ class GlassPanel extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final edge = accent ?? VytalColors.teal;
     return Container(
-      padding: padding,
       decoration: BoxDecoration(
-        color: extras.glassFill,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: edge.withValues(alpha: isDark ? 0.45 : 0.28),
-        ),
         boxShadow: [
           if (glow || isDark)
             BoxShadow(
@@ -47,7 +45,312 @@ class GlassPanel extends StatelessWidget {
             ),
         ],
       ),
-      child: child,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: isDark ? 18 : 10, sigmaY: isDark ? 18 : 10),
+          child: Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              color: extras.glassFill,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: edge.withValues(alpha: isDark ? 0.45 : 0.28),
+              ),
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Soft radial blobs behind HUD canvases — matches the landing ambient field.
+class AmbientCanvasGlow extends StatelessWidget {
+  const AmbientCanvasGlow({
+    super.key,
+    this.intensity = 0.42,
+    this.includeViolet = false,
+  });
+
+  final double intensity;
+  final bool includeViolet;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scale = intensity * (isDark ? 1.0 : 0.55);
+    return IgnorePointer(
+      child: Stack(
+        children: [
+          Positioned(
+            top: -90,
+            left: -50,
+            child: _blob(VytalColors.teal, 320, 0.22 * scale),
+          ),
+          Positioned(
+            top: 180,
+            right: -70,
+            child: _blob(
+              includeViolet ? VytalColors.violet : VytalColors.cyan,
+              280,
+              0.18 * scale,
+            ),
+          ),
+          Positioned(
+            bottom: 40,
+            left: 40,
+            child: _blob(VytalColors.cyan, 220, 0.12 * scale),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _blob(Color color, double size, double opacity) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [
+            color.withValues(alpha: opacity),
+            color.withValues(alpha: 0),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Subtle vertical float for orbiting HUD tiles. Honors Reduce Motion.
+class FloatingHud extends StatefulWidget {
+  const FloatingHud({
+    super.key,
+    required this.child,
+    this.delay = Duration.zero,
+    this.amplitude = 6,
+  });
+
+  final Widget child;
+  final Duration delay;
+  final double amplitude;
+
+  @override
+  State<FloatingHud> createState() => _FloatingHudState();
+}
+
+class _FloatingHudState extends State<FloatingHud>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 4200),
+    );
+  }
+
+  bool _canFloat(BuildContext context) {
+    if (!VytalMotion.shouldAnimate(context)) return false;
+    // Repeating tickers prevent pumpAndSettle in widget tests.
+    final binding = WidgetsBinding.instance.runtimeType.toString();
+    if (binding.contains('TestWidgetsFlutter')) return false;
+    return true;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_canFloat(context)) {
+      if (!_controller.isAnimating) {
+        Future<void>.delayed(widget.delay, () {
+          if (mounted && _canFloat(context)) {
+            _controller.repeat(reverse: true);
+          }
+        });
+      }
+    } else {
+      _controller.stop();
+      _controller.value = 0.5;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_canFloat(context)) return widget.child;
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final t = Curves.easeInOut.transform(_controller.value);
+        return Transform.translate(
+          offset: Offset(0, (t - 0.5) * widget.amplitude * 2),
+          child: child,
+        );
+      },
+      child: widget.child,
+    );
+  }
+}
+
+class HudAction {
+  const HudAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+}
+
+/// Circular icon orbs — compact chrome instead of filled-button dumps.
+class HudActionRail extends StatelessWidget {
+  const HudActionRail({super.key, required this.actions});
+
+  final List<HudAction> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        for (final action in actions)
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: _HudOrb(action: action),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _HudOrb extends StatelessWidget {
+  const _HudOrb({required this.action});
+
+  final HudAction action;
+
+  @override
+  Widget build(BuildContext context) {
+    final extras = context.vytalExtras;
+    return InkWell(
+      onTap: action.onTap,
+      borderRadius: BorderRadius.circular(28),
+      child: Column(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: extras.glassFill,
+              border: Border.all(color: extras.border),
+              boxShadow: [
+                BoxShadow(
+                  color: VytalColors.teal.withValues(alpha: 0.16),
+                  blurRadius: 16,
+                ),
+              ],
+            ),
+            child: Icon(action.icon, color: VytalColors.teal, size: 22),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            action.label,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: extras.textMuted,
+                  letterSpacing: 0.2,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Slim tappable glass row for device, coach, and timer status.
+class HudStrip extends StatelessWidget {
+  const HudStrip({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.trailing,
+    this.onTap,
+    this.accent = VytalColors.teal,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final extras = context.vytalExtras;
+    final child = GlassPanel(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      accent: accent,
+      child: Row(
+        children: [
+          Icon(icon, color: accent, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: extras.textMuted,
+                      ),
+                ),
+              ],
+            ),
+          ),
+          if (trailing != null) trailing!,
+          if (onTap != null)
+            Icon(
+              Icons.chevron_right_rounded,
+              color: accent.withValues(alpha: 0.7),
+            ),
+        ],
+      ),
+    );
+    if (onTap == null) return child;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: child,
+      ),
     );
   }
 }
@@ -61,6 +364,7 @@ class ReadinessGauge extends StatelessWidget {
     this.subtitle,
     this.provenance,
     this.onTap,
+    this.size = 220,
   });
 
   final int? score;
@@ -68,6 +372,7 @@ class ReadinessGauge extends StatelessWidget {
   final String? subtitle;
   final DataProvenance? provenance;
   final VoidCallback? onTap;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -75,17 +380,18 @@ class ReadinessGauge extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final value = ((score ?? 0).clamp(0, 100)) / 100.0;
     final hasScore = score != null;
+    final ring = size * (200 / 220);
 
     final gauge = SizedBox(
-      height: 220,
-      width: 220,
+      height: size,
+      width: size,
       child: Stack(
         alignment: Alignment.center,
         children: [
           if (isDark)
             Container(
-              width: 200,
-              height: 200,
+              width: ring,
+              height: ring,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 boxShadow: [
@@ -97,8 +403,8 @@ class ReadinessGauge extends StatelessWidget {
               ),
             ),
           SizedBox(
-            width: 200,
-            height: 200,
+            width: ring,
+            height: ring,
             child: CircularProgressIndicator(
               // Always determinate so empty state is static (no perpetual spin).
               value: hasScore ? value : 0,
@@ -168,6 +474,8 @@ class MetricHudTile extends StatelessWidget {
     this.provenance,
     this.emptyMessage,
     this.onTap,
+    this.compact = false,
+    this.accent,
   });
 
   final String title;
@@ -177,27 +485,37 @@ class MetricHudTile extends StatelessWidget {
   final DataProvenance? provenance;
   final String? emptyMessage;
   final VoidCallback? onTap;
+  final bool compact;
+  final Color? accent;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasValue = value != null;
+    final edge = accent ?? VytalColors.teal;
     final panel = GlassPanel(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(compact ? 10 : 14),
+      glow: compact,
+      accent: edge,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
               if (icon != null) ...[
-                Icon(icon, size: 16, color: VytalColors.teal),
+                Icon(icon, size: compact ? 13 : 16, color: edge),
                 const SizedBox(width: 6),
               ],
               Expanded(
                 child: Text(
-                  title,
-                  style: theme.textTheme.labelLarge?.copyWith(
+                  title.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
                     color: context.vytalExtras.textMuted,
+                    letterSpacing: compact ? 1.1 : 1.3,
+                    fontSize: compact ? 9 : 11,
                   ),
                 ),
               ),
@@ -207,11 +525,12 @@ class MetricHudTile extends StatelessWidget {
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: VytalColors.caution,
                     fontWeight: FontWeight.w700,
+                    fontSize: compact ? 9 : 11,
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: compact ? 6 : 8),
           if (hasValue)
             RichText(
               text: TextSpan(
@@ -219,12 +538,14 @@ class MetricHudTile extends StatelessWidget {
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: theme.colorScheme.onSurface,
+                  fontSize: compact ? 20 : 24,
                 ),
                 children: [
                   TextSpan(
-                    text: ' $unit',
+                    text: unit.isEmpty ? '' : ' $unit',
                     style: theme.textTheme.labelLarge?.copyWith(
-                      color: VytalColors.teal,
+                      color: edge,
+                      fontSize: compact ? 11 : 14,
                     ),
                   ),
                 ],
@@ -233,7 +554,11 @@ class MetricHudTile extends StatelessWidget {
           else
             Text(
               emptyMessage ?? 'No reading',
-              style: theme.textTheme.bodySmall,
+              maxLines: compact ? 2 : 3,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontSize: compact ? 10 : 12,
+              ),
             ),
         ],
       ),
@@ -339,17 +664,19 @@ class ActivityRings extends StatelessWidget {
     required this.move,
     required this.exercise,
     required this.stand,
+    this.size = 180,
   });
 
   final double move;
   final double exercise;
   final double stand;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 180,
-      width: 180,
+      height: size,
+      width: size,
       child: CustomPaint(
         painter: _RingsPainter(
           move: move.clamp(0, 1),
@@ -378,17 +705,19 @@ class _RingsPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
+    final stroke = (size.width * 0.067).clamp(8.0, 14.0);
     void ring(double radius, double progress, Color color) {
       final trackPaint = Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 12
+        ..strokeWidth = stroke
         ..color = track
         ..strokeCap = StrokeCap.round;
       final valuePaint = Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 12
+        ..strokeWidth = stroke
         ..color = color
-        ..strokeCap = StrokeCap.round;
+        ..strokeCap = StrokeCap.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.4);
       canvas.drawCircle(center, radius, trackPaint);
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius),
@@ -399,9 +728,10 @@ class _RingsPainter extends CustomPainter {
       );
     }
 
-    ring(74, move, VytalColors.teal);
-    ring(56, exercise, VytalColors.green);
-    ring(38, stand, VytalColors.cyan);
+    final outer = size.width / 2 - stroke;
+    ring(outer, move, VytalColors.teal);
+    ring(outer - stroke * 1.7, exercise, VytalColors.green);
+    ring(outer - stroke * 3.4, stand, VytalColors.cyan);
   }
 
   @override

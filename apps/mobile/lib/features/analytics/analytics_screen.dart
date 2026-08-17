@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/theme/vytal_theme.dart';
 import '../../domain/models/data_provenance.dart';
 import '../../domain/models/entitlements.dart';
 import '../../state/app_session_controller.dart';
@@ -39,42 +40,46 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     final health = ref.watch(todayHealthProvider).valueOrNull;
     final demo = health?.provenance == DataProvenance.demo;
     final theme = Theme.of(context);
+    final extras = context.vytalExtras;
     final canAdvanced = entitlements.canUse(EntitlementKeys.analyticsAdvanced);
     final canHistory = entitlements.canUse(EntitlementKeys.historyExtended);
 
     return SectionScaffold(
       title: 'Insights',
-      subtitle: 'Trends use aggregated summaries — not every raw sample.',
+      subtitle: 'Aggregated trends — not every raw sample.',
       child: Column(
         children: [
-          Wrap(
-            spacing: 8,
-            children: [
-              for (final metric in _metrics)
-                ChoiceChip(
+          SizedBox(
+            height: 40,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _metrics.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final metric = _metrics[index];
+                return ChoiceChip(
                   label: Text(metric),
                   selected: _metric == metric,
                   onSelected: (_) => setState(() => _metric = metric),
-                ),
-            ],
+                );
+              },
+            ),
           ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
+          const SizedBox(height: 10),
+          Row(
             children: [
-              for (final range in const ['7D', '30D', '90D', '1Y'])
-                ChoiceChip(
-                  label: Text(range),
-                  selected: _range == range,
-                  onSelected: (_) {
-                    final needsAdvanced = _advancedRanges.contains(range);
-                    if (needsAdvanced && !(canAdvanced || canHistory)) {
+              for (final range in const ['7D', '30D', '90D', '1Y']) ...[
+                if (range != '7D') const SizedBox(width: 8),
+                Expanded(
+                  child: ChoiceChip(
+                    label: Center(child: Text(range)),
+                    selected: _range == range,
+                    onSelected: (_) {
                       setState(() => _range = range);
-                      return;
-                    }
-                    setState(() => _range = range);
-                  },
+                    },
+                  ),
                 ),
+              ],
             ],
           ),
           const SizedBox(height: 16),
@@ -85,16 +90,17 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             )
           else
             GlassPanel(
+              glow: true,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '$_metric trend · $_range',
+                    '$_metric · $_range',
                     style: theme.textTheme.titleMedium,
                   ),
                   const SizedBox(height: 16),
                   SizedBox(
-                    height: 140,
+                    height: 160,
                     child: demo
                         ? VitalSparkline(
                             values: _demoSeries(_metric, _range),
@@ -105,7 +111,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                                   ? 'Pair a demo device to preview labeled trend charts.'
                                   : 'Charts appear when wearable or manual history exists.',
                               textAlign: TextAlign.center,
-                              style: theme.textTheme.bodyMedium,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: extras.textMuted,
+                              ),
                             ),
                           ),
                   ),

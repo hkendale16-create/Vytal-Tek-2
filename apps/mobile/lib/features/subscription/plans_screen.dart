@@ -22,8 +22,7 @@ class PlansScreen extends ConsumerWidget {
 
     return SectionScaffold(
       title: 'Plans',
-      subtitle:
-          'Compare tiers. Store prices replace placeholders once products are live.',
+      subtitle: 'Compare tiers. Live store prices replace placeholders.',
       child: Column(
         children: [
           for (final product in catalog.products) ...[

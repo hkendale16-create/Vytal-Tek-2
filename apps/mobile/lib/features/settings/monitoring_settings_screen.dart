@@ -20,7 +20,7 @@ class MonitoringSettingsScreen extends ConsumerWidget {
     return SectionScaffold(
       title: 'Monitoring',
       subtitle:
-          'Background monitoring requires explicit OS permissions and can increase battery use. You can turn it off anytime.',
+          'Requires OS permission and can use more battery. You can turn it off anytime.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

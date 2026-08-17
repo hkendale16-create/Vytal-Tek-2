@@ -15,7 +15,7 @@ class PermissionsScreen extends ConsumerWidget {
 
     return SectionScaffold(
       title: 'Permissions',
-      subtitle: 'Vytal asks only for what features need. You can change these anytime.',
+      subtitle: 'Vytal asks only for what features need.',
       actions: [
         IconButton(
           tooltip: 'Refresh',

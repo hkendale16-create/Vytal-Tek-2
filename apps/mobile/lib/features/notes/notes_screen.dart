@@ -64,7 +64,7 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
 
     return SectionScaffold(
       title: 'Notes',
-      subtitle: 'User-entered context for Coach Vital — never treated as sensor data.',
+      subtitle: 'Your words for Coach Vital — never treated as sensor data.',
       actions: [
         IconButton(
           tooltip: 'Reminders',

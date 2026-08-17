@@ -73,7 +73,7 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
 
     return SectionScaffold(
       title: 'Reminders',
-      subtitle: 'Date, time, repeat, and complete/snooze — local until OS push is enabled.',
+      subtitle: 'Local alerts until OS push is enabled.',
       child: Column(
         children: [
           GlassPanel(

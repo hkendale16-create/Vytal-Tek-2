@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/theme/vytal_colors.dart';
-
 class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.navigationShell});
 
@@ -50,15 +48,6 @@ class AppShell extends StatelessWidget {
           ),
         ],
       ),
-      floatingActionButton: navigationShell.currentIndex == 0
-          ? FloatingActionButton.extended(
-              onPressed: () => context.push('/devices'),
-              backgroundColor: VytalColors.teal,
-              foregroundColor: Theme.of(context).colorScheme.onPrimary,
-              icon: const Icon(Icons.watch_outlined),
-              label: const Text('Devices'),
-            )
-          : null,
     );
   }
 }

@@ -20,11 +20,11 @@ class TimersHubScreen extends ConsumerWidget {
 
     return SectionScaffold(
       title: 'Timers',
-      subtitle: 'Countdown, stopwatch, and intervals keep running if you leave this screen.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _Tile(
+            icon: Icons.timer_outlined,
             title: 'Timer',
             detail: countdown.running
                 ? 'Running · ${formatClock(countdown.remainingSeconds())}'
@@ -35,6 +35,7 @@ class TimersHubScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 10),
           _Tile(
+            icon: Icons.timer_outlined,
             title: 'Stopwatch',
             detail: stopwatch.running
                 ? 'Running · ${formatClockMs(stopwatch.elapsedMs())}'
@@ -45,6 +46,7 @@ class TimersHubScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 10),
           _Tile(
+            icon: Icons.av_timer,
             title: 'Interval timer',
             detail: interval.running
                 ? '${interval.phase.name} · round ${interval.round}'
@@ -59,40 +61,24 @@ class TimersHubScreen extends ConsumerWidget {
 
 class _Tile extends StatelessWidget {
   const _Tile({
+    required this.icon,
     required this.title,
     required this.detail,
     required this.onTap,
   });
 
+  final IconData icon;
   final String title;
   final String detail;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: GlassPanel(
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 4),
-                    Text(detail, style: Theme.of(context).textTheme.bodySmall),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right),
-            ],
-          ),
-        ),
-      ),
+    return HudStrip(
+      icon: icon,
+      title: title,
+      subtitle: detail,
+      onTap: onTap,
     );
   }
 }
@@ -108,7 +94,6 @@ class CountdownScreen extends ConsumerWidget {
 
     return SectionScaffold(
       title: 'Timer',
-      subtitle: 'Continues accurately while you navigate elsewhere.',
       child: Column(
         children: [
           GlassPanel(
@@ -232,7 +217,6 @@ class StopwatchScreen extends ConsumerWidget {
 
     return SectionScaffold(
       title: 'Stopwatch',
-      subtitle: 'Laps persist while you move around the app.',
       child: Column(
         children: [
           GlassPanel(
@@ -317,7 +301,6 @@ class IntervalTimerScreen extends ConsumerWidget {
 
     return SectionScaffold(
       title: 'Interval timer',
-      subtitle: 'Work, rest, and rounds for HIIT-style sessions.',
       child: Column(
         children: [
           GlassPanel(
