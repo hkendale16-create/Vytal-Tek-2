@@ -54,6 +54,21 @@ void main() {
     expect(withMeasure.toDeviceCapabilities().supportsRealtimeHeartRate, isTrue);
   });
 
+  test('workout monitoring requires supportAppMeasure', () {
+    expect(
+      const QRingDeviceSupportFlags(supportHeart: true)
+          .toDeviceCapabilities()
+          .supportsWorkoutMonitoring,
+      isFalse,
+    );
+    expect(
+      const QRingDeviceSupportFlags(supportAppMeasure: true)
+          .toDeviceCapabilities()
+          .supportsWorkoutMonitoring,
+      isTrue,
+    );
+  });
+
   test('iOS battery levels 0..8 convert without inventing out-of-range values', () {
     expect(batteryPercentFromIosLevel(0), 0);
     expect(batteryPercentFromIosLevel(4), 50);

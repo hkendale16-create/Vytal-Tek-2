@@ -10,7 +10,6 @@ import '../../devices/connection/device_connection_controller.dart';
 import '../../domain/devices/wearable_device.dart';
 import '../../domain/models/data_provenance.dart';
 import '../../domain/models/health_metric.dart';
-import '../../state/app_session_controller.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
 import '../today/today_health_provider.dart';
