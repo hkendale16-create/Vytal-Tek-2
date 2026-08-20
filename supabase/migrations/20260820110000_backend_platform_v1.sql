@@ -55,6 +55,10 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
+-- Trigger-only: do not expose via PostgREST RPC
+revoke execute on function public.handle_new_user() from anon, authenticated, public;
+grant execute on function public.handle_new_user() to postgres, service_role, supabase_auth_admin;
+
 create table if not exists public.fitness_sync_batches (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
