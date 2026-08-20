@@ -1,7 +1,7 @@
-package com.vytaltek.vytal_tek
+package com.vtk21.myapp
 
 import android.app.Application
-import com.vytaltek.vytal_tek.hband.HBandSdkHost
+import com.vtk21.myapp.hband.HBandSdkHost
 
 class VytalTekApplication : Application() {
     override fun onCreate() {

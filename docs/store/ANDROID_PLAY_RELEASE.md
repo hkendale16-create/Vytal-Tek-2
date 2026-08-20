@@ -1,5 +1,7 @@
 # Android Play release
 
+Package name / `applicationId`: **`com.vtk21.myapp`**
+
 ## Build
 
 ```bash

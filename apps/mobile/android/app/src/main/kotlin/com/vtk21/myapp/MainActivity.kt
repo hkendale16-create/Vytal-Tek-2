@@ -1,6 +1,6 @@
-package com.vytaltek.vytal_tek
+package com.vtk21.myapp
 
-import com.vytaltek.vytal_tek.hband.HBandSdkHost
+import com.vtk21.myapp.hband.HBandSdkHost
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel

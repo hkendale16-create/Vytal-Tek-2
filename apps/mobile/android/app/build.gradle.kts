@@ -15,7 +15,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.vytaltek.vytal_tek"
+    namespace = "com.vtk21.myapp"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -29,7 +29,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.vytaltek.vytal_tek"
+        applicationId = "com.vtk21.myapp"
         // HBand / Veepoo SDK requires API 19+; keep 24+ for modern BLE permissions.
         minSdk = maxOf(flutter.minSdkVersion, 24)
         targetSdk = flutter.targetSdkVersion

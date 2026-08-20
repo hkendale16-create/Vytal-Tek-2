@@ -1,4 +1,4 @@
-package com.vytaltek.vytal_tek.hband
+package com.vtk21.myapp.hband
 
 import android.app.Application
 import android.os.Handler
