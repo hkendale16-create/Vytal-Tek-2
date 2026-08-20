@@ -14,7 +14,6 @@ import '../../domain/models/data_provenance.dart';
 import '../../domain/models/entitlements.dart';
 import '../../domain/models/workout_models.dart';
 import '../../state/app_session_controller.dart';
-import '../../timers/clock_controllers.dart';
 import '../../workouts/exercise_library.dart';
 import '../../workouts/phone_gps.dart';
 import '../../workouts/workout_controllers.dart';
@@ -22,25 +21,40 @@ import '../../workouts/workout_gps.dart';
 import '../../workouts/workout_metrics.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
+import '../shared/vytal_controls.dart';
 import '../subscription/soft_paywall.dart';
 import '../today/today_health_provider.dart';
 import 'activity_motion.dart';
 
-class WorkoutsScreen extends ConsumerWidget {
+class WorkoutsScreen extends ConsumerStatefulWidget {
   const WorkoutsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<WorkoutsScreen> createState() => _WorkoutsScreenState();
+}
+
+class _WorkoutsScreenState extends ConsumerState<WorkoutsScreen> {
+  var _category = WorkoutHubCategory.strength;
+
+  @override
+  Widget build(BuildContext context) {
     final library = ref.watch(workoutLibraryProvider);
     final session = ref.watch(workoutSessionProvider);
     final history = ref.watch(workoutHistoryProvider);
-    final canCustom =
-        ref.watch(appSessionProvider).entitlements.canUse(EntitlementKeys.workoutsCustom);
+    final canCustom = ref
+        .watch(appSessionProvider)
+        .entitlements
+        .canUse(EntitlementKeys.workoutsCustom);
     final theme = Theme.of(context);
 
     return SectionScaffold(
       title: 'Workouts',
       actions: [
+        IconButton(
+          tooltip: 'History',
+          onPressed: () => context.push('/workouts/history'),
+          icon: const Icon(Icons.history),
+        ),
         IconButton(
           tooltip: 'Timers',
           onPressed: () => context.push('/timers'),
@@ -60,158 +74,39 @@ class WorkoutsScreen extends ConsumerWidget {
                     : 'Resume active workout',
                 subtitle: 'Session continues if you leave this screen',
                 onTap: () => context.push(
-                  session.summaryPending ? '/workouts/summary' : '/workouts/active',
+                  session.summaryPending
+                      ? '/workouts/summary'
+                      : '/workouts/active',
                 ),
               ),
             ),
-          HudActionRail(
-            actions: [
-              HudAction(
-                icon: Icons.play_arrow_rounded,
-                label: 'Start',
-                onTap: () => context.push('/workouts/start'),
-              ),
-              HudAction(
-                icon: Icons.history,
-                label: 'History',
-                onTap: () => context.push('/workouts/history'),
-              ),
-              HudAction(
-                icon: Icons.timer_outlined,
-                label: 'Timers',
-                onTap: () => context.push('/timers'),
-              ),
-              HudAction(
-                icon: Icons.playlist_add,
-                label: 'Create',
-                onTap: canCustom
-                    ? () => context.push('/workouts/builder')
-                    : () => context.push('/settings/subscription'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          HudStrip(
-            icon: Icons.accessibility_new_outlined,
-            title: 'Muscle groups',
-            subtitle: 'Chest, back, legs, and more',
-            onTap: () => context.push('/workouts/muscles'),
+          VytalTabSelector<WorkoutHubCategory>(
+            values: WorkoutHubCategory.values,
+            selected: _category,
+            labelOf: _hubLabel,
+            onChanged: (value) => setState(() => _category = value),
           ),
           const SizedBox(height: 16),
-          Text('Recently used', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          if (library.recentlyUsed.isEmpty)
-            const EmptyMetricCard(
-              title: 'No recent workouts',
-              message: 'Start a workout or save a routine to see it here.',
-            )
-          else
-            for (final routine in library.recentlyUsed) ...[
-              _RoutineCard(
-                routine: routine,
-                onStart: () {
-                  ref.read(workoutSessionProvider.notifier).startRoutine(routine);
-                  context.push('/workouts/active');
-                },
+          switch (_category) {
+            WorkoutHubCategory.cardio => _CardioHub(
+                library: library,
+                canCustom: canCustom,
               ),
-              const SizedBox(height: 10),
-            ],
-          const SizedBox(height: 8),
-          Text('Vytal routines', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          for (final routine in library.builtIn) ...[
-            _RoutineCard(
-              routine: routine,
-              onStart: () {
-                ref.read(workoutSessionProvider.notifier).startRoutine(routine);
-                context.push('/workouts/active');
-              },
-            ),
-            const SizedBox(height: 10),
-          ],
-          const SizedBox(height: 8),
-          Text('My Routines', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          if (!canCustom)
-            const SoftPaywall(
-              entitlementKey: EntitlementKeys.workoutsCustom,
-              compact: true,
-            )
-          else if (library.custom.isEmpty)
-            const EmptyMetricCard(
-              title: 'No routines yet',
-              message:
-                  'Create your first routine or ask Vytal to build one.',
-            )
-          else
-            for (final routine in library.custom) ...[
-              _RoutineCard(
-                routine: routine,
-                onStart: () {
-                  ref.read(workoutSessionProvider.notifier).startRoutine(routine);
-                  context.push('/workouts/active');
-                },
-                onDelete: () => ref
-                    .read(workoutLibraryProvider.notifier)
-                    .deleteCustom(routine.id),
-                onEdit: () => context.push('/workouts/builder?id=${routine.id}'),
+            WorkoutHubCategory.strength => _StrengthHub(
+                library: library,
+                canCustom: canCustom,
               ),
-              const SizedBox(height: 10),
-            ],
-          const SizedBox(height: 8),
-          Text('AI Workouts', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          GlassPanel(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Ask Coach Vital for a structured plan you can start or save.',
-                  style: theme.textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () => context.go('/ask'),
-                  child: const Text('Ask Vytal to build a workout'),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text('Workout Tools', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
+            WorkoutHubCategory.calisthenics => _CalisthenicsHub(
+                library: library,
+                canCustom: canCustom,
+              ),
+          },
+          const SizedBox(height: 16),
           HudStrip(
             icon: Icons.timer_outlined,
-            title: 'Timer',
-            subtitle: 'Countdown that keeps running if you leave',
-            onTap: () => context.push('/timers/countdown'),
-          ),
-          const SizedBox(height: 8),
-          HudStrip(
-            icon: Icons.timer_outlined,
-            title: 'Stopwatch',
-            subtitle: 'Laps without a separate tab',
-            onTap: () => context.push('/timers/stopwatch'),
-          ),
-          const SizedBox(height: 8),
-          HudStrip(
-            icon: Icons.av_timer,
-            title: 'Interval timer',
-            subtitle: 'Work / rest rounds',
-            onTap: () => context.push('/timers/interval'),
-          ),
-          const SizedBox(height: 8),
-          HudStrip(
-            icon: Icons.self_improvement_outlined,
-            title: 'Rest timer',
-            subtitle: '1:30 rest preset',
-            onTap: () {
-              final clock = ref.read(countdownProvider.notifier);
-              clock.setHours(0);
-              clock.setMinutes(1);
-              clock.setSeconds(30);
-              context.push('/timers/countdown');
-            },
+            title: 'Timers',
+            subtitle: 'Countdown, stopwatch, intervals, and rest',
+            onTap: () => context.push('/timers'),
           ),
           if (history.entries.isNotEmpty) ...[
             const SizedBox(height: 16),
@@ -224,6 +119,370 @@ class WorkoutsScreen extends ConsumerWidget {
       ),
     );
   }
+
+  static String _hubLabel(WorkoutHubCategory category) => switch (category) {
+        WorkoutHubCategory.cardio => 'Cardio',
+        WorkoutHubCategory.strength => 'Strength',
+        WorkoutHubCategory.calisthenics => 'Calisthenics',
+      };
+}
+
+class _CardioHub extends ConsumerWidget {
+  const _CardioHub({required this.library, required this.canCustom});
+
+  final WorkoutLibraryState library;
+  final bool canCustom;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final routines = _routinesFor(library, WorkoutHubCategory.cardio);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const VytalSectionHeader(
+          title: 'Activities',
+          subtitle: 'Outdoor GPS stays on this phone. Indoor cardio never invents sensors.',
+        ),
+        for (final kind in WorkoutActivityKindX.cardioKinds) ...[
+          _ActivityTile(
+            kind: kind,
+            onTap: () => startChosenWorkout(context, ref, kind),
+          ),
+          const SizedBox(height: 10),
+        ],
+        const VytalSectionHeader(title: 'My Workouts'),
+        _MyWorkoutsSection(
+          routines: routines,
+          canCustom: canCustom,
+          emptyMessage: 'Save a HIIT or cardio routine to see it here.',
+        ),
+      ],
+    );
+  }
+}
+
+class _StrengthHub extends ConsumerWidget {
+  const _StrengthHub({required this.library, required this.canCustom});
+
+  final WorkoutLibraryState library;
+  final bool canCustom;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final mine = _routinesFor(library, WorkoutHubCategory.strength);
+    final builtIn = library.builtIn
+        .where((r) => r.activityKind.hubCategory == WorkoutHubCategory.strength)
+        .toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        HudActionRail(
+          actions: [
+            HudAction(
+              icon: Icons.flash_on_outlined,
+              label: 'Quick Start',
+              onTap: () => startChosenWorkout(
+                context,
+                ref,
+                WorkoutActivityKind.strength,
+                quickStart: true,
+              ),
+            ),
+            HudAction(
+              icon: Icons.playlist_add,
+              label: 'Create',
+              onTap: canCustom
+                  ? () => context.push('/workouts/builder')
+                  : () => context.push('/settings/subscription'),
+            ),
+            HudAction(
+              icon: Icons.play_arrow_rounded,
+              label: 'Start',
+              onTap: () => context.push('/workouts/start'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        HudStrip(
+          icon: Icons.accessibility_new_outlined,
+          title: 'Muscle groups',
+          subtitle: 'Chest, back, legs, and more',
+          onTap: () => context.push('/workouts/muscles'),
+        ),
+        const SizedBox(height: 16),
+        const VytalSectionHeader(title: 'My Workouts'),
+        _MyWorkoutsSection(
+          routines: mine,
+          canCustom: canCustom,
+          emptyMessage:
+              'Create a routine or ask Vytal to build one you can start here.',
+        ),
+        if (builtIn.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          const VytalSectionHeader(title: 'Vytal routines'),
+          for (final routine in builtIn) ...[
+            _RoutineCard(
+              routine: routine,
+              onStart: () {
+                ref.read(workoutSessionProvider.notifier).startRoutine(routine);
+                context.push('/workouts/active');
+              },
+            ),
+            const SizedBox(height: 10),
+          ],
+        ],
+        const VytalSectionHeader(title: 'Ask Vytal'),
+        GlassPanel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Ask Coach Vital for a structured plan you can start or save.',
+                style: theme.textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => context.go('/ask'),
+                child: const Text('Ask Vytal to build a workout'),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CalisthenicsHub extends ConsumerWidget {
+  const _CalisthenicsHub({required this.library, required this.canCustom});
+
+  final WorkoutLibraryState library;
+  final bool canCustom;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mine = _routinesFor(library, WorkoutHubCategory.calisthenics);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        HudActionRail(
+          actions: [
+            HudAction(
+              icon: Icons.flash_on_outlined,
+              label: 'Quick Start',
+              onTap: () => startChosenWorkout(
+                context,
+                ref,
+                WorkoutActivityKind.calisthenics,
+                quickStart: true,
+              ),
+            ),
+            HudAction(
+              icon: Icons.playlist_add,
+              label: 'Create',
+              onTap: canCustom
+                  ? () => context.push(
+                        '/workouts/builder?kind=${WorkoutActivityKind.calisthenics.name}',
+                      )
+                  : () => context.push('/settings/subscription'),
+            ),
+            HudAction(
+              icon: Icons.history,
+              label: 'History',
+              onTap: () => context.push('/workouts/history'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        const VytalSectionHeader(
+          title: 'Catalog',
+          subtitle: 'Holds use duration. Weighted moves keep reps and load.',
+        ),
+        for (final def in ExerciseLibrary.calisthenics) ...[
+          _CalisthenicsTile(
+            definition: def,
+            onStart: () {
+              final session = ref.read(workoutSessionProvider.notifier);
+              session.startStrengthDraft(
+                name: def.name,
+                kind: WorkoutActivityKind.calisthenics,
+              );
+              session.addExerciseToSession(def.toExercise());
+              context.push('/workouts/active');
+            },
+          ),
+          const SizedBox(height: 10),
+        ],
+        const VytalSectionHeader(title: 'My Workouts'),
+        _MyWorkoutsSection(
+          routines: mine,
+          canCustom: canCustom,
+          emptyMessage: 'Save a bodyweight routine to reuse it here.',
+        ),
+      ],
+    );
+  }
+}
+
+class _MyWorkoutsSection extends ConsumerWidget {
+  const _MyWorkoutsSection({
+    required this.routines,
+    required this.canCustom,
+    required this.emptyMessage,
+  });
+
+  final List<WorkoutRoutine> routines;
+  final bool canCustom;
+  final String emptyMessage;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!canCustom) {
+      return const Padding(
+        padding: EdgeInsets.only(bottom: 8),
+        child: SoftPaywall(
+          entitlementKey: EntitlementKeys.workoutsCustom,
+          compact: true,
+        ),
+      );
+    }
+    if (routines.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: EmptyMetricCard(
+          title: 'No workouts yet',
+          message: emptyMessage,
+        ),
+      );
+    }
+    return Column(
+      children: [
+        for (final routine in routines) ...[
+          _RoutineCard(
+            routine: routine,
+            onStart: () {
+              ref.read(workoutSessionProvider.notifier).startRoutine(routine);
+              context.push('/workouts/active');
+            },
+            onDelete: () => ref
+                .read(workoutLibraryProvider.notifier)
+                .deleteCustom(routine.id),
+            onEdit: () => context.push('/workouts/builder?id=${routine.id}'),
+            onDuplicate: () async {
+              final saved = await ref
+                  .read(workoutLibraryProvider.notifier)
+                  .duplicateCustom(routine.id);
+              if (saved == null && context.mounted) {
+                context.push('/settings/subscription');
+              }
+            },
+          ),
+          const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+}
+
+List<WorkoutRoutine> _routinesFor(
+  WorkoutLibraryState library,
+  WorkoutHubCategory category,
+) {
+  return library.custom
+      .where((routine) => routine.activityKind.hubCategory == category)
+      .toList(growable: false);
+}
+
+IconData _activityIcon(WorkoutActivityKind kind) => switch (kind) {
+      WorkoutActivityKind.running || WorkoutActivityKind.treadmill =>
+        Icons.directions_run,
+      WorkoutActivityKind.walking => Icons.directions_walk,
+      WorkoutActivityKind.cycling || WorkoutActivityKind.elliptical =>
+        Icons.directions_bike,
+      WorkoutActivityKind.stairClimber => Icons.stairs,
+      WorkoutActivityKind.rowing => Icons.sports,
+      WorkoutActivityKind.jumpRope => Icons.skip_next_outlined,
+      WorkoutActivityKind.strength => Icons.fitness_center,
+      WorkoutActivityKind.calisthenics => Icons.self_improvement_outlined,
+      WorkoutActivityKind.hiit => Icons.bolt,
+      WorkoutActivityKind.cardio || WorkoutActivityKind.custom =>
+        Icons.monitor_heart_outlined,
+    };
+
+class _ActivityTile extends StatelessWidget {
+  const _ActivityTile({required this.kind, required this.onTap});
+
+  final WorkoutActivityKind kind;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: GlassPanel(
+          child: Row(
+            children: [
+              Icon(_activityIcon(kind), color: VytalColors.teal),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(kind.label, style: theme.textTheme.titleMedium),
+                    Text(kind.hubHint, style: theme.textTheme.bodySmall),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CalisthenicsTile extends StatelessWidget {
+  const _CalisthenicsTile({
+    required this.definition,
+    required this.onStart,
+  });
+
+  final ExerciseDefinition definition;
+  final VoidCallback onStart;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GlassPanel(
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(definition.name, style: theme.textTheme.titleMedium),
+                const SizedBox(height: 4),
+                Text(
+                  '${definition.muscleGroup.label} · ${definition.prescriptionLabel}',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          FilledButton(
+            onPressed: onStart,
+            child: const Text('Start'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _RoutineCard extends StatelessWidget {
@@ -232,16 +491,25 @@ class _RoutineCard extends StatelessWidget {
     required this.onStart,
     this.onDelete,
     this.onEdit,
+    this.onDuplicate,
   });
 
   final WorkoutRoutine routine;
   final VoidCallback onStart;
   final VoidCallback? onDelete;
   final VoidCallback? onEdit;
+  final VoidCallback? onDuplicate;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final groups = routine.muscleGroupSummary;
+    final summary = [
+      '${routine.exercises.length} exercise${routine.exercises.length == 1 ? '' : 's'}',
+      if (groups.isNotEmpty) groups.take(3).join(', '),
+      if (routine.estimatedMinutes > 0) '~${routine.estimatedMinutes} min',
+      routine.activityKind.label,
+    ].join(' · ');
     return GlassPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -254,40 +522,40 @@ class _RoutineCard extends StatelessWidget {
               if (routine.builtIn)
                 const StatusPill(label: 'Built-in', emphasis: true)
               else if (routine.source == 'ai')
-                const StatusPill(label: 'AI', emphasis: true),
+                const StatusPill(label: 'Ask Vytal', emphasis: true),
             ],
           ),
           const SizedBox(height: 6),
-          Text(
-            '${routine.exercises.length} exercises · ${routine.activityKind.label}',
-            style: theme.textTheme.bodySmall,
-          ),
+          Text(summary, style: theme.textTheme.bodySmall),
           if (routine.notes != null && routine.notes!.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(routine.notes!, style: theme.textTheme.bodySmall),
           ],
           const SizedBox(height: 10),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
               FilledButton(
                 onPressed: onStart,
                 child: const Text('Start'),
               ),
-              if (onEdit != null) ...[
-                const SizedBox(width: 8),
+              if (onEdit != null)
                 OutlinedButton(
                   onPressed: onEdit,
                   child: const Text('Edit'),
                 ),
-              ],
-              if (onDelete != null) ...[
-                const SizedBox(width: 8),
+              if (onDuplicate != null)
+                OutlinedButton(
+                  onPressed: onDuplicate,
+                  child: const Text('Duplicate'),
+                ),
+              if (onDelete != null)
                 IconButton(
                   onPressed: onDelete,
                   icon: const Icon(Icons.delete_outline),
                   color: VytalColors.alert,
                 ),
-              ],
             ],
           ),
         ],
@@ -301,68 +569,68 @@ class ActivityPickerScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
     return SectionScaffold(
       title: 'Start Workout',
-      subtitle: 'Each activity has its own metrics and controls.',
+      subtitle: 'Same catalog as the Workout hub — each activity keeps its own metrics.',
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final kind in WorkoutActivityKind.values) ...[
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(20),
-                  onTap: () => startChosenWorkout(context, ref, kind),
-                  child: GlassPanel(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                kind.label,
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                              Text(
-                                _activityHint(kind),
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(Icons.chevron_right),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+          const VytalSectionHeader(title: 'Cardio'),
+          for (final kind in WorkoutActivityKindX.cardioKinds) ...[
+            _ActivityTile(
+              kind: kind,
+              onTap: () => startChosenWorkout(context, ref, kind),
             ),
+            const SizedBox(height: 10),
           ],
+          const VytalSectionHeader(title: 'Strength'),
+          _ActivityTile(
+            kind: WorkoutActivityKind.strength,
+            onTap: () => startChosenWorkout(
+              context,
+              ref,
+              WorkoutActivityKind.strength,
+            ),
+          ),
+          const SizedBox(height: 10),
+          const VytalSectionHeader(title: 'Calisthenics'),
+          _ActivityTile(
+            kind: WorkoutActivityKind.calisthenics,
+            onTap: () => startChosenWorkout(
+              context,
+              ref,
+              WorkoutActivityKind.calisthenics,
+              quickStart: true,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Quick Start opens an empty logger so you can add exercises live.',
+            style: theme.textTheme.bodySmall,
+          ),
         ],
       ),
     );
   }
-
-  String _activityHint(WorkoutActivityKind kind) => switch (kind) {
-        WorkoutActivityKind.running => 'Time, pace, HR zone, steps',
-        WorkoutActivityKind.walking => 'Steps, pace, active minutes',
-        WorkoutActivityKind.cycling => 'Speed, HR zones, cadence when available',
-        WorkoutActivityKind.strength => 'Sets, reps, muscle groups, rest timer',
-        WorkoutActivityKind.hiit => 'Work / rest intervals and rounds',
-        WorkoutActivityKind.cardio => 'Choose which metrics to show',
-        WorkoutActivityKind.custom => 'Build your own metric mix',
-      };
 }
 
 Future<void> startChosenWorkout(
   BuildContext context,
   WidgetRef ref,
-  WorkoutActivityKind kind,
-) async {
-  if (kind == WorkoutActivityKind.strength) {
-    context.push('/workouts/muscles');
+  WorkoutActivityKind kind, {
+  bool quickStart = false,
+}) async {
+  if (kind.usesStrengthSets) {
+    if (kind == WorkoutActivityKind.strength && !quickStart) {
+      context.push('/workouts/muscles');
+      return;
+    }
+    ref.read(workoutSessionProvider.notifier).startStrengthDraft(
+          name: kind.label,
+          kind: kind,
+        );
+    context.push('/workouts/active');
     return;
   }
   if (kind == WorkoutActivityKind.hiit) {
@@ -679,7 +947,7 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
             _RouteSketch(points: session.routePoints),
           ],
           const SizedBox(height: 12),
-          if (kind == WorkoutActivityKind.strength) ...[
+          if (kind.usesStrengthSets) ...[
             if (phase != null && phase.kind == WorkoutTimerKind.exercise)
               _LiveSetEditor(phase: phase),
             Wrap(
@@ -790,6 +1058,10 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
   }
 
   Future<void> _addExercise(BuildContext context) async {
+    final kind = ref.read(workoutSessionProvider).activityKind;
+    final catalog = kind == WorkoutActivityKind.calisthenics
+        ? ExerciseLibrary.calisthenics
+        : ExerciseLibrary.all;
     final choice = await showModalBottomSheet<ExerciseDefinition>(
       context: context,
       showDragHandle: true,
@@ -797,10 +1069,12 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
           children: [
-            for (final item in ExerciseLibrary.all)
+            for (final item in catalog)
               ListTile(
                 title: Text(item.name),
-                subtitle: Text('${item.muscleGroup.label} · ${item.equipment}'),
+                subtitle: Text(
+                  '${item.muscleGroup.label} · ${item.prescriptionLabel}',
+                ),
                 onTap: () => Navigator.pop(context, item),
               ),
           ],
@@ -824,6 +1098,11 @@ class _LiveSetEditor extends ConsumerWidget {
     final lb = phase.weightKg == null
         ? 0
         : WorkoutMetricCatalog.kgToLb(phase.weightKg!).round();
+    final timedHold =
+        phase.reps == null && phase.kind == WorkoutTimerKind.exercise;
+    final equipment = (phase.equipment ?? '').toLowerCase();
+    final showWeight = phase.weightKg != null ||
+        (equipment.isNotEmpty && equipment != 'bodyweight' && !timedHold);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: GlassPanel(
@@ -831,23 +1110,34 @@ class _LiveSetEditor extends ConsumerWidget {
           spacing: 8,
           runSpacing: 4,
           children: [
-            _Num(
-              label: 'Reps',
-              value: phase.reps ?? 0,
-              onChanged: (v) => ref
-                  .read(workoutSessionProvider.notifier)
-                  .updateCurrentSet(reps: v),
-            ),
-            _Num(
-              label: 'lb',
-              value: lb,
-              onChanged: (v) => ref
-                  .read(workoutSessionProvider.notifier)
-                  .updateCurrentSet(
-                    weightKg:
-                        v <= 0 ? 0 : WorkoutMetricCatalog.lbToKg(v.toDouble()),
-                  ),
-            ),
+            if (timedHold)
+              _Num(
+                label: 'Sec',
+                value: phase.seconds,
+                onChanged: (v) => ref
+                    .read(workoutSessionProvider.notifier)
+                    .updateCurrentSet(durationSeconds: v.clamp(5, 600)),
+              )
+            else
+              _Num(
+                label: 'Reps',
+                value: phase.reps ?? 0,
+                onChanged: (v) => ref
+                    .read(workoutSessionProvider.notifier)
+                    .updateCurrentSet(reps: v),
+              ),
+            if (showWeight)
+              _Num(
+                label: 'lb',
+                value: lb,
+                onChanged: (v) => ref
+                    .read(workoutSessionProvider.notifier)
+                    .updateCurrentSet(
+                      weightKg: v <= 0
+                          ? 0
+                          : WorkoutMetricCatalog.lbToKg(v.toDouble()),
+                    ),
+              ),
             _Num(
               label: 'Rest',
               value: phase.kind == WorkoutTimerKind.rest
@@ -1278,9 +1568,10 @@ class WorkoutHistoryScreen extends ConsumerWidget {
 }
 
 class RoutineBuilderScreen extends ConsumerStatefulWidget {
-  const RoutineBuilderScreen({super.key, this.routineId});
+  const RoutineBuilderScreen({super.key, this.routineId, this.initialKind});
 
   final String? routineId;
+  final WorkoutActivityKind? initialKind;
 
   @override
   ConsumerState<RoutineBuilderScreen> createState() =>
@@ -1291,11 +1582,15 @@ class _RoutineBuilderScreenState extends ConsumerState<RoutineBuilderScreen> {
   final _name = TextEditingController();
   final _notes = TextEditingController();
   final _exercises = <WorkoutExercise>[];
-  var _kind = WorkoutActivityKind.strength;
+  late WorkoutActivityKind _kind;
 
   @override
   void initState() {
     super.initState();
+    final initial = widget.initialKind ?? WorkoutActivityKind.strength;
+    _kind = WorkoutActivityKindX.builderKinds.contains(initial)
+        ? initial
+        : WorkoutActivityKind.strength;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final draft = ref.read(pendingRoutineDraftProvider);
       if (draft != null && widget.routineId == null) {
@@ -1398,10 +1693,12 @@ class _RoutineBuilderScreenState extends ConsumerState<RoutineBuilderScreen> {
           ),
           const SizedBox(height: 12),
           DropdownButton<WorkoutActivityKind>(
-            value: _kind,
+            value: WorkoutActivityKindX.builderKinds.contains(_kind)
+                ? _kind
+                : WorkoutActivityKind.custom,
             isExpanded: true,
             items: [
-              for (final kind in WorkoutActivityKind.values)
+              for (final kind in WorkoutActivityKindX.builderKinds)
                 DropdownMenuItem(value: kind, child: Text(kind.label)),
             ],
             onChanged: (v) => setState(() => _kind = v ?? _kind),
@@ -1412,10 +1709,12 @@ class _RoutineBuilderScreenState extends ConsumerState<RoutineBuilderScreen> {
           Wrap(
             spacing: 6,
             children: [
-              for (final name in ExerciseCatalog.names)
+              for (final def in _kind == WorkoutActivityKind.calisthenics
+                  ? ExerciseLibrary.calisthenics
+                  : ExerciseLibrary.all)
                 ActionChip(
-                  label: Text(name),
-                  onPressed: () => _addExercise(name),
+                  label: Text(def.name),
+                  onPressed: () => _addExercise(def.name),
                 ),
               ActionChip(
                 label: const Text('Custom'),

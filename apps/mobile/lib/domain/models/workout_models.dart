@@ -8,14 +8,33 @@ enum WorkoutTimerKind {
   activity,
 }
 
+enum WorkoutHubCategory { cardio, strength, calisthenics }
+
 enum WorkoutActivityKind {
   walking,
   running,
   cycling,
+  treadmill,
+  stairClimber,
+  rowing,
+  elliptical,
+  jumpRope,
   strength,
+  calisthenics,
   cardio,
   hiit,
-  custom,
+  custom;
+
+  static WorkoutActivityKind fromJson(
+    String? raw, {
+    WorkoutActivityKind orElse = WorkoutActivityKind.custom,
+  }) {
+    if (raw == null || raw.isEmpty) return orElse;
+    return WorkoutActivityKind.values.firstWhere(
+      (value) => value.name == raw,
+      orElse: () => orElse,
+    );
+  }
 }
 
 extension WorkoutActivityKindX on WorkoutActivityKind {
@@ -23,8 +42,14 @@ extension WorkoutActivityKindX on WorkoutActivityKind {
         WorkoutActivityKind.walking => 'Walking',
         WorkoutActivityKind.running => 'Running',
         WorkoutActivityKind.cycling => 'Cycling',
+        WorkoutActivityKind.treadmill => 'Treadmill',
+        WorkoutActivityKind.stairClimber => 'Stair climber',
+        WorkoutActivityKind.rowing => 'Rowing',
+        WorkoutActivityKind.elliptical => 'Elliptical',
+        WorkoutActivityKind.jumpRope => 'Jump rope',
         WorkoutActivityKind.strength => 'Strength',
-        WorkoutActivityKind.cardio => 'Cardio',
+        WorkoutActivityKind.calisthenics => 'Calisthenics',
+        WorkoutActivityKind.cardio => 'Custom cardio',
         WorkoutActivityKind.hiit => 'HIIT',
         WorkoutActivityKind.custom => 'Custom',
       };
@@ -33,11 +58,86 @@ extension WorkoutActivityKindX on WorkoutActivityKind {
         WorkoutActivityKind.walking => 'walking',
         WorkoutActivityKind.running => 'running',
         WorkoutActivityKind.cycling => 'cycling',
+        WorkoutActivityKind.treadmill => 'treadmill',
+        WorkoutActivityKind.stairClimber => 'stairs',
+        WorkoutActivityKind.rowing => 'rowing',
+        WorkoutActivityKind.elliptical => 'elliptical',
+        WorkoutActivityKind.jumpRope => 'jump rope',
         WorkoutActivityKind.strength => 'strength',
+        WorkoutActivityKind.calisthenics => 'calisthenics',
         WorkoutActivityKind.cardio => 'cardio',
         WorkoutActivityKind.hiit => 'hiit',
         WorkoutActivityKind.custom => 'custom',
       };
+
+  String get hubHint => switch (this) {
+        WorkoutActivityKind.running => 'Time, pace, HR zone, outdoor GPS',
+        WorkoutActivityKind.walking => 'Steps, pace, active minutes',
+        WorkoutActivityKind.cycling => 'Speed and HR zones',
+        WorkoutActivityKind.treadmill => 'Indoor run metrics, no GPS track',
+        WorkoutActivityKind.stairClimber => 'Elapsed, HR, estimated calories',
+        WorkoutActivityKind.rowing => 'Stroke-paced cardio, no invented cadence',
+        WorkoutActivityKind.elliptical => 'Low-impact indoor cardio',
+        WorkoutActivityKind.jumpRope => 'Elapsed, HR, estimated calories',
+        WorkoutActivityKind.strength => 'Sets, reps, muscle groups, rest',
+        WorkoutActivityKind.calisthenics => 'Bodyweight sets with adaptive fields',
+        WorkoutActivityKind.cardio => 'Choose which metrics to show',
+        WorkoutActivityKind.hiit => 'Work / rest intervals and rounds',
+        WorkoutActivityKind.custom => 'Build your own metric mix',
+      };
+
+  WorkoutHubCategory get hubCategory => switch (this) {
+        WorkoutActivityKind.strength || WorkoutActivityKind.custom =>
+          WorkoutHubCategory.strength,
+        WorkoutActivityKind.calisthenics => WorkoutHubCategory.calisthenics,
+        WorkoutActivityKind.walking ||
+        WorkoutActivityKind.running ||
+        WorkoutActivityKind.cycling ||
+        WorkoutActivityKind.treadmill ||
+        WorkoutActivityKind.stairClimber ||
+        WorkoutActivityKind.rowing ||
+        WorkoutActivityKind.elliptical ||
+        WorkoutActivityKind.jumpRope ||
+        WorkoutActivityKind.cardio ||
+        WorkoutActivityKind.hiit =>
+          WorkoutHubCategory.cardio,
+      };
+
+  bool get usesGpsTrack =>
+      this == WorkoutActivityKind.running ||
+      this == WorkoutActivityKind.walking ||
+      this == WorkoutActivityKind.cycling;
+
+  bool get usesMuscleGroups =>
+      this == WorkoutActivityKind.strength ||
+      this == WorkoutActivityKind.calisthenics ||
+      this == WorkoutActivityKind.custom;
+
+  bool get usesStrengthSets =>
+      this == WorkoutActivityKind.strength ||
+      this == WorkoutActivityKind.calisthenics;
+
+  /// Kinds shown in the routine builder dropdown — not every cardio machine.
+  static const builderKinds = <WorkoutActivityKind>[
+    WorkoutActivityKind.strength,
+    WorkoutActivityKind.calisthenics,
+    WorkoutActivityKind.cardio,
+    WorkoutActivityKind.hiit,
+    WorkoutActivityKind.custom,
+  ];
+
+  static const cardioKinds = <WorkoutActivityKind>[
+    WorkoutActivityKind.running,
+    WorkoutActivityKind.walking,
+    WorkoutActivityKind.cycling,
+    WorkoutActivityKind.treadmill,
+    WorkoutActivityKind.stairClimber,
+    WorkoutActivityKind.rowing,
+    WorkoutActivityKind.elliptical,
+    WorkoutActivityKind.jumpRope,
+    WorkoutActivityKind.cardio,
+    WorkoutActivityKind.hiit,
+  ];
 }
 
 enum WorkoutPlayMode { idle, routine, activity, stopwatch }
@@ -242,13 +342,42 @@ class WorkoutRoutine {
             .toList(),
         builtIn: json['builtIn'] as bool? ?? false,
         favorite: json['favorite'] as bool? ?? false,
-        activityKind: WorkoutActivityKind.values.firstWhere(
-          (e) => e.name == json['activityKind'],
-          orElse: () => WorkoutActivityKind.strength,
+        activityKind: WorkoutActivityKind.fromJson(
+          json['activityKind'] as String?,
+          orElse: WorkoutActivityKind.strength,
         ),
         source: json['source'] as String? ?? 'user',
         notes: json['notes'] as String?,
       );
+
+  String get sourceLabel => switch (source) {
+        'ai' => 'Ask Vytal',
+        'builtin' => 'Library',
+        'user' || 'custom' => 'Yours',
+        _ => 'Activity',
+      };
+
+  List<String> get muscleGroupSummary {
+    final groups = <String>{};
+    for (final exercise in exercises) {
+      final group = exercise.muscleGroup;
+      if (group != null) groups.add(group.label);
+    }
+    final ordered = groups.toList()..sort();
+    return ordered;
+  }
+
+  int get estimatedMinutes {
+    if (exercises.isEmpty) return 0;
+    var seconds = 0;
+    for (final exercise in exercises) {
+      final work = exercise.durationSeconds ?? ((exercise.reps ?? 10) * 3);
+      seconds += exercise.sets * (work + exercise.restSeconds);
+    }
+    if (seconds <= 0) return 0;
+    final minutes = (seconds / 60).ceil();
+    return minutes < 1 ? 1 : minutes;
+  }
 
   static List<WorkoutRoutine> builtIns() {
     const uuid = Uuid();
@@ -421,9 +550,8 @@ class WorkoutHistoryEntry {
       WorkoutHistoryEntry(
         id: json['id'] as String? ?? const Uuid().v4(),
         name: json['name'] as String? ?? 'Workout',
-        activityKind: WorkoutActivityKind.values.firstWhere(
-          (e) => e.name == json['activityKind'],
-          orElse: () => WorkoutActivityKind.custom,
+        activityKind: WorkoutActivityKind.fromJson(
+          json['activityKind'] as String?,
         ),
         durationSeconds: json['durationSeconds'] as int? ?? 0,
         completedAt: DateTime.tryParse(json['completedAt'] as String? ?? '') ??

@@ -37,7 +37,7 @@ class BodyScreen extends ConsumerWidget {
           e.activityKind == WorkoutActivityKind.cycling,
     );
     final strengthLoad = recent.any(
-      (e) => e.activityKind == WorkoutActivityKind.strength,
+      (e) => e.activityKind.usesStrengthSets,
     );
 
     return SectionScaffold(

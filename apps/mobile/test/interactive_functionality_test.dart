@@ -254,6 +254,112 @@ void main() {
       n.stop();
     });
 
+    test('indoor cardio stays off phone GPS', () {
+      expect(
+        WorkoutActivityKind.treadmill.hubCategory,
+        WorkoutHubCategory.cardio,
+      );
+      expect(WorkoutActivityKind.treadmill.usesGpsTrack, isFalse);
+      expect(
+        WorkoutMetricCatalog.usesPhoneGps(WorkoutActivityKind.jumpRope),
+        isFalse,
+      );
+      expect(
+        WorkoutMetricCatalog.forKind(WorkoutActivityKind.rowing),
+        isNot(contains(WorkoutMetricId.distance)),
+      );
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container
+          .read(workoutSessionProvider.notifier)
+          .startActivity(WorkoutActivityKind.elliptical);
+      final state = container.read(workoutSessionProvider);
+      expect(state.playMode, WorkoutPlayMode.activity);
+      expect(state.visibleMetrics, isNot(contains(WorkoutMetricId.route)));
+      container.read(workoutSessionProvider.notifier).stop();
+    });
+
+    test('calisthenics catalog uses adaptive fields', () {
+      final plank = ExerciseLibrary.byName('Plank')!;
+      expect(plank.usesDuration, isTrue);
+      expect(plank.prescriptionLabel, contains('s'));
+      final pushUp = ExerciseLibrary.calisthenics
+          .firstWhere((item) => item.name == 'Push-up');
+      expect(pushUp.defaultReps, greaterThan(0));
+      expect(pushUp.usesDuration, isFalse);
+      final weighted = ExerciseLibrary.byName('Weighted Pull-up')!;
+      expect(weighted.usesWeight, isTrue);
+      expect(weighted.toExercise().weightKg, isNotNull);
+      expect(
+        ExerciseLibrary.calisthenics.map((e) => e.name),
+        containsAll(['Chin-up', 'Sit-up', 'Leg Raise', 'Muscle-up']),
+      );
+    });
+
+    test('calisthenics quick start is a set-based draft', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final n = container.read(workoutSessionProvider.notifier);
+      n.startActivity(WorkoutActivityKind.calisthenics);
+      expect(
+        container.read(workoutSessionProvider).activityKind,
+        WorkoutActivityKind.calisthenics,
+      );
+      expect(container.read(workoutSessionProvider).phases, isEmpty);
+      n.addExerciseToSession(ExerciseLibrary.byName('Plank')!.toExercise());
+      final phase = container.read(workoutSessionProvider).currentPhase;
+      expect(phase?.reps, isNull);
+      expect(phase?.seconds, greaterThan(0));
+      expect(
+        container.read(workoutSessionProvider).activityKind,
+        WorkoutActivityKind.calisthenics,
+      );
+      n.stop();
+    });
+
+    test('unknown activity kind JSON falls back', () {
+      expect(
+        WorkoutActivityKind.fromJson('not-a-real-kind'),
+        WorkoutActivityKind.custom,
+      );
+      final routine = WorkoutRoutine.fromJson({
+        'id': 'r',
+        'name': 'Legacy',
+        'exercises': const [],
+      });
+      expect(routine.activityKind, WorkoutActivityKind.strength);
+    });
+
+    test('routine estimates minutes and muscle groups', () {
+      final routine = WorkoutRoutine(
+        id: 'x',
+        name: 'Push session',
+        exercises: const [
+          WorkoutExercise(
+            id: '1',
+            name: 'Push-up',
+            muscleGroup: MuscleGroup.chest,
+            sets: 3,
+            reps: 10,
+            restSeconds: 45,
+          ),
+        ],
+      );
+      expect(routine.muscleGroupSummary, contains('Chest'));
+      expect(routine.estimatedMinutes, greaterThan(0));
+    });
+
+    test('builder kinds omit cardio machines', () {
+      expect(
+        WorkoutActivityKindX.builderKinds,
+        isNot(contains(WorkoutActivityKind.treadmill)),
+      );
+      expect(
+        WorkoutActivityKindX.builderKinds,
+        contains(WorkoutActivityKind.calisthenics),
+      );
+    });
+
     test('routine notes persist on the model', () {
       final routine = WorkoutRoutine(
         id: 'r1',

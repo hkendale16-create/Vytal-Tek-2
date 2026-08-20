@@ -77,7 +77,8 @@ abstract final class WorkoutMetricCatalog {
             WorkoutMetricId.hrZone,
             WorkoutMetricId.calories,
           ],
-        WorkoutActivityKind.strength => const [
+        WorkoutActivityKind.strength || WorkoutActivityKind.calisthenics =>
+          const [
             WorkoutMetricId.exercise,
             WorkoutMetricId.muscleGroup,
             WorkoutMetricId.sets,
@@ -98,7 +99,14 @@ abstract final class WorkoutMetricCatalog {
             WorkoutMetricId.calories,
             WorkoutMetricId.intervalTimer,
           ],
-        WorkoutActivityKind.cardio || WorkoutActivityKind.custom => const [
+        WorkoutActivityKind.treadmill ||
+        WorkoutActivityKind.stairClimber ||
+        WorkoutActivityKind.rowing ||
+        WorkoutActivityKind.elliptical ||
+        WorkoutActivityKind.jumpRope ||
+        WorkoutActivityKind.cardio ||
+        WorkoutActivityKind.custom =>
+          const [
             WorkoutMetricId.elapsed,
             WorkoutMetricId.heartRate,
             WorkoutMetricId.calories,
@@ -112,8 +120,7 @@ abstract final class WorkoutMetricCatalog {
     WorkoutActivityKind.cycling,
   };
 
-  static bool usesPhoneGps(WorkoutActivityKind kind) =>
-      outdoorKinds.contains(kind);
+  static bool usesPhoneGps(WorkoutActivityKind kind) => kind.usesGpsTrack;
 
   /// Metrics the user can toggle for Cardio / Custom.
   static const configurableIds = <WorkoutMetricId>[
@@ -162,8 +169,14 @@ abstract final class WorkoutMetricCatalog {
         WorkoutActivityKind.running => 9.8,
         WorkoutActivityKind.walking => 3.8,
         WorkoutActivityKind.cycling => 7.5,
+        WorkoutActivityKind.treadmill => 8.0,
+        WorkoutActivityKind.stairClimber => 9.0,
+        WorkoutActivityKind.rowing => 7.0,
+        WorkoutActivityKind.elliptical => 5.5,
+        WorkoutActivityKind.jumpRope => 11.0,
         WorkoutActivityKind.hiit => 8.5,
         WorkoutActivityKind.strength => 5.0,
+        WorkoutActivityKind.calisthenics => 6.0,
         WorkoutActivityKind.cardio => 6.5,
         WorkoutActivityKind.custom => 5.0,
       };

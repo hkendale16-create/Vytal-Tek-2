@@ -268,9 +268,181 @@ abstract final class ExerciseLibrary {
   static List<ExerciseDefinition> forGroup(MuscleGroup group) =>
       all.where((e) => e.muscleGroup == group).toList(growable: false);
 
+  static List<ExerciseDefinition> get calisthenics => const [
+        ExerciseDefinition(
+          name: 'Push-up',
+          muscleGroup: MuscleGroup.chest,
+          equipment: 'Bodyweight',
+          defaultSets: 3,
+          defaultReps: 12,
+          defaultRestSeconds: 45,
+        ),
+        ExerciseDefinition(
+          name: 'Diamond Push-up',
+          muscleGroup: MuscleGroup.triceps,
+          equipment: 'Bodyweight',
+          defaultSets: 3,
+          defaultReps: 10,
+          defaultRestSeconds: 45,
+        ),
+        ExerciseDefinition(
+          name: 'Pull-up',
+          muscleGroup: MuscleGroup.back,
+          equipment: 'Bodyweight',
+          defaultSets: 3,
+          defaultReps: 6,
+          defaultRestSeconds: 90,
+        ),
+        ExerciseDefinition(
+          name: 'Chin-up',
+          muscleGroup: MuscleGroup.biceps,
+          equipment: 'Bodyweight',
+          defaultSets: 3,
+          defaultReps: 6,
+          defaultRestSeconds: 90,
+        ),
+        ExerciseDefinition(
+          name: 'Weighted Pull-up',
+          muscleGroup: MuscleGroup.back,
+          equipment: 'Weighted',
+          defaultSets: 3,
+          defaultReps: 5,
+          defaultWeightKg: 10,
+          defaultRestSeconds: 120,
+        ),
+        ExerciseDefinition(
+          name: 'Muscle-up',
+          muscleGroup: MuscleGroup.fullBody,
+          equipment: 'Bodyweight',
+          defaultSets: 3,
+          defaultReps: 3,
+          defaultRestSeconds: 120,
+        ),
+        ExerciseDefinition(
+          name: 'Handstand Push-up',
+          muscleGroup: MuscleGroup.shoulders,
+          equipment: 'Bodyweight',
+          defaultSets: 3,
+          defaultReps: 5,
+          defaultRestSeconds: 90,
+        ),
+        ExerciseDefinition(
+          name: 'Pike Push-up',
+          muscleGroup: MuscleGroup.shoulders,
+          equipment: 'Bodyweight',
+          defaultSets: 3,
+          defaultReps: 8,
+          defaultRestSeconds: 60,
+        ),
+        ExerciseDefinition(
+          name: 'Tricep Dip',
+          muscleGroup: MuscleGroup.triceps,
+          equipment: 'Bodyweight',
+          defaultSets: 3,
+          defaultReps: 10,
+          defaultRestSeconds: 45,
+        ),
+        ExerciseDefinition(
+          name: 'Plank',
+          muscleGroup: MuscleGroup.core,
+          equipment: 'Bodyweight',
+          defaultSets: 3,
+          defaultDurationSeconds: 40,
+          defaultRestSeconds: 30,
+        ),
+        ExerciseDefinition(
+          name: 'Side Plank',
+          muscleGroup: MuscleGroup.core,
+          equipment: 'Bodyweight',
+          defaultSets: 3,
+          defaultDurationSeconds: 30,
+          defaultRestSeconds: 30,
+        ),
+        ExerciseDefinition(
+          name: 'Sit-up',
+          muscleGroup: MuscleGroup.core,
+          equipment: 'Bodyweight',
+          defaultSets: 3,
+          defaultReps: 15,
+          defaultRestSeconds: 30,
+        ),
+        ExerciseDefinition(
+          name: 'Leg Raise',
+          muscleGroup: MuscleGroup.core,
+          equipment: 'Bodyweight',
+          defaultSets: 3,
+          defaultReps: 12,
+          defaultRestSeconds: 45,
+        ),
+        ExerciseDefinition(
+          name: 'Hanging Knee Raise',
+          muscleGroup: MuscleGroup.core,
+          equipment: 'Bodyweight',
+          defaultSets: 3,
+          defaultReps: 12,
+          defaultRestSeconds: 45,
+        ),
+        ExerciseDefinition(
+          name: 'Bodyweight Squat',
+          muscleGroup: MuscleGroup.quadriceps,
+          equipment: 'Bodyweight',
+          defaultSets: 3,
+          defaultReps: 12,
+          defaultRestSeconds: 45,
+        ),
+        ExerciseDefinition(
+          name: 'Pistol Squat',
+          muscleGroup: MuscleGroup.quadriceps,
+          equipment: 'Bodyweight',
+          defaultSets: 3,
+          defaultReps: 6,
+          defaultRestSeconds: 75,
+        ),
+        ExerciseDefinition(
+          name: 'Lunges',
+          muscleGroup: MuscleGroup.quadriceps,
+          equipment: 'Bodyweight',
+          defaultSets: 3,
+          defaultReps: 10,
+          defaultRestSeconds: 45,
+        ),
+        ExerciseDefinition(
+          name: 'Glute Bridge',
+          muscleGroup: MuscleGroup.glutes,
+          equipment: 'Bodyweight',
+          defaultSets: 3,
+          defaultReps: 12,
+          defaultRestSeconds: 45,
+        ),
+        ExerciseDefinition(
+          name: 'Burpee',
+          muscleGroup: MuscleGroup.fullBody,
+          equipment: 'Bodyweight',
+          defaultSets: 3,
+          defaultReps: 10,
+          defaultRestSeconds: 45,
+        ),
+        ExerciseDefinition(
+          name: 'Mountain Climber',
+          muscleGroup: MuscleGroup.fullBody,
+          equipment: 'Bodyweight',
+          defaultSets: 3,
+          defaultDurationSeconds: 30,
+          defaultRestSeconds: 30,
+        ),
+        ExerciseDefinition(
+          name: 'Jumping Jack',
+          muscleGroup: MuscleGroup.fullBody,
+          equipment: 'Bodyweight',
+          defaultSets: 3,
+          defaultDurationSeconds: 30,
+          defaultRestSeconds: 20,
+        ),
+      ];
+
   static ExerciseDefinition? byName(String name) {
     final lower = name.toLowerCase();
-    for (final item in all) {
+    for (final item in [...all, ...calisthenics]) {
       if (item.name.toLowerCase() == lower) return item;
     }
     return null;
@@ -285,6 +457,7 @@ class ExerciseDefinition {
     this.defaultSets = 3,
     this.defaultReps,
     this.defaultDurationSeconds,
+    this.defaultWeightKg,
     this.defaultRestSeconds = 60,
   });
 
@@ -294,7 +467,26 @@ class ExerciseDefinition {
   final int defaultSets;
   final int? defaultReps;
   final int? defaultDurationSeconds;
+  final double? defaultWeightKg;
   final int defaultRestSeconds;
+
+  bool get usesDuration =>
+      defaultDurationSeconds != null && defaultReps == null;
+
+  bool get usesWeight => defaultWeightKg != null;
+
+  String get prescriptionLabel {
+    if (usesDuration) {
+      return '$defaultSets × ${defaultDurationSeconds}s';
+    }
+    if (usesWeight && defaultReps != null) {
+      return '$defaultSets × $defaultReps @ ${defaultWeightKg!.round()}kg';
+    }
+    if (defaultReps != null) {
+      return '$defaultSets × $defaultReps';
+    }
+    return '$defaultSets sets';
+  }
 
   WorkoutExercise toExercise({double? weightKg}) {
     return WorkoutExercise(
@@ -306,7 +498,7 @@ class ExerciseDefinition {
       reps: defaultReps,
       durationSeconds: defaultDurationSeconds,
       restSeconds: defaultRestSeconds,
-      weightKg: weightKg,
+      weightKg: weightKg ?? defaultWeightKg,
     );
   }
 }

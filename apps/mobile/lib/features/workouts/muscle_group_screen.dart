@@ -204,8 +204,7 @@ class _MuscleExercisesScreenState
               },
               title: Text(item.name),
               subtitle: Text(
-                '${item.equipment} · ${item.defaultSets} sets'
-                '${item.defaultReps != null ? ' × ${item.defaultReps}' : ''}',
+                '${item.equipment} · ${item.prescriptionLabel}',
               ),
             ),
           const SizedBox(height: 12),
