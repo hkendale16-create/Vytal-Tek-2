@@ -359,10 +359,16 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
   Future<bool> restoreActiveDraft() async {
     if (_draftRestoreAttempted) return false;
     _draftRestoreAttempted = true;
+    if (!mounted) return false;
     if (state.running || state.hasProgress || state.summaryPending) {
       return false;
     }
     final draft = await ActiveWorkoutDraft.load();
+    // Provider may have been disposed, or a live session started during the await.
+    if (!mounted) return false;
+    if (state.running || state.hasProgress || state.summaryPending) {
+      return false;
+    }
     if (draft == null) return false;
     // Ignore stale drafts older than 24h.
     if (DateTime.now().toUtc().difference(draft.savedAt) >
@@ -377,10 +383,11 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
     } else {
       _restoreActivityDraft(draft);
     }
-    return true;
+    return mounted && (state.hasProgress || state.routine != null);
   }
 
   void _restoreStrengthDraft(ActiveWorkoutDraft draft) {
+    if (!mounted) return;
     final uuid = const Uuid();
     final byExercise = <String, List<WorkoutSetLog>>{};
     for (final log in draft.setLogs) {
@@ -436,6 +443,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
       (p) => p.kind == WorkoutTimerKind.exercise && !p.completed,
     );
     if (index < 0) index = 0;
+    if (!mounted) return;
     _resetSensors();
     state = WorkoutSessionState(
       routine: routine,
@@ -453,9 +461,11 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
   }
 
   void _restoreActivityDraft(ActiveWorkoutDraft draft) {
+    if (!mounted) return;
     final kind = draft.activityKind;
     final label = draft.routineName ?? kind.label;
     _resetSensors();
+    if (!mounted) return;
     state = WorkoutSessionState(
       routine: WorkoutRoutine(
         id: draft.routineId ?? 'activity-${kind.name}',
@@ -1160,8 +1170,12 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
     _gpsSub = null;
     _gps.reset();
     unawaited(_setDeviceWorkoutMonitoring(false));
-    _ref.read(monitoringControllerProvider.notifier).setWorkoutActive(false);
-    state = WorkoutSessionState.idle;
+    // Intentional stop ends crash-recovery draft; process death leaves it.
+    unawaited(ActiveWorkoutDraft.clear());
+    if (mounted) {
+      _ref.read(monitoringControllerProvider.notifier).setWorkoutActive(false);
+      state = WorkoutSessionState.idle;
+    }
   }
 
   void _arm() {
