@@ -60,8 +60,9 @@ class LocalQueuedFitnessSyncPort implements FitnessSyncPort {
   }
 
   Future<String?> _resolveAuthToken() async {
-    if (_authTokenOverride != null && _authTokenOverride!.trim().isNotEmpty) {
-      return _authTokenOverride!.trim();
+    final override = _authTokenOverride?.trim();
+    if (override != null && override.isNotEmpty) {
+      return override;
     }
     final prefs = await _store();
     return prefs.getString(fitnessSyncTokenKey)?.trim();
