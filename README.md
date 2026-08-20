@@ -17,8 +17,8 @@ site/            Public landing + Privacy / Terms (Netlify publish dir)
 | 1 Foundation | Complete on branch history |
 | 2 Wearable connection | Complete — lifecycle + demo adapter |
 | 3 Monitoring engine | Complete — Active/Normal/Standby + auto-switch + background gate |
-| QRing SDK packages | Vendored under `third_party/qring/` (Android AAR + iOS framework) |
-| QRing native bridge | Android + iOS MethodChannels wired into `QRingWearableAdapter` |
+| Wearable SDKs | Android: HBand/Veepoo under `third_party/hband/`; iOS: QCBand under `third_party/qring/ios/` |
+| Wearable native bridge | Android `HBandSdkHost` + iOS `QRingPlugin` → `QRingWearableAdapter` |
 | 4 Core Health UI | Complete on branch history — Home/Activity/Sleep/Insights/Profile |
 | Subscription A | Complete — entitlement service, catalog, soft paywalls |
 | Subscription B–E | Complete — StoreKit/Play adapters, server verify, plan changes |
@@ -55,6 +55,6 @@ flutter run
 ## Important rules
 
 - Never present manual or demo values as wearable readings
-- QRing capabilities stay unknown until the live device reports them after pairing
+- Wearable capabilities stay unknown until the live device reports them after pairing
 - Subscription entitlement checks use keys (`ai.advanced`), not plan name strings
 - Client-side premium flags are not authoritative — server verification comes later

@@ -1,6 +1,6 @@
-package com.vytaltek.vytal_tek
+package com.vtk21.myapp
 
-import com.vytaltek.vytal_tek.qring.QRingSdkHost
+import com.vtk21.myapp.hband.HBandSdkHost
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -10,7 +10,8 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
-        QRingSdkHost.attachChannels(
+        // Channel names kept for Flutter bridge compatibility.
+        HBandSdkHost.attachChannels(
             MethodChannel(messenger, "com.vytaltek.qring/methods"),
             EventChannel(messenger, "com.vytaltek.qring/events"),
         )

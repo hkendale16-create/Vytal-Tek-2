@@ -1,0 +1,4 @@
+storePassword=<UPLOAD_KEYSTORE_PASSWORD>
+keyPassword=<UPLOAD_KEY_PASSWORD>
+keyAlias=vytal_upload
+storeFile=<ABSOLUTE_OR_RELATIVE_PATH_TO>/vytal-upload.jks

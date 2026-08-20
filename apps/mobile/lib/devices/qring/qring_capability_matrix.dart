@@ -1,25 +1,26 @@
 import '../../domain/devices/device_capabilities.dart';
 
-/// Documented QRing / QCBand SDK surface from vendor guides
-/// (`sdk_ring_external_access_en`, iOS SDK Development Guide).
+/// Documented wearable SDK surface.
 ///
-/// Capabilities are **per-device**. Always read
-/// `SetTimeRsp` + `DeviceSupportFunctionRsp` (Android) / equivalent support
-/// flags (iOS) after GATT ready — never assume every ring supports every metric.
+/// Android: HBand / Veepoo (`VPOperateManager`) from
+/// `third_party/hband/`. iOS: QCBand / QRing framework until iOS_Ble_SDK lands.
+///
+/// Capabilities are **per-device**. Always read support flags after connect
+/// handshake — never assume every device supports every metric.
 abstract final class QRingSdkNotes {
-  static const androidPackage = 'qring_sdk_1.0.0.60.aar';
+  static const androidPackage = 'vpprotocol + vpbluetooth (HBand/Veepoo)';
   static const iosFramework = 'QCBandSDK.framework';
-  static const androidMinSdk = 26;
+  static const androidMinSdk = 24;
   static const iosMinVersion = '9.0';
 
-  /// Android BLE scan requires Bluetooth **and** location (runtime).
+  /// Android BLE scan requires Bluetooth **and** location on older APIs.
   static const androidScanRequiresLocation = true;
 
-  /// After `onServiceDiscovered`, request time sync + capability bitmap before
-  /// any health queries. Early commands often get no response.
+  /// After notify ready, confirm password + sync person info before health
+  /// queries. Concurrent commands are not supported.
   static const mustQueryCapabilitiesBeforeHealth = true;
 
-  /// Android `BatteryRsp.batteryValue` / `getBatteryValue()` → 0..100.
+  /// Android `BatteryData` percent when `isPercent`, else discrete level.
   static const androidBatteryIsPercent = true;
 
   /// iOS `readBatterySuccess` → discrete level 0..8 (not percent).

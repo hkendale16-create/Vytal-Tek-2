@@ -1,20 +1,18 @@
 # QRing / QCBand SDK packages
 
-Vendored from the uploads on `main` (opaque zip hashes) and organized for Vytal Tek.
+**Android has moved to HBand / Veepoo** — see `third_party/hband/`.
+The Android QRing AAR below is retained only as a historical reference and is
+**not** linked from the app Gradle build.
 
-## Android
+## Android (deprecated for app builds)
 
 | Path | Description |
 |---|---|
-| `android/qring_sdk_1.0.0.60.aar` | Official QRing Android SDK |
-| `android/SDKSample.zip` | Vendor Sample project (reference) |
-| `android/docs/*.pdf` | External integration guides (EN/CN) |
+| `android/qring_sdk_1.0.0.60.aar` | Former QRing Android SDK (unused) |
+| `android/SDKSample.zip` | Former vendor Sample project |
+| `android/docs/*.pdf` | Former external integration guides |
 
-Primary Java entry points (inside AAR): `com.oudmon.ble.base.bluetooth.BleOperateManager`, command handlers, etc.
-
-Linked from `apps/mobile/android/app/build.gradle.kts` and hosted by `QRingSdkHost`.
-
-## iOS
+## iOS (still linked)
 
 | Path | Description |
 |---|---|
@@ -25,10 +23,10 @@ Linked from `apps/mobile/android/app/build.gradle.kts` and hosted by `QRingSdkHo
 Primary APIs: `QCSDKManager`, `QCSDKCmdCreator` (umbrella `QCBandSDK.h`).
 
 Linked from the Runner Xcode project (`-ObjC`) and hosted by `QRingPlugin`.
+For a matching HBand iOS stack, use
+[HBandSDK/iOS_Ble_SDK](https://github.com/HBandSDK/iOS_Ble_SDK).
 
 ## Notes
 
 - Do not invent sensor values. Capability flags from the device gate every metric.
-- Android BLE scan requires location permission.
-- iOS battery may be a discrete 0–8 level; Android battery is 0–100%.
-- See also `docs/qring-sdk-notes.md` in the repo root docs folder.
+- See also `docs/qring-sdk-notes.md` and `third_party/hband/README.md`.

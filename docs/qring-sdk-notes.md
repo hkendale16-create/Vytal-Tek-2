@@ -1,58 +1,61 @@
-# QRing SDK — capability notes (from vendor docs)
+# HBand / Veepoo SDK — capability notes
 
-Source packages live under `third_party/qring/` (also PDF guides in
-`android/docs` and `ios/docs`).
+Android is wired to [HBandSDK/Android_Ble_SDK](https://github.com/HBandSDK/Android_Ble_SDK)
+(Veepoo `VPOperateManager`). Artifacts live under `third_party/hband/`.
+
+iOS still uses the vendored QCBand / QRing framework until
+[HBandSDK/iOS_Ble_SDK](https://github.com/HBandSDK/iOS_Ble_SDK) is integrated.
 
 ## Packages in repo
 
 | Platform | Artifact |
 |---|---|
-| Android | `third_party/qring/android/qring_sdk_1.0.0.60.aar` (minSdk 26) |
-| iOS | `third_party/qring/ios/QCBandSDK.framework` |
+| Android | `third_party/hband/android/jar_core/*.aar` + `jar_base/*` + `jniLibs` |
+| iOS (current) | `third_party/qring/ios/QCBandSDK.framework` |
 
 ## Native bridge (linked)
 
 Flutter MethodChannel `com.vytaltek.qring/methods` + EventChannel
-`com.vytaltek.qring/events`:
+`com.vytaltek.qring/events` (names kept for Dart compatibility):
 
 | Platform | Host |
 |---|---|
-| Android | `VytalTekApplication` + `QRingSdkHost` (`BleOperateManager`) |
-| iOS | `QRingPlugin` (CoreBluetooth scan/connect + `QCSDKManager` / `QCSDKCmdCreator`) |
+| Android | `VytalTekApplication` + `HBandSdkHost` (`VPOperateManager`) |
+| iOS | `QRingPlugin` (CoreBluetooth + `QCSDKManager` / `QCSDKCmdCreator`) |
 
 `QRingWearableAdapter` calls the bridge for scan / connect / sync / metrics.
-Capabilities are cached from SetTime + DeviceSupport (Android) or `setTime`
-featureList (iOS) before health queries. Unsupported metrics stay
-`notSupported` / null — never fabricated.
+Capabilities are cached from `confirmDevicePwd` → `FunctionDeviceSupportData`
+(Android) or `setTime` featureList (iOS) before health queries. Unsupported
+metrics stay `notSupported` / null — never fabricated.
 
-## Connection lifecycle (Android)
+## Connection lifecycle (Android / HBand)
 
-1. Init `BleOperateManager` in `Application.onCreate`
-2. Register `QCBluetoothCallbackCloneReceiver` dynamically
-3. Scan → connect → on service discovered → `LargeDataHandler.initEnable()`
-4. **Serially** send `SetTimeReq` then `DeviceSupportReq`
+1. Init `VPOperateManager` in `Application.onCreate`
+2. Declare `com.inuker.bluetooth.library.BluetoothService` in the manifest
+3. Scan → `connectDevice` → notify success
+4. **Serially** `confirmDevicePwd("0000")` then `syncPersonInfo`
 5. Cache capability flags **before** any health queries
-6. Handle `supportBlePair` for system bonding vs soft disconnect
+6. Never run concurrent device commands
 
 ## Documented metrics (capability-gated)
 
 | Metric | Notes |
 |---|---|
-| Battery | Android `BatteryRsp` 0–100% + charging; iOS may be discrete 0–8 (convert carefully) |
-| Heart rate | Timed history + manual; realtime needs `mSupportAppMeasure` / `RealTimeHeartRate` |
-| SpO₂ | Setting + manual / interval; PPG raw available |
-| HRV | Setting + measurement (`QCMeasuringTypeHRV`) |
-| Temperature | Skin / interval / manual; capability flags required |
-| Stress / pressure | SDK “pressure” measurement |
-| Blood pressure | Timed + manual (not a Vytal primary UI metric unless gated) |
-| Steps / calories / distance | Daily totals + detail sport sync |
-| Sleep | Stages: awake / light / deep / REM / not worn; score helpers may be app-side |
-| Firmware OTA | Documented Sample flow |
-| Respiratory rate | **Not** documented as a first-class SDK metric → keep unsupported |
+| Battery | `readBattery` → percent or discrete level |
+| Heart rate | Live via `startDetectHeart` / `stopDetectHeart` |
+| SpO₂ | `readSpo2hOrigin` when `spo2H` supported |
+| HRV | `readHRVOrigin` when HRV function supported |
+| Temperature | `readTemptureDataBySetting` when temp function supported |
+| Stress / pressure | Mapped from Veepoo fatigue support flag |
+| Blood pressure | Capability-gated; not a primary Vytal UI metric unless gated |
+| Steps / calories / distance | `readSportStep` |
+| Sleep | `readSleepDataSingleDay` (`allSleepTime` minutes) |
+| Firmware OTA | Nordic / JieLi / Bluetrum / Goodix paths in vendor demo |
 
 ## Permissions
 
-- Android: Bluetooth + **location** (required for BLE scan per official guide)
+- Android: Bluetooth + **location** (BLE scan on older APIs); Android 12+
+  `BLUETOOTH_SCAN` with `neverForLocation`
 - iOS: `NSBluetoothAlwaysUsageDescription` / peripheral usage strings
 
 ## Vytal mapping

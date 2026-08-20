@@ -1,11 +1,11 @@
-package com.vytaltek.vytal_tek
+package com.vtk21.myapp
 
 import android.app.Application
-import com.vytaltek.vytal_tek.qring.QRingSdkHost
+import com.vtk21.myapp.hband.HBandSdkHost
 
 class VytalTekApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        QRingSdkHost.init(this)
+        HBandSdkHost.init(this)
     }
 }
