@@ -196,7 +196,14 @@ class HttpEntitlementVerifier implements EntitlementVerifier {
       );
     }
     try {
-      final json = await post(endpoint.resolve('lifecycle'), {
+      final lifecycleUri = endpoint.replace(
+        pathSegments: [
+          ...endpoint.pathSegments.where((s) => s.isNotEmpty).toList()
+            ..removeLast()
+            ..add('entitlement-lifecycle'),
+        ],
+      );
+      final json = await post(lifecycleUri, {
         'productId': productId,
         'lifecycle': lifecycle.name,
         'expiresAt': expiresAt?.toIso8601String(),

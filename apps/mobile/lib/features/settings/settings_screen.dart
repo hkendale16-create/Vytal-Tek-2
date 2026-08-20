@@ -113,9 +113,9 @@ class SettingsScreen extends ConsumerWidget {
                 ListTile(
                   leading: const Icon(Icons.person_outline),
                   title: const Text('Account'),
-                  subtitle: const Text('Profile, goals, onboarding details'),
+                  subtitle: const Text('Sign in for sync, Pro verify, marketplace'),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/profile'),
+                  onTap: () => context.push('/account'),
                 ),
                 const Divider(height: 1),
                 ListTile(

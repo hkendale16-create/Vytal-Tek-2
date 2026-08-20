@@ -26,12 +26,15 @@ Client architecture for B–F is in place. This checklist is the go-live gate fo
 ## Server
 
 - [x] Schema + Edge Function stub deployed on dedicated **Vytal Tek** project `sdeifrzdkiiexawwzfvb`
-- [ ] Verify App Store JWS / transaction APIs
-- [ ] Verify Google Play purchase tokens
-- [ ] App Store Server Notifications V2
-- [ ] Google Play Real-time Developer Notifications
-- [ ] Authoritative entitlement store (per user) wired from live verifies
-- [ ] Grace / billing retry / refund / revoke mapping to `SubscriptionLifecycle`
+- [x] Verify App Store JWS / transaction APIs (wired; requires `APPLE_*` secrets)
+- [x] Verify Google Play purchase tokens (wired; requires Play service account JSON)
+- [x] App Store Server Notifications V2 (audit ingest; signed mapping pending)
+- [x] Google Play Real-time Developer Notifications (audit ingest; signed mapping pending)
+- [x] Authoritative entitlement store (per user) wired from live verifies
+- [x] Grace / billing retry / refund / revoke mapping to `SubscriptionLifecycle` via `entitlement-lifecycle`
+- [x] Fitness sync receiver (`fitness-sync`)
+- [x] Marketplace checkout + platform fee ledger
+- [x] Gym partner claims / offers / sponsored inventory
 
 ## Store review
 

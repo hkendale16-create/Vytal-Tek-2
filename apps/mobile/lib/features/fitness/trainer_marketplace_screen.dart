@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../backend/supabase_config.dart';
 import '../../core/theme/vytal_colors.dart';
 import '../../core/theme/vytal_theme.dart';
 import '../../domain/models/ecosystem_future.dart';
@@ -9,10 +11,9 @@ import '../../fitness/ecosystem_controller.dart';
 import '../../state/app_session_controller.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
-import '../shared/vytal_controls.dart';
 import 'upgrade_prompts.dart';
 
-/// Browse trainer programs — local catalog, no live payments.
+/// Trainer marketplace — browse, interest, and server checkout with fee ledger.
 class TrainerMarketplaceScreen extends ConsumerWidget {
   const TrainerMarketplaceScreen({super.key});
 
@@ -20,52 +21,79 @@ class TrainerMarketplaceScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final eco = ref.watch(ecosystemProvider);
     final entitlements = ref.watch(appSessionProvider).entitlements;
+    final signedIn = ref.watch(authUserProvider) != null;
     final extras = context.vytalExtras;
     final programs = TrainerMarketplaceCatalog.featured;
 
     return SectionScaffold(
       title: 'Trainer Programs',
-      subtitle: 'Browse previews — fees are not charged in this build.',
+      subtitle: 'Checkout settles platform fees on the server.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           GlassPanel(
             child: Text(
-              'Marketplace browse only. Saving a program or expressing interest '
-              'stays on this device. Platform fees are reserved in the listing '
-              'metadata and are never charged here.',
+              signedIn
+                  ? 'Signed in — interest and checkout sync to Vytal servers. '
+                      'Paid SKUs use StoreKit/Play when console products exist; '
+                      'sandbox receipts work for drills. Sponsored fees are ledgered, not silently skipped.'
+                  : 'Sign in to sync interest and run checkout. Previews can still be saved on-device.',
               style: Theme.of(context)
                   .textTheme
                   .bodySmall
                   ?.copyWith(color: extras.textMuted),
             ),
           ),
-          const SizedBox(height: 12),
-          if (eco.savedProgramIds.isNotEmpty) ...[
-            VytalSectionHeader(
-              title: 'Saved',
-              subtitle: '${eco.savedProgramIds.length} on this device',
-            ),
+          if (!signedIn) ...[
             const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: () => context.push('/account'),
+              child: const Text('Sign in for checkout'),
+            ),
           ],
+          if (eco.lastError != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              eco.lastError!,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: VytalColors.caution),
+            ),
+          ],
+          const SizedBox(height: 12),
           for (final program in programs) ...[
             _ProgramCard(
               program: program,
               saved: eco.savedProgramIds.contains(program.id),
               interested: eco.interestProgramIds.contains(program.id),
+              purchased: eco.purchasedProgramIds.contains(program.id),
               canUseAdvanced: entitlements.canUse(EntitlementKeys.plansAdvanced),
               onSave: () =>
                   ref.read(ecosystemProvider.notifier).saveProgram(program.id),
               onInterest: () => ref
                   .read(ecosystemProvider.notifier)
                   .expressInterest(program.id),
+              onCheckout: () async {
+                final res = await ref
+                    .read(ecosystemProvider.notifier)
+                    .checkoutProgram(program.id);
+                if (!context.mounted) return;
+                final message = res == null
+                    ? (ref.read(ecosystemProvider).lastError ??
+                        'Checkout failed')
+                    : (res['message'] as String? ?? 'Checkout complete');
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(message)),
+                );
+              },
               onAdvancedGate: () => ContextualUpgradeSheet.show(
                 context,
                 title: 'Pro preview programs',
                 bullets: const [
                   'Browse advanced trainer paths',
-                  'Save and track interest locally',
-                  'Payments stay off until account checkout',
+                  'Server checkout with platform fee ledger',
+                  'StoreKit / Play when products are live',
                 ],
                 entitlementKey: EntitlementKeys.plansAdvanced,
               ),
@@ -83,18 +111,22 @@ class _ProgramCard extends StatelessWidget {
     required this.program,
     required this.saved,
     required this.interested,
+    required this.purchased,
     required this.canUseAdvanced,
     required this.onSave,
     required this.onInterest,
+    required this.onCheckout,
     required this.onAdvancedGate,
   });
 
   final TrainerProgramListing program;
   final bool saved;
   final bool interested;
+  final bool purchased;
   final bool canUseAdvanced;
   final VoidCallback onSave;
   final VoidCallback onInterest;
+  final VoidCallback onCheckout;
   final VoidCallback onAdvancedGate;
 
   @override
@@ -146,8 +178,7 @@ class _ProgramCard extends StatelessWidget {
               spacing: 6,
               runSpacing: 6,
               children: [
-                for (final area in program.focusAreas)
-                  StatusPill(label: area),
+                for (final area in program.focusAreas) StatusPill(label: area),
               ],
             ),
           ],
@@ -180,10 +211,26 @@ class _ProgramCard extends StatelessWidget {
                       : interested
                           ? null
                           : onInterest,
-                  child: Text(interested ? 'Interest noted' : 'I\'m interested'),
+                  child:
+                      Text(interested ? 'Interest noted' : 'I\'m interested'),
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 8),
+          FilledButton.tonal(
+            onPressed: purchased
+                ? null
+                : gated
+                    ? onAdvancedGate
+                    : onCheckout,
+            child: Text(
+              purchased
+                  ? 'Purchased'
+                  : program.advanced
+                      ? 'Checkout (sandbox / store)'
+                      : 'Unlock preview',
+            ),
           ),
         ],
       ),

@@ -21,15 +21,18 @@ class LocalQueuedFitnessSyncPort implements FitnessSyncPort {
     http.Client? httpClient,
     String? endpointUrl,
     String? authToken,
+    Future<String?> Function()? authTokenResolver,
   })  : _prefs = prefs,
         _http = httpClient ?? http.Client(),
         _endpointOverride = endpointUrl,
-        _authTokenOverride = authToken;
+        _authTokenOverride = authToken,
+        _authTokenResolver = authTokenResolver;
 
   final SharedPreferences? _prefs;
   final http.Client _http;
   String? _endpointOverride;
   final String? _authTokenOverride;
+  final Future<String?> Function()? _authTokenResolver;
 
   Future<SharedPreferences> _store() async =>
       _prefs ?? await SharedPreferences.getInstance();
@@ -47,19 +50,22 @@ class LocalQueuedFitnessSyncPort implements FitnessSyncPort {
   }
 
   Future<String?> loadEndpointUrl() async {
-    if (_endpointOverride != null && _endpointOverride!.trim().isNotEmpty) {
-      return _endpointOverride!.trim();
-    }
     final prefs = await _store();
     final stored = prefs.getString(fitnessSyncEndpointKey)?.trim();
     if (stored != null && stored.isNotEmpty) {
-      _endpointOverride = stored;
       return stored;
+    }
+    if (_endpointOverride != null && _endpointOverride!.trim().isNotEmpty) {
+      return _endpointOverride!.trim();
     }
     return null;
   }
 
   Future<String?> _resolveAuthToken() async {
+    final resolved = await _authTokenResolver?.call();
+    if (resolved != null && resolved.trim().isNotEmpty) {
+      return resolved.trim();
+    }
     final override = _authTokenOverride?.trim();
     if (override != null && override.isNotEmpty) {
       return override;

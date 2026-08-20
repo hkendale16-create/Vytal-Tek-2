@@ -287,6 +287,7 @@ class _GymCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final extras = context.vytalExtras;
     final claim = ref.watch(ecosystemProvider).claimFor(place.id);
+    final sponsored = ref.watch(ecosystemProvider).isSponsored(place.id);
     return GlassPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -303,16 +304,18 @@ class _GymCard extends ConsumerWidget {
                 StatusPill(label: place.distanceLabel, emphasis: true),
             ],
           ),
-          if (claim != null && claim.claimStatus != GymClaimStatus.none) ...[
+          if (sponsored ||
+              (claim != null && claim.claimStatus != GymClaimStatus.none)) ...[
             const SizedBox(height: 6),
             Wrap(
               spacing: 6,
               runSpacing: 6,
               children: [
-                StatusPill(label: claim.claimStatus.label),
-                if (claim.verified) const StatusPill(label: 'Verified'),
-                if (claim.partner) const StatusPill(label: 'Partner'),
-                if (claim.promoted)
+                if (claim != null && claim.claimStatus != GymClaimStatus.none)
+                  StatusPill(label: claim.claimStatus.label),
+                if (claim?.verified == true) const StatusPill(label: 'Verified'),
+                if (claim?.partner == true) const StatusPill(label: 'Partner'),
+                if (sponsored || claim?.promoted == true)
                   const StatusPill(label: 'Sponsored', emphasis: true),
               ],
             ),
@@ -512,6 +515,15 @@ class _GymProfileScreenState extends ConsumerState<GymProfileScreen> {
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ] else ...[
+                  Text(
+                    'Submit a claim for partner review. Sign in so the server '
+                    'owns the queue of record — local-only claims stay on device.',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: extras.textMuted),
+                  ),
+                  const SizedBox(height: 8),
                   TextField(
                     controller: _businessName,
                     decoration: const InputDecoration(
@@ -541,10 +553,12 @@ class _GymProfileScreenState extends ConsumerState<GymProfileScreen> {
                                 );
                             if (!mounted) return;
                             setState(() => _submittingClaim = false);
+                            final err = ref.read(ecosystemProvider).lastError;
                             ScaffoldMessenger.of(this.context).showSnackBar(
-                              const SnackBar(
+                              SnackBar(
                                 content: Text(
-                                  'Claim request saved on this device',
+                                  err ??
+                                      'Claim request saved / submitted',
                                 ),
                               ),
                             );
