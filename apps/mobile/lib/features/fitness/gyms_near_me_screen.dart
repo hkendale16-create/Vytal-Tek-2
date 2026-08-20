@@ -123,32 +123,9 @@ class _GymsNearMeScreenState extends ConsumerState<GymsNearMeScreen> {
               child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
             )
           else if (_mode == _GymViewMode.map)
-            GlassPanel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'List view preferred — map tiles coming',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Showing the same nearby results without an embedded map.',
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: extras.textMuted),
-                  ),
-                  const SizedBox(height: 12),
-                  for (final place in state.places.take(6)) ...[
-                    _GymCard(
-                      place: place,
-                      onView: () => setState(() => _profile = place),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                ],
-              ),
+            _GymMapViewport(
+              places: state.places,
+              onSelect: (place) => setState(() => _profile = place),
             )
           else if (state.places.isEmpty)
             GlassPanel(
@@ -187,6 +164,158 @@ class _GymsNearMeScreenState extends ConsumerState<GymsNearMeScreen> {
       ),
     );
   }
+}
+
+class _GymMapViewport extends StatelessWidget {
+  const _GymMapViewport({
+    required this.places,
+    required this.onSelect,
+  });
+
+  final List<GymPlace> places;
+  final ValueChanged<GymPlace> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final extras = context.vytalExtras;
+    final visible = places.take(12).toList();
+    if (visible.isEmpty) {
+      return GlassPanel(
+        child: Text(
+          'No gyms to plot yet. Search by city or enable location.',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        GlassPanel(
+          padding: EdgeInsets.zero,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                height: 220,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return Stack(
+                      children: [
+                        Positioned.fill(
+                          child: CustomPaint(
+                            painter: _GymScatterPainter(
+                              places: visible,
+                              pinColor: VytalColors.teal,
+                              gridColor: extras.border,
+                            ),
+                          ),
+                        ),
+                        for (final place in visible) ...[
+                          Builder(
+                            builder: (context) {
+                              final point = _GymMapViewport._normalize(
+                                place,
+                                visible,
+                              );
+                              return Positioned(
+                                left: point.dx * constraints.maxWidth - 22,
+                                top: point.dy * constraints.maxHeight - 22,
+                                width: 44,
+                                height: 44,
+                                child: IconButton(
+                                  tooltip: place.name,
+                                  padding: EdgeInsets.zero,
+                                  onPressed: () => onSelect(place),
+                                  icon: const Icon(
+                                    Icons.location_on,
+                                    color: VytalColors.teal,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ],
+                    );
+                  },
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                child: Text(
+                  'Relative map of nearby results — tap a pin to open a gym. '
+                  'No continuous tile fetch.',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: extras.textMuted),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        for (final place in visible.take(4)) ...[
+          _GymCard(place: place, onView: () => onSelect(place)),
+          const SizedBox(height: 8),
+        ],
+      ],
+    );
+  }
+
+  static Offset _normalize(GymPlace place, List<GymPlace> all) {
+    final lats = all.map((e) => e.latitude);
+    final lngs = all.map((e) => e.longitude);
+    final minLat = lats.reduce((a, b) => a < b ? a : b);
+    final maxLat = lats.reduce((a, b) => a > b ? a : b);
+    final minLng = lngs.reduce((a, b) => a < b ? a : b);
+    final maxLng = lngs.reduce((a, b) => a > b ? a : b);
+    final latSpan = (maxLat - minLat).abs() < 0.0001 ? 0.01 : (maxLat - minLat);
+    final lngSpan = (maxLng - minLng).abs() < 0.0001 ? 0.01 : (maxLng - minLng);
+    final x = ((place.longitude - minLng) / lngSpan).clamp(0.08, 0.92);
+    final y = (1 - ((place.latitude - minLat) / latSpan)).clamp(0.08, 0.92);
+    return Offset(x.toDouble(), y.toDouble());
+  }
+}
+
+class _GymScatterPainter extends CustomPainter {
+  _GymScatterPainter({
+    required this.places,
+    required this.pinColor,
+    required this.gridColor,
+  });
+
+  final List<GymPlace> places;
+  final Color pinColor;
+  final Color gridColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final grid = Paint()
+      ..color = gridColor.withValues(alpha: 0.55)
+      ..strokeWidth = 1;
+    for (var i = 1; i < 4; i++) {
+      final x = size.width * i / 4;
+      final y = size.height * i / 4;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), grid);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
+    }
+    final glow = Paint()
+      ..color = pinColor.withValues(alpha: 0.12)
+      ..style = PaintingStyle.fill;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Offset.zero & size,
+        const Radius.circular(16),
+      ),
+      glow,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _GymScatterPainter oldDelegate) =>
+      oldDelegate.places != places;
 }
 
 class _GymCard extends StatelessWidget {

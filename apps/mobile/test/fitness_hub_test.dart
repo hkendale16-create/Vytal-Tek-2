@@ -7,6 +7,7 @@ import 'package:vytal_tek/domain/models/workout_models.dart';
 import 'package:vytal_tek/fitness/equipment_workout_builder.dart';
 import 'package:vytal_tek/fitness/plan_library.dart';
 import 'package:vytal_tek/fitness/progress_analytics.dart';
+import 'package:vytal_tek/fitness/today_plan_launcher.dart';
 import 'package:vytal_tek/subscription/feature_access_config.dart';
 import 'package:vytal_tek/subscription/monetization.dart';
 import 'package:vytal_tek/subscription/product_catalog.dart';
@@ -304,6 +305,37 @@ void main() {
       expect(loaded.routineName, 'Home session');
       await ActiveWorkoutDraft.clear();
       expect(await ActiveWorkoutDraft.load(), isNull);
+    });
+  });
+
+  group('today plan launcher labels', () {
+    test('labels prefer calendar session titles', () {
+      final event = FitnessCalendarEvent(
+        id: 'e1',
+        title: 'Full Body A',
+        kind: FitnessEventKind.scheduledWorkout,
+        date: DateTime.now(),
+        durationMinutes: 40,
+      );
+      expect(
+        TodayPlanLauncher.primaryLabel(
+          event: event,
+          summaryPending: false,
+          hasActiveWorkout: false,
+          isNewUser: false,
+        ),
+        'Start Full Body A',
+      );
+      expect(
+        TodayPlanLauncher.primaryLabel(
+          event: event,
+          summaryPending: false,
+          hasActiveWorkout: false,
+          isNewUser: false,
+          readinessScore: 25,
+        ),
+        'Start lighter · Full Body A',
+      );
     });
   });
 

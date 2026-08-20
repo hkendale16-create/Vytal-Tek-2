@@ -64,7 +64,10 @@ void main() {
     expect(find.text('PROGRESS'), findsWidgets);
     expect(find.text('VYTAL COACH'), findsOneWidget);
     expect(find.text('Ask Coach'), findsOneWidget);
-    expect(find.text('Start Workout'), findsOneWidget);
+    expect(
+      find.textContaining('Start'),
+      findsWidgets,
+    );
     expect(find.text('HEART RATE'), findsNothing);
   });
 

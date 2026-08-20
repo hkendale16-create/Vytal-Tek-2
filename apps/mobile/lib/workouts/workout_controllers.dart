@@ -875,6 +875,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
       phases: phases,
       remainingSeconds: nextRemaining,
     );
+    unawaited(_persistActiveDraft());
   }
 
   /// Expand a routine into ordered exercise / rest phases (min 5s work).
@@ -952,6 +953,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
       running: false,
       clearRunningSince: true,
     );
+    unawaited(_persistActiveDraft());
   }
 
   void resume() {
@@ -1319,6 +1321,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
         stopwatchElapsed: elapsed,
         elapsedAtResumeSeconds: elapsed,
       );
+      _maybeAutosaveDraft(elapsed);
       return;
     }
     if (phase.kind == WorkoutTimerKind.stopwatch ||
@@ -1329,6 +1332,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
         stopwatchElapsed: elapsed,
         elapsedAtResumeSeconds: elapsed,
       );
+      _maybeAutosaveDraft(elapsed);
       return;
     }
     if (phase.kind == WorkoutTimerKind.rest && _autoRestEnabled) {
@@ -1343,6 +1347,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
         elapsedAtResumeSeconds: elapsed,
         stopwatchElapsed: elapsed,
       );
+      _maybeAutosaveDraft(elapsed);
       return;
     }
     final remaining = state.remainingSeconds - 1;
@@ -1356,6 +1361,12 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
       elapsedAtResumeSeconds: elapsed,
       stopwatchElapsed: elapsed,
     );
+    _maybeAutosaveDraft(elapsed);
+  }
+
+  void _maybeAutosaveDraft(int elapsedSeconds) {
+    if (elapsedSeconds <= 0 || elapsedSeconds % 15 != 0) return;
+    unawaited(_persistActiveDraft());
   }
 
   WorkoutSessionState _copy({

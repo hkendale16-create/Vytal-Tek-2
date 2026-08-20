@@ -72,20 +72,33 @@ extension on ExerciseBrowserCategory {
 
 const _alternativeMap = <String, List<String>>{
   'Bench Press': [
-    'Dumbbell Press',
-    'Push-ups',
-    'Floor Press',
-    'Machine Chest Press',
+    'Incline Dumbbell Press',
+    'Push-up',
+    'Dumbbell Fly',
   ],
-  'Pull-up': ['Lat Pulldown', 'Inverted Row'],
-  'Deadlift': ['Romanian Deadlift', 'Trap Bar Deadlift', 'Kettlebell Swing'],
-  'Shoulder Press': ['Arnold Press', 'Pike Push-up', 'Machine Shoulder Press'],
-  'Barbell Row': ['Dumbbell Row', 'Seated Cable Row', 'Chest-supported Row'],
-  'Squat': ['Goblet Squat', 'Bodyweight Squat', 'Leg Press'],
-  'Bodyweight Squat': ['Goblet Squat', 'Lunges', 'Split Squat'],
-  'Lat Pulldown': ['Pull-up', 'Assisted Pull-up', 'Band Pulldown'],
-  'Hip Thrust': ['Glute Bridge', 'Cable Kickback'],
-  'Bicep Curl': ['Hammer Curl', 'Cable Curl'],
+  'Incline Dumbbell Press': ['Bench Press', 'Push-up', 'Dumbbell Fly'],
+  'Push-up': ['Incline Dumbbell Press', 'Bench Press', 'Pike Push-up'],
+  'Pull-up': ['Lat Pulldown', 'Chin-up', 'Dumbbell Row'],
+  'Chin-up': ['Pull-up', 'Lat Pulldown', 'Dumbbell Row'],
+  'Lat Pulldown': ['Pull-up', 'Chin-up', 'Dumbbell Row'],
+  'Deadlift': ['Romanian Deadlift', 'Kettlebell Swing', 'Hip Thrust'],
+  'Romanian Deadlift': ['Deadlift', 'Kettlebell Swing', 'Hip Thrust'],
+  'Shoulder Press': ['Lateral Raise', 'Pike Push-up', 'Face Pull'],
+  'Lateral Raise': ['Shoulder Press', 'Face Pull'],
+  'Barbell Row': ['Dumbbell Row', 'Lat Pulldown', 'Pull-up'],
+  'Dumbbell Row': ['Barbell Row', 'Lat Pulldown', 'Pull-up'],
+  'Bodyweight Squat': ['Goblet Squat', 'Lunges', 'Pistol Squat'],
+  'Goblet Squat': ['Bodyweight Squat', 'Lunges', 'Hip Thrust'],
+  'Lunges': ['Bodyweight Squat', 'Goblet Squat', 'Glute Bridge'],
+  'Hip Thrust': ['Glute Bridge', 'Romanian Deadlift', 'Lunges'],
+  'Glute Bridge': ['Hip Thrust', 'Bodyweight Squat', 'Lunges'],
+  'Bicep Curl': ['Hammer Curl', 'Chin-up'],
+  'Hammer Curl': ['Bicep Curl', 'Chin-up'],
+  'Plank': ['Side Plank', 'Sit-up', 'Leg Raise'],
+  'Side Plank': ['Plank', 'Sit-up'],
+  'Kettlebell Swing': ['Romanian Deadlift', 'Jumping Jack', 'Burpee'],
+  'Burpee': ['Mountain Climber', 'Jumping Jack', 'Push-up'],
+  'Mountain Climber': ['Burpee', 'Jumping Jack', 'Plank'],
 };
 
 String? _inferSecondary(ExerciseDefinition def) {
@@ -192,6 +205,10 @@ class _ExerciseBrowserScreenState extends ConsumerState<ExerciseBrowserScreen> {
       return _ExerciseDetailView(
         exercise: _detail!,
         onBack: () => setState(() => _detail = null),
+        onOpenAlternative: (name) {
+          final match = _catalog.where((e) => e.name == name);
+          if (match.isNotEmpty) setState(() => _detail = match.first);
+        },
       );
     }
 
@@ -381,16 +398,27 @@ class _ExerciseBrowserScreenState extends ConsumerState<ExerciseBrowserScreen> {
 }
 
 class _ExerciseDetailView extends StatelessWidget {
-  const _ExerciseDetailView({required this.exercise, required this.onBack});
+  const _ExerciseDetailView({
+    required this.exercise,
+    required this.onBack,
+    required this.onOpenAlternative,
+  });
 
   final ExerciseDefinition exercise;
   final VoidCallback onBack;
+  final ValueChanged<String> onOpenAlternative;
 
   @override
   Widget build(BuildContext context) {
     final extras = context.vytalExtras;
     final secondary = _inferSecondary(exercise);
-    final alts = _alternativeMap[exercise.name] ?? const <String>[];
+    final catalogNames = {
+      for (final e in [...ExerciseLibrary.all, ...ExerciseLibrary.calisthenics])
+        e.name,
+    };
+    final alts = (_alternativeMap[exercise.name] ?? const <String>[])
+        .where(catalogNames.contains)
+        .toList();
 
     return SectionScaffold(
       title: exercise.name,
@@ -447,8 +475,7 @@ class _ExerciseDetailView extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   'Move with control through a full range you own. Brace your '
-                  'core, keep joints stacked, and stop if form breaks down. '
-                  'Detailed coaching cues will land here in a later update.',
+                  'core, keep joints stacked, and stop if form breaks down.',
                   style: Theme.of(context)
                       .textTheme
                       .bodyMedium
@@ -461,10 +488,33 @@ class _ExerciseDetailView extends StatelessWidget {
             const SizedBox(height: 12),
             const VytalSectionHeader(title: 'Alternatives'),
             for (final alt in alts) ...[
-              GlassPanel(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                child: Text(alt, style: Theme.of(context).textTheme.titleSmall),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => onOpenAlternative(alt),
+                  child: GlassPanel(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            alt,
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                        ),
+                        Icon(
+                          Icons.chevron_right,
+                          color: extras.textMuted,
+                          size: 20,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(height: 8),
             ],

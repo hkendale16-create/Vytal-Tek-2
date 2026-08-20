@@ -14,6 +14,7 @@ import '../../domain/models/monitoring_mode.dart';
 import '../../domain/models/operating_mode.dart';
 import '../../fitness/calendar_controller.dart';
 import '../../fitness/progress_analytics.dart';
+import '../../fitness/today_plan_launcher.dart';
 import '../../monitoring/monitoring_controller.dart';
 import '../../state/app_session_controller.dart';
 import '../../workouts/workout_controllers.dart';
@@ -117,7 +118,8 @@ class TodayScreen extends ConsumerWidget {
                       totalWorkouts: history.entries.length,
                       hasActiveWorkout: workout.running ||
                           workout.summaryPending ||
-                          workout.completed,
+                          workout.completed ||
+                          workout.hasProgress,
                       summaryPending: workout.summaryPending,
                     ),
                   ),
@@ -145,27 +147,21 @@ class TodayScreen extends ConsumerWidget {
                         );
                         final hasActiveWorkout = workout.running ||
                             workout.summaryPending ||
-                            workout.completed;
-                        final primaryLabel = workout.summaryPending
-                            ? 'View summary'
-                            : hasActiveWorkout
-                                ? 'Resume workout'
-                                : isNewUser
-                                    ? 'Start first session'
-                                    : 'Start workout';
+                            workout.completed ||
+                            workout.hasProgress;
+                        final primaryLabel = TodayPlanLauncher.primaryLabel(
+                          event: todayEvent,
+                          summaryPending: workout.summaryPending,
+                          hasActiveWorkout: hasActiveWorkout,
+                          isNewUser: isNewUser,
+                          readinessScore: health.readinessScore,
+                        );
                         void onPrimary() {
-                          if (!hasActiveWorkout &&
-                              !workout.summaryPending &&
-                              isNewUser) {
-                            context.push('/workouts');
-                            return;
-                          }
-                          context.push(
-                            workout.summaryPending
-                                ? '/workouts/summary'
-                                : hasActiveWorkout
-                                    ? '/workouts/active'
-                                    : '/workouts',
+                          TodayPlanLauncher.startFromToday(
+                            context: context,
+                            ref: ref,
+                            event: todayEvent,
+                            readinessScore: health.readinessScore,
                           );
                         }
 
@@ -190,7 +186,34 @@ class TodayScreen extends ConsumerWidget {
                               const FirstSessionPanel(),
                             ],
                             const SizedBox(height: 12),
-                            _TodayPlanCard(event: todayEvent),
+                            _TodayPlanCard(
+                              event: todayEvent,
+                              onStart: hasActiveWorkout ||
+                                      workout.summaryPending ||
+                                      todayEvent == null ||
+                                      todayEvent.isRest ||
+                                      todayEvent.isCompleted
+                                  ? null
+                                  : () => TodayPlanLauncher.startFromToday(
+                                        context: context,
+                                        ref: ref,
+                                        event: todayEvent,
+                                        readinessScore: health.readinessScore,
+                                      ),
+                            ),
+                            if (health.readinessScore != null &&
+                                todayEvent != null &&
+                                !todayEvent.isRest) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                TrainingGuidance.workoutHubHint(
+                                  health.readinessScore,
+                                ),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: extras.textMuted,
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 12),
                             WeeklyScorecardCard(scorecard: scorecard),
                             const SizedBox(height: 12),
@@ -304,7 +327,7 @@ class TodayScreen extends ConsumerWidget {
   }
 }
 
-class _DeviceFreeToday extends StatelessWidget {
+class _DeviceFreeToday extends ConsumerWidget {
   const _DeviceFreeToday({
     required this.todayEvent,
     required this.weekStart,
@@ -328,32 +351,39 @@ class _DeviceFreeToday extends StatelessWidget {
   final bool summaryPending;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final primaryLabel = TodayPlanLauncher.primaryLabel(
+      event: todayEvent,
+      summaryPending: summaryPending,
+      hasActiveWorkout: hasActiveWorkout,
+      isNewUser: historyEmpty,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _TodayPlanCard(event: todayEvent),
+        _TodayPlanCard(
+          event: todayEvent,
+          onStart: hasActiveWorkout ||
+                  summaryPending ||
+                  todayEvent == null ||
+                  todayEvent!.isRest ||
+                  todayEvent!.isCompleted
+              ? null
+              : () => TodayPlanLauncher.startFromToday(
+                    context: context,
+                    ref: ref,
+                    event: todayEvent,
+                  ),
+        ),
         const SizedBox(height: 12),
         FilledButton(
-          onPressed: () {
-            if (summaryPending) {
-              context.push('/workouts/summary');
-              return;
-            }
-            if (hasActiveWorkout) {
-              context.push('/workouts/active');
-              return;
-            }
-            context.push('/workouts');
-          },
-          child: Text(
-            summaryPending
-                ? 'View summary'
-                : hasActiveWorkout
-                    ? 'Resume workout'
-                    : 'Start Workout',
+          onPressed: () => TodayPlanLauncher.startFromToday(
+            context: context,
+            ref: ref,
+            event: todayEvent,
           ),
+          child: Text(primaryLabel),
         ),
         const SizedBox(height: 8),
         OutlinedButton(
@@ -454,9 +484,10 @@ class _DeviceFreeToday extends StatelessWidget {
 }
 
 class _TodayPlanCard extends StatelessWidget {
-  const _TodayPlanCard({required this.event});
+  const _TodayPlanCard({required this.event, this.onStart});
 
   final FitnessCalendarEvent? event;
+  final VoidCallback? onStart;
 
   @override
   Widget build(BuildContext context) {
@@ -494,6 +525,16 @@ class _TodayPlanCard extends StatelessWidget {
           if (event != null && event!.isCompleted) ...[
             const SizedBox(height: 8),
             const StatusPill(label: 'Completed ✓', emphasis: true),
+          ],
+          if (onStart != null) ...[
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: onStart,
+                child: const Text('Start this session'),
+              ),
+            ),
           ],
         ],
       ),
