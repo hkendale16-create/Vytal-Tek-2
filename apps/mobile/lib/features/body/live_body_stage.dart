@@ -306,7 +306,7 @@ class _HumanMeshPainter extends CustomPainter {
     final lift = breath * 4;
     final skin = VytalColors.teal.withValues(alpha: 0.38);
     final limb = VytalColors.cyan.withValues(alpha: 0.32);
-    final load = VytalColors.green.withValues(alpha: 0.55);
+    final load = VytalColors.cyan.withValues(alpha: 0.45);
 
     ellipsoid(
       Offset(cx + sway * 0.15, cy - size.height * 0.32 + lift),

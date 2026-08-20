@@ -174,6 +174,36 @@ class CountdownController extends StateNotifier<CountdownState> {
 
   void cancel() => reset();
 
+  /// Configure h/m/s from a single duration and optionally start (workout rest).
+  void configureTotalSeconds(int totalSeconds, {bool startRunning = false}) {
+    final clamped = totalSeconds.clamp(1, 23 * 3600 + 59 * 60 + 59);
+    final hours = clamped ~/ 3600;
+    final minutes = (clamped % 3600) ~/ 60;
+    final seconds = clamped % 60;
+    _tick?.cancel();
+    state = CountdownState(
+      hours: hours,
+      minutes: minutes,
+      seconds: seconds,
+      running: startRunning,
+      completed: false,
+      remainingAtResumeMs: clamped * 1000,
+      runningSince: startRunning ? DateTime.now() : null,
+      soundEnabled: state.soundEnabled,
+      vibrationEnabled: state.vibrationEnabled,
+    );
+    if (startRunning) _arm();
+  }
+
+  void startForTotalSeconds(int totalSeconds) {
+    configureTotalSeconds(totalSeconds, startRunning: true);
+  }
+
+  void pauseWorkoutRest() {
+    if (!state.running) return;
+    pause();
+  }
+
   void _arm() {
     _tick?.cancel();
     _tick = Timer.periodic(const Duration(milliseconds: 200), (_) => _onTick());
