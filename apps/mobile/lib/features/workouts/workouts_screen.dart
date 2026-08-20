@@ -10,21 +10,18 @@ import '../../core/permissions/permission_catalog.dart';
 import '../../core/permissions/permission_prompt.dart';
 import '../../core/theme/vytal_colors.dart';
 import '../../core/time/duration_format.dart';
-import '../../domain/models/data_provenance.dart';
 import '../../domain/models/entitlements.dart';
 import '../../domain/models/workout_models.dart';
 import '../../state/app_session_controller.dart';
 import '../../workouts/exercise_library.dart';
 import '../../workouts/phone_gps.dart';
 import '../../workouts/workout_controllers.dart';
-import '../../workouts/workout_gps.dart';
 import '../../workouts/workout_metrics.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
 import '../shared/vytal_controls.dart';
 import '../subscription/soft_paywall.dart';
 import '../today/today_health_provider.dart';
-import 'activity_motion.dart';
 
 class WorkoutsScreen extends ConsumerStatefulWidget {
   const WorkoutsScreen({super.key});
@@ -823,603 +820,6 @@ Future<List<WorkoutMetricId>?> showMetricPickerSheet(
   );
 }
 
-class ActiveWorkoutScreen extends ConsumerStatefulWidget {
-  const ActiveWorkoutScreen({super.key});
-
-  @override
-  ConsumerState<ActiveWorkoutScreen> createState() =>
-      _ActiveWorkoutScreenState();
-}
-
-class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureGps());
-  }
-
-  Future<void> _ensureGps() async {
-    final session = ref.read(workoutSessionProvider);
-    final kind = session.activityKind;
-    if (kind == null || session.gpsDenied || session.gpsActive) return;
-    final wantsGps = WorkoutMetricCatalog.usesPhoneGps(kind) ||
-        (session.enabledMetrics?.any(WorkoutMetricCatalog.needsGps) ?? false);
-    if (!wantsGps || !PhoneGps.supported) return;
-    final granted = await PhoneGps.requestPermission();
-    if (!mounted) return;
-    if (!granted) {
-      ref.read(workoutSessionProvider.notifier).markGpsDenied();
-      return;
-    }
-    await ref.read(workoutSessionProvider.notifier).listenGps(PhoneGps.watch());
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final session = ref.watch(workoutSessionProvider);
-    final health = ref.watch(todayHealthProvider).valueOrNull;
-    final theme = Theme.of(context);
-    final phase = session.currentPhase;
-    final kind = session.activityKind ?? WorkoutActivityKind.custom;
-    final hr =
-        health?.heartRate.hasValue == true ? health!.heartRate.value : null;
-    ref.listen(todayHealthProvider, (previous, next) {
-      final sample = next.valueOrNull?.heartRate;
-      if (sample != null && sample.hasValue && session.running) {
-        ref.read(workoutSessionProvider.notifier).recordHeartRate(sample.value);
-      }
-    });
-
-    final idle = session.playMode == WorkoutPlayMode.idle &&
-        session.phases.isEmpty &&
-        !session.summaryPending;
-    if (idle) {
-      return const SectionScaffold(
-        title: 'Workout',
-        child: EmptyMetricCard(
-          title: 'No active workout',
-          message: 'Start a workout from Today or Workouts.',
-        ),
-      );
-    }
-
-    if (session.summaryPending) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (context.mounted) context.go('/workouts/summary');
-      });
-    }
-
-    final display = session.playMode == WorkoutPlayMode.routine &&
-            phase != null &&
-            phase.kind != WorkoutTimerKind.activity
-        ? session.remainingNow()
-        : session.elapsedSeconds();
-    final weight = ref.watch(appSessionProvider).profile.weightKg ?? 70;
-    final calories = WorkoutMetricCatalog.estimatedCalories(
-      kind: kind,
-      elapsedSeconds: session.elapsedSeconds(),
-      weightKg: weight,
-    );
-
-    return SectionScaffold(
-      title: session.routine?.name ?? kind.label,
-      subtitle: session.running ? 'Active' : 'Paused',
-      child: Column(
-        children: [
-          ActivityMotion(kind: kind, running: session.running),
-          const SizedBox(height: 8),
-          GlassPanel(
-            glow: session.running,
-            child: Column(
-              children: [
-                Text(
-                  phase?.label ?? kind.label,
-                  style: theme.textTheme.titleLarge,
-                  textAlign: TextAlign.center,
-                ),
-                Text(
-                  formatClock(display),
-                  style: theme.textTheme.displayMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: phase?.kind == WorkoutTimerKind.rest
-                        ? VytalColors.caution
-                        : VytalColors.teal,
-                  ),
-                ),
-                Text(
-                  'Elapsed ${formatClock(session.elapsedSeconds())}',
-                  style: theme.textTheme.bodySmall,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          _WorkoutMetricsGrid(
-            kind: kind,
-            session: session,
-            hr: hr,
-            hrProvenance: health?.heartRate.provenance,
-            calories: calories,
-            phase: phase,
-          ),
-          if (session.routePoints.length >= 2) ...[
-            const SizedBox(height: 8),
-            _RouteSketch(points: session.routePoints),
-          ],
-          const SizedBox(height: 12),
-          if (kind.usesStrengthSets) ...[
-            if (phase != null && phase.kind == WorkoutTimerKind.exercise)
-              _LiveSetEditor(phase: phase),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                FilledButton(
-                  onPressed: session.phases.isEmpty
-                      ? null
-                      : () => ref
-                          .read(workoutSessionProvider.notifier)
-                          .completeSet(),
-                  child: const Text('Complete Set'),
-                ),
-                OutlinedButton(
-                  onPressed: () => ref
-                      .read(workoutSessionProvider.notifier)
-                      .addSetToCurrentExercise(),
-                  child: const Text('Add set'),
-                ),
-                OutlinedButton(
-                  onPressed: () => _addExercise(context),
-                  child: const Text('Add exercise'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-          ] else if (session.playMode == WorkoutPlayMode.routine) ...[
-            Wrap(
-              spacing: 8,
-              children: [
-                FilledButton(
-                  onPressed: () =>
-                      ref.read(workoutSessionProvider.notifier).completeSet(),
-                  child: const Text('Complete interval'),
-                ),
-                OutlinedButton(
-                  onPressed: () =>
-                      ref.read(workoutSessionProvider.notifier).skip(),
-                  child: const Text('Skip'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-          ],
-          Row(
-            children: [
-              Expanded(
-                child: FilledButton(
-                  onPressed: () {
-                    final n = ref.read(workoutSessionProvider.notifier);
-                    if (session.running) {
-                      n.pause();
-                    } else {
-                      n.resume();
-                    }
-                  },
-                  child: Text(
-                    session.running
-                        ? 'Pause'
-                        : (session.elapsedSeconds() == 0 ? 'Start' : 'Resume'),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () {
-                    ref.read(workoutSessionProvider.notifier).stopAndSummarize();
-                    context.push('/workouts/summary');
-                  },
-                  child: const Text('Stop'),
-                ),
-              ),
-            ],
-          ),
-          TextButton(
-            onPressed: () async {
-              if (session.hasProgress) {
-                final ok = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Reset workout?'),
-                    content: const Text(
-                      'Elapsed time and session metrics will return to zero. Saved history is not deleted.',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text('Cancel'),
-                      ),
-                      FilledButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        child: const Text('Reset'),
-                      ),
-                    ],
-                  ),
-                );
-                if (ok != true) return;
-              }
-              ref.read(workoutSessionProvider.notifier).resetSession();
-            },
-            child: const Text('Reset'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _addExercise(BuildContext context) async {
-    final kind = ref.read(workoutSessionProvider).activityKind;
-    final catalog = kind == WorkoutActivityKind.calisthenics
-        ? ExerciseLibrary.calisthenics
-        : ExerciseLibrary.all;
-    final choice = await showModalBottomSheet<ExerciseDefinition>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) {
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-          children: [
-            for (final item in catalog)
-              ListTile(
-                title: Text(item.name),
-                subtitle: Text(
-                  '${item.muscleGroup.label} · ${item.prescriptionLabel}',
-                ),
-                onTap: () => Navigator.pop(context, item),
-              ),
-          ],
-        );
-      },
-    );
-    if (choice == null) return;
-    ref.read(workoutSessionProvider.notifier).addExerciseToSession(
-          choice.toExercise(),
-        );
-  }
-}
-
-class _LiveSetEditor extends ConsumerWidget {
-  const _LiveSetEditor({required this.phase});
-
-  final TimerPhase phase;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final lb = phase.weightKg == null
-        ? 0
-        : WorkoutMetricCatalog.kgToLb(phase.weightKg!).round();
-    final timedHold =
-        phase.reps == null && phase.kind == WorkoutTimerKind.exercise;
-    final equipment = (phase.equipment ?? '').toLowerCase();
-    final showWeight = phase.weightKg != null ||
-        (equipment.isNotEmpty && equipment != 'bodyweight' && !timedHold);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: GlassPanel(
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 4,
-          children: [
-            if (timedHold)
-              _Num(
-                label: 'Sec',
-                value: phase.seconds,
-                onChanged: (v) => ref
-                    .read(workoutSessionProvider.notifier)
-                    .updateCurrentSet(durationSeconds: v.clamp(5, 600)),
-              )
-            else
-              _Num(
-                label: 'Reps',
-                value: phase.reps ?? 0,
-                onChanged: (v) => ref
-                    .read(workoutSessionProvider.notifier)
-                    .updateCurrentSet(reps: v),
-              ),
-            if (showWeight)
-              _Num(
-                label: 'lb',
-                value: lb,
-                onChanged: (v) => ref
-                    .read(workoutSessionProvider.notifier)
-                    .updateCurrentSet(
-                      weightKg: v <= 0
-                          ? 0
-                          : WorkoutMetricCatalog.lbToKg(v.toDouble()),
-                    ),
-              ),
-            _Num(
-              label: 'Rest',
-              value: phase.kind == WorkoutTimerKind.rest
-                  ? phase.seconds
-                  : (ref.watch(workoutSessionProvider).nextPhase?.kind ==
-                          WorkoutTimerKind.rest
-                      ? ref.watch(workoutSessionProvider).nextPhase!.seconds
-                      : 60),
-              onChanged: (v) => ref
-                  .read(workoutSessionProvider.notifier)
-                  .updateCurrentSet(restSeconds: v.clamp(0, 300)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RouteSketch extends StatelessWidget {
-  const _RouteSketch({required this.points});
-
-  final List<({double x, double y})> points;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Route', style: Theme.of(context).textTheme.labelLarge),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 120,
-            width: double.infinity,
-            child: CustomPaint(
-              painter: _RoutePainter(points: points, color: VytalColors.teal),
-            ),
-          ),
-          Text(
-            'On-device sketch · not shared',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RoutePainter extends CustomPainter {
-  _RoutePainter({required this.points, required this.color});
-
-  final List<({double x, double y})> points;
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (points.length < 2) return;
-    final path = Path();
-    for (var i = 0; i < points.length; i++) {
-      final offset = Offset(points[i].x * size.width, points[i].y * size.height);
-      if (i == 0) {
-        path.moveTo(offset.dx, offset.dy);
-      } else {
-        path.lineTo(offset.dx, offset.dy);
-      }
-    }
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = color
-        ..strokeWidth = 2.4
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _RoutePainter oldDelegate) =>
-      oldDelegate.points != points;
-}
-
-class _WorkoutMetricsGrid extends StatelessWidget {
-  const _WorkoutMetricsGrid({
-    required this.kind,
-    required this.session,
-    required this.hr,
-    required this.hrProvenance,
-    required this.calories,
-    required this.phase,
-  });
-
-  final WorkoutActivityKind kind;
-  final WorkoutSessionState session;
-  final int? hr;
-  final DataProvenance? hrProvenance;
-  final int calories;
-  final TimerPhase? phase;
-
-  @override
-  Widget build(BuildContext context) {
-    final ids = session.visibleMetrics;
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        for (final id in ids)
-          SizedBox(
-            width: (MediaQuery.sizeOf(context).width - 56) / 2,
-            child: _tile(id),
-          ),
-      ],
-    );
-  }
-
-  Widget _tile(WorkoutMetricId id) {
-    switch (id) {
-      case WorkoutMetricId.elapsed:
-        return MetricHudTile(
-          title: 'Elapsed',
-          value: formatClock(session.elapsedSeconds()),
-          emptyMessage: '0:00',
-        );
-      case WorkoutMetricId.distance:
-        return MetricHudTile(
-          title: 'Distance',
-          value: session.gpsActive || session.distanceMeters > 0
-              ? formatDistanceKm(session.distanceMeters)
-              : null,
-          emptyMessage: session.gpsDenied
-              ? 'Location off'
-              : 'Waiting for GPS',
-        );
-      case WorkoutMetricId.pace:
-        return MetricHudTile(
-          title: 'Pace',
-          value: formatPace(session.distanceMeters, session.elapsedSeconds()),
-          emptyMessage: 'Needs distance',
-        );
-      case WorkoutMetricId.speed:
-        return MetricHudTile(
-          title: 'Speed',
-          value: formatSpeedKmh(session.currentSpeedMps),
-          emptyMessage: 'Needs GPS',
-        );
-      case WorkoutMetricId.heartRate:
-        return MetricHudTile(
-          title: 'Heart Rate',
-          value: hr?.toString(),
-          unit: 'BPM',
-          emptyMessage: 'No connected reading',
-          provenance: hrProvenance,
-        );
-      case WorkoutMetricId.hrZone:
-        return MetricHudTile(
-          title: 'HR zone',
-          value: WorkoutMetricCatalog.hrZoneLabel(hr),
-          emptyMessage: 'Needs live HR',
-        );
-      case WorkoutMetricId.calories:
-        return MetricHudTile(
-          title: 'Calories',
-          value: calories == 0 ? null : '$calories',
-          unit: 'est. kcal',
-          emptyMessage: 'Estimate after you start',
-        );
-      case WorkoutMetricId.cadence:
-        return MetricHudTile(
-          title: 'Cadence',
-          value: session.cadenceRpm?.toString(),
-          unit: 'rpm',
-          emptyMessage: 'Not reported by this device',
-        );
-      case WorkoutMetricId.steps:
-        final steps = session.sessionSteps;
-        final fromGps = session.distanceMeters > 0 &&
-            (kind == WorkoutActivityKind.running ||
-                kind == WorkoutActivityKind.walking);
-        return MetricHudTile(
-          title: 'Steps',
-          value: steps?.toString(),
-          unit: fromGps && steps != null ? 'est.' : '',
-          emptyMessage: 'No step reading',
-        );
-      case WorkoutMetricId.route:
-        return MetricHudTile(
-          title: 'Route',
-          value: session.routePoints.length >= 2 ? 'On device' : null,
-          emptyMessage: session.gpsDenied ? 'Location off' : 'Waiting for GPS',
-        );
-      case WorkoutMetricId.activeMinutes:
-        return MetricHudTile(
-          title: 'Active min',
-          value: '${(session.elapsedSeconds() / 60).floor()}',
-        );
-      case WorkoutMetricId.exercise:
-        return MetricHudTile(
-          title: 'Exercise',
-          value: phase?.exerciseName,
-          emptyMessage: 'Add an exercise',
-        );
-      case WorkoutMetricId.muscleGroup:
-        return MetricHudTile(
-          title: 'Muscle',
-          value: phase?.muscleGroup?.label,
-          emptyMessage: '—',
-        );
-      case WorkoutMetricId.sets:
-        final setNumber = phase?.setNumber;
-        final setsTotal = phase?.setsTotal;
-        return MetricHudTile(
-          title: 'Set',
-          value: setNumber == null
-              ? null
-              : '$setNumber/${setsTotal ?? setNumber}',
-          emptyMessage: '—',
-        );
-      case WorkoutMetricId.reps:
-        return MetricHudTile(
-          title: 'Reps',
-          value: phase?.reps?.toString(),
-          emptyMessage: '—',
-        );
-      case WorkoutMetricId.weight:
-        final kg = phase?.weightKg;
-        return MetricHudTile(
-          title: 'Weight',
-          value: kg == null
-              ? null
-              : '${WorkoutMetricCatalog.kgToLb(kg).round()} lb',
-          emptyMessage: '—',
-        );
-      case WorkoutMetricId.rest:
-        return MetricHudTile(
-          title: 'Rest',
-          value: phase?.kind == WorkoutTimerKind.rest
-              ? formatClock(session.remainingNow())
-              : null,
-          emptyMessage: 'Work set',
-        );
-      case WorkoutMetricId.volume:
-        var volume = 0.0;
-        for (final ex
-            in session.routine?.exercises ?? const <WorkoutExercise>[]) {
-          if (ex.weightKg != null && ex.reps != null) {
-            volume += ex.weightKg! * ex.reps! * ex.sets;
-          }
-        }
-        return MetricHudTile(
-          title: 'Volume',
-          value: volume == 0 ? null : volume.round().toString(),
-          unit: 'kg',
-          emptyMessage: 'Add weighted sets',
-        );
-      case WorkoutMetricId.workInterval:
-        return MetricHudTile(
-          title: 'Work',
-          value: '${session.hiitWorkSeconds}s',
-        );
-      case WorkoutMetricId.restInterval:
-        return MetricHudTile(
-          title: 'Rest interval',
-          value: '${session.hiitRestSeconds}s',
-        );
-      case WorkoutMetricId.round:
-        final round = phase?.setNumber;
-        final total = phase?.setsTotal ?? session.hiitRounds;
-        return MetricHudTile(
-          title: 'Round',
-          value: round == null ? null : '$round/$total',
-          emptyMessage: '—',
-        );
-      case WorkoutMetricId.intervalTimer:
-        return MetricHudTile(
-          title: 'Interval',
-          value: formatClock(session.remainingNow()),
-        );
-    }
-  }
-}
-
 class WorkoutSummaryScreen extends ConsumerStatefulWidget {
   const WorkoutSummaryScreen({super.key});
 
@@ -1485,6 +885,25 @@ class _WorkoutSummaryScreenState extends ConsumerState<WorkoutSummaryScreen> {
               ],
             ),
           ),
+          if (session.setLogs.any((log) => log.completed)) ...[
+            const SizedBox(height: 12),
+            const VytalSectionHeader(title: 'Sets'),
+            GlassPanel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final log in session.setLogs.where((l) => l.completed))
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        '${log.exerciseName} · ${log.summary}',
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           TextField(
             controller: _notes,
@@ -1553,9 +972,15 @@ class WorkoutHistoryScreen extends ConsumerWidget {
                               style: Theme.of(context).textTheme.titleMedium),
                           Text(
                             '${entry.activityKind.label} · ${formatClock(entry.durationSeconds)}'
-                            '${entry.distanceMeters != null ? ' · ${formatDistanceKm(entry.distanceMeters!)}' : ''}',
+                            '${entry.distanceMeters != null ? ' · ${formatDistanceKm(entry.distanceMeters!)}' : ''}'
+                            '${entry.setLogs.isNotEmpty ? ' · ${entry.setLogs.length} sets' : ''}',
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
+                          if (entry.trainingVolumeKg != null)
+                            Text(
+                              'Volume ${entry.trainingVolumeKg!.round()} kg',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
                           if (entry.notes != null) Text(entry.notes!),
                         ],
                       ),

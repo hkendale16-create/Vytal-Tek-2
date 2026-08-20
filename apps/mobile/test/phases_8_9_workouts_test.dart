@@ -123,7 +123,8 @@ void main() {
 
         await tester.pump(const Duration(seconds: 1));
         state = container.read(workoutSessionProvider);
-        expect(state.remainingSeconds, lessThan(30));
+        expect(state.elapsedSeconds(), greaterThanOrEqualTo(1));
+        expect(state.currentPhase?.kind, WorkoutTimerKind.exercise);
 
         session.stop();
         expect(container.read(workoutSessionProvider).phases, isEmpty);

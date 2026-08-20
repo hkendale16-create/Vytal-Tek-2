@@ -142,6 +142,45 @@ extension WorkoutActivityKindX on WorkoutActivityKind {
 
 enum WorkoutPlayMode { idle, routine, activity, stopwatch }
 
+enum WorkoutSetType {
+  working,
+  warmup,
+  drop,
+  failure;
+
+  static WorkoutSetType fromJson(String? raw) {
+    return WorkoutSetType.values.firstWhere(
+      (value) => value.name == raw,
+      orElse: () => WorkoutSetType.working,
+    );
+  }
+}
+
+extension WorkoutSetTypeX on WorkoutSetType {
+  String get shortLabel => switch (this) {
+        WorkoutSetType.working => 'W',
+        WorkoutSetType.warmup => 'WU',
+        WorkoutSetType.drop => 'D',
+        WorkoutSetType.failure => 'F',
+      };
+
+  String get label => switch (this) {
+        WorkoutSetType.working => 'Working',
+        WorkoutSetType.warmup => 'Warm-up',
+        WorkoutSetType.drop => 'Drop',
+        WorkoutSetType.failure => 'Failure',
+      };
+
+  WorkoutSetType get next => switch (this) {
+        WorkoutSetType.working => WorkoutSetType.warmup,
+        WorkoutSetType.warmup => WorkoutSetType.drop,
+        WorkoutSetType.drop => WorkoutSetType.failure,
+        WorkoutSetType.failure => WorkoutSetType.working,
+      };
+
+  bool get countsForVolume => this != WorkoutSetType.warmup;
+}
+
 enum MuscleGroup {
   chest,
   back,
@@ -451,6 +490,8 @@ class TimerPhase {
     this.weightKg,
     this.muscleGroup,
     this.equipment,
+    this.setType = WorkoutSetType.working,
+    this.completed = false,
   });
 
   final WorkoutTimerKind kind;
@@ -464,6 +505,11 @@ class TimerPhase {
   final double? weightKg;
   final MuscleGroup? muscleGroup;
   final String? equipment;
+  final WorkoutSetType setType;
+  final bool completed;
+
+  bool get isTimedHold =>
+      kind == WorkoutTimerKind.exercise && reps == null && seconds > 0;
 
   TimerPhase copyWith({
     WorkoutTimerKind? kind,
@@ -477,6 +523,8 @@ class TimerPhase {
     double? weightKg,
     MuscleGroup? muscleGroup,
     String? equipment,
+    WorkoutSetType? setType,
+    bool? completed,
     bool clearReps = false,
     bool clearWeight = false,
   }) {
@@ -492,7 +540,61 @@ class TimerPhase {
       weightKg: clearWeight ? null : (weightKg ?? this.weightKg),
       muscleGroup: muscleGroup ?? this.muscleGroup,
       equipment: equipment ?? this.equipment,
+      setType: setType ?? this.setType,
+      completed: completed ?? this.completed,
     );
+  }
+}
+
+class WorkoutSetLog {
+  const WorkoutSetLog({
+    required this.exerciseName,
+    required this.setNumber,
+    required this.setType,
+    required this.completed,
+    this.reps,
+    this.weightKg,
+    this.durationSeconds,
+  });
+
+  final String exerciseName;
+  final int setNumber;
+  final WorkoutSetType setType;
+  final bool completed;
+  final int? reps;
+  final double? weightKg;
+  final int? durationSeconds;
+
+  Map<String, dynamic> toJson() => {
+        'exerciseName': exerciseName,
+        'setNumber': setNumber,
+        'setType': setType.name,
+        'completed': completed,
+        'reps': reps,
+        'weightKg': weightKg,
+        'durationSeconds': durationSeconds,
+      };
+
+  factory WorkoutSetLog.fromJson(Map<String, dynamic> json) => WorkoutSetLog(
+        exerciseName: json['exerciseName'] as String? ?? 'Set',
+        setNumber: json['setNumber'] as int? ?? 0,
+        setType: WorkoutSetType.fromJson(json['setType'] as String?),
+        completed: json['completed'] as bool? ?? false,
+        reps: json['reps'] as int?,
+        weightKg: (json['weightKg'] as num?)?.toDouble(),
+        durationSeconds: json['durationSeconds'] as int?,
+      );
+
+  String get summary {
+    final type = setType == WorkoutSetType.working ? '' : '${setType.shortLabel} ';
+    if (durationSeconds != null && reps == null) {
+      return '$type#$setNumber · ${durationSeconds}s';
+    }
+    if (weightKg != null && reps != null) {
+      return '$type#$setNumber · ${weightKg!.round()}kg × $reps';
+    }
+    if (reps != null) return '$type#$setNumber · $reps reps';
+    return '$type#$setNumber';
   }
 }
 
@@ -512,6 +614,7 @@ class WorkoutHistoryEntry {
     this.playMode = WorkoutPlayMode.activity,
     this.estimatedCalories,
     this.trainingVolumeKg,
+    this.setLogs = const [],
   });
 
   final String id;
@@ -528,6 +631,7 @@ class WorkoutHistoryEntry {
   final WorkoutPlayMode playMode;
   final int? estimatedCalories;
   final double? trainingVolumeKg;
+  final List<WorkoutSetLog> setLogs;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -544,6 +648,7 @@ class WorkoutHistoryEntry {
         'playMode': playMode.name,
         'estimatedCalories': estimatedCalories,
         'trainingVolumeKg': trainingVolumeKg,
+        'setLogs': setLogs.map((e) => e.toJson()).toList(),
       };
 
   factory WorkoutHistoryEntry.fromJson(Map<String, dynamic> json) =>
@@ -568,6 +673,10 @@ class WorkoutHistoryEntry {
         ),
         estimatedCalories: json['estimatedCalories'] as int?,
         trainingVolumeKg: (json['trainingVolumeKg'] as num?)?.toDouble(),
+        setLogs: ((json['setLogs'] as List?) ?? const [])
+            .cast<Map>()
+            .map((e) => WorkoutSetLog.fromJson(Map<String, dynamic>.from(e)))
+            .toList(),
       );
 }
 

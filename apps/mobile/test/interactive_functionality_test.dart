@@ -254,6 +254,86 @@ void main() {
       n.stop();
     });
 
+    test('set types cycle and warmup is excluded from volume', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final n = container.read(workoutSessionProvider.notifier);
+      n.startActivity(WorkoutActivityKind.strength);
+      n.addExerciseToSession(
+        ExerciseLibrary.byName('Bench Press')!.toExercise(weightKg: 60),
+      );
+      n.updateCurrentSet(reps: 8, weightKg: 60);
+      expect(
+        container.read(workoutSessionProvider).currentPhase?.setType,
+        WorkoutSetType.working,
+      );
+      n.cycleSetType(0);
+      expect(
+        container.read(workoutSessionProvider).currentPhase?.setType,
+        WorkoutSetType.warmup,
+      );
+      n.completeSet();
+      expect(
+        container.read(workoutSessionProvider).phases.first.completed,
+        isTrue,
+      );
+      expect(
+        container.read(workoutSessionProvider).currentPhase?.kind,
+        WorkoutTimerKind.rest,
+      );
+      n.finish();
+      await n.saveToHistory();
+      final entry = container.read(workoutHistoryProvider).entries.first;
+      expect(entry.setLogs, isNotEmpty);
+      expect(entry.setLogs.first.setType, WorkoutSetType.warmup);
+      expect(entry.trainingVolumeKg, isNull);
+    });
+
+    test('completing the last set does not auto-finish', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final n = container.read(workoutSessionProvider.notifier);
+      n.startRoutine(
+        WorkoutRoutine(
+          id: 'one',
+          name: 'Single',
+          exercises: const [
+            WorkoutExercise(
+              id: 'ex1',
+              name: 'Plank',
+              sets: 1,
+              durationSeconds: 20,
+              restSeconds: 0,
+            ),
+          ],
+        ),
+      );
+      n.completeSet();
+      final state = container.read(workoutSessionProvider);
+      expect(state.summaryPending, isFalse);
+      expect(state.currentPhase?.completed, isTrue);
+      n.stop();
+    });
+
+    test('skip rest leaves the next working set current', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final n = container.read(workoutSessionProvider.notifier);
+      n.startActivity(WorkoutActivityKind.strength);
+      n.addExerciseToSession(
+        ExerciseLibrary.byName('Push-up')!.toExercise(),
+      );
+      n.completeSet();
+      expect(container.read(workoutSessionProvider).isResting, isTrue);
+      n.skipRest();
+      expect(container.read(workoutSessionProvider).isResting, isFalse);
+      expect(
+        container.read(workoutSessionProvider).currentPhase?.kind,
+        WorkoutTimerKind.exercise,
+      );
+      n.stop();
+    });
+
     test('indoor cardio stays off phone GPS', () {
       expect(
         WorkoutActivityKind.treadmill.hubCategory,
