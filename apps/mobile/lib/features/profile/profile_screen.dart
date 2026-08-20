@@ -9,6 +9,7 @@ import '../../domain/models/personal_profile.dart';
 import '../../state/app_session_controller.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
+import '../shared/vytal_controls.dart';
 
 /// Identity, goals, and onboarding details. Feature hubs live in More.
 class ProfileScreen extends ConsumerWidget {
@@ -216,6 +217,66 @@ class ProfileScreen extends ConsumerWidget {
                   leading: const Icon(Icons.watch_outlined),
                   title: const Text('Devices'),
                   onTap: () => context.push('/devices'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          const VytalSectionHeader(
+            title: 'More',
+            subtitle: 'Health overlays and tools — opened on demand.',
+          ),
+          GlassPanel(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.favorite_outline),
+                  title: const Text('Vitals'),
+                  onTap: () => context.push('/vitals'),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.bolt_outlined),
+                  title: const Text('Recovery / Readiness'),
+                  onTap: () => context.push('/recovery'),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.bedtime_outlined),
+                  title: const Text('Sleep'),
+                  onTap: () => context.push('/sleep'),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.insights_outlined),
+                  title: const Text('Analytics'),
+                  onTap: () => context.push('/analytics'),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.note_alt_outlined),
+                  title: const Text('Notes'),
+                  onTap: () => context.push('/notes'),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.alarm_outlined),
+                  title: const Text('Reminders'),
+                  onTap: () => context.push('/reminders'),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.home_outlined),
+                  title: const Text('My Home Gym'),
+                  onTap: () => context.push('/fitness/home-gym'),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.menu_rounded),
+                  title: const Text('All tools'),
+                  subtitle: const Text('Full overflow menu'),
+                  onTap: () => context.push('/more'),
                 ),
               ],
             ),

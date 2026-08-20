@@ -8,6 +8,13 @@ import '../features/analytics/analytics_screen.dart';
 import '../features/battery/battery_screen.dart';
 import '../features/body/body_screen.dart';
 import '../features/devices/devices_screen.dart';
+import '../features/fitness/ai_workout_builder_screen.dart';
+import '../features/fitness/exercise_browser_screen.dart';
+import '../features/fitness/fitness_calendar_screen.dart';
+import '../features/fitness/gyms_near_me_screen.dart';
+import '../features/fitness/home_gym_screen.dart';
+import '../features/fitness/progress_screen.dart';
+import '../features/fitness/workout_plans_screen.dart';
 import '../features/more/more_screen.dart';
 import '../features/notes/notes_screen.dart';
 import '../features/notes/reminders_screen.dart';
@@ -100,14 +107,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 _tabPage(const TodayScreen(), state),
           ),
           GoRoute(
-            path: NavDestinations.vitals.path,
-            pageBuilder: (context, state) =>
-                _tabPage(const VitalsScreen(), state),
-          ),
-          GoRoute(
             path: NavDestinations.workouts.path,
             pageBuilder: (context, state) =>
                 _tabPage(const WorkoutsScreen(), state),
+          ),
+          GoRoute(
+            path: NavDestinations.body.path,
+            pageBuilder: (context, state) =>
+                _tabPage(const BodyScreen(), state),
           ),
           GoRoute(
             path: NavDestinations.coach.path,
@@ -115,17 +122,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 _tabPage(const AiCoachScreen(), state),
           ),
           GoRoute(
-            path: NavDestinations.more.path,
+            path: NavDestinations.profile.path,
             pageBuilder: (context, state) =>
-                _tabPage(const MoreScreen(), state),
+                _tabPage(const ProfileScreen(), state),
           ),
         ],
       ),
       _overlay('/activity', (context, state) => const ActivityScreen()),
       _overlay('/sleep', (context, state) => const SleepScreen()),
       _overlay('/analytics', (context, state) => const AnalyticsScreen()),
-      _overlay('/profile', (context, state) => const ProfileScreen()),
-      _overlay('/body', (context, state) => const BodyScreen()),
+      _overlay('/vitals', (context, state) => const VitalsScreen()),
+      _overlay('/more', (context, state) => const MoreScreen()),
       _overlay(
         '/notes',
         (context, state) => NotesScreen(
@@ -183,8 +190,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       _overlay(
         '/workouts/builder',
-        (context, state) =>
-            RoutineBuilderScreen(
+        (context, state) => RoutineBuilderScreen(
           routineId: state.uri.queryParameters['id'],
           initialKind: state.uri.queryParameters['kind'] == null
               ? null
@@ -193,6 +199,34 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   orElse: WorkoutActivityKind.strength,
                 ),
         ),
+      ),
+      _overlay(
+        '/fitness/calendar',
+        (context, state) => const FitnessCalendarScreen(),
+      ),
+      _overlay(
+        '/fitness/plans',
+        (context, state) => const WorkoutPlansScreen(),
+      ),
+      _overlay(
+        '/fitness/exercises',
+        (context, state) => const ExerciseBrowserScreen(),
+      ),
+      _overlay(
+        '/fitness/gyms',
+        (context, state) => const GymsNearMeScreen(),
+      ),
+      _overlay(
+        '/fitness/home-gym',
+        (context, state) => const HomeGymScreen(),
+      ),
+      _overlay(
+        '/fitness/progress',
+        (context, state) => const ProgressScreen(),
+      ),
+      _overlay(
+        '/fitness/ai-builder',
+        (context, state) => const AiWorkoutBuilderScreen(),
       ),
       _overlay('/devices', (context, state) => const DevicesScreen()),
       _overlay('/settings', (context, state) => const SettingsScreen()),

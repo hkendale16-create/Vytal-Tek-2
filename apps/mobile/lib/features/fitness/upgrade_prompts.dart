@@ -203,9 +203,8 @@ class _DeviceFunnelCardState extends ConsumerState<DeviceFunnelCard> {
             ],
           ),
           Text(
-            'A wearable can add body-response context around your training — '
-            'recovery signals, overnight patterns, and live session feedback. '
-            'App-only tracking stays fully useful either way.',
+            'Your workout history shows what you did. A Vytal wearable can add '
+            'supported information about how your body responded.',
             style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: 12),

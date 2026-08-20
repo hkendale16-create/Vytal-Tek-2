@@ -54,15 +54,16 @@ class CoachVitalEngine {
       'Vytal is not a physician and does not diagnose conditions.';
 
   static const suggestedPrompts = [
-    'How am I doing today?',
-    'Build me a workout.',
-    'Build me a chest workout.',
-    'Give me a 20-minute workout.',
-    'Build a workout using only dumbbells.',
     'What should I train today?',
+    'Build me a 45-minute workout.',
+    'What can I substitute for bench press?',
+    'How has my squat progressed?',
+    'What haven’t I trained this week?',
+    'Build me a workout.',
+    'Build a workout using only dumbbells.',
+    'How am I doing today?',
     'How did I sleep?',
     'How is my recovery?',
-    'Why is my heart rate higher?',
   ];
 
   String welcome({

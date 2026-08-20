@@ -10,9 +10,11 @@ import '../devices/connection/device_connection_controller.dart';
 import '../domain/devices/device_connection_state.dart';
 import '../domain/models/entitlements.dart';
 import '../domain/models/workout_models.dart';
+import '../fitness/calendar_controller.dart';
 import '../monitoring/monitoring_controller.dart';
 import '../state/app_session_controller.dart';
 import '../timers/clock_controllers.dart';
+import 'active_workout_draft.dart';
 import 'workout_gps.dart';
 import 'workout_metrics.dart';
 import 'workout_prefs.dart';
@@ -838,6 +840,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
     final phases = [...state.phases];
     phases[i] = phase.copyWith(completed: true);
     state = _copy(phases: phases);
+    unawaited(_persistActiveDraft());
     if (i + 1 >= state.phases.length) {
       return;
     }
@@ -916,6 +919,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
       stopwatchElapsed: state.elapsedSeconds(),
       clearRunningSince: true,
     );
+    unawaited(_persistActiveDraft());
   }
 
   void setNotes(String notes) {
@@ -959,7 +963,33 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
       setLogs: state.setLogs.where((log) => log.completed).toList(),
     );
     await _ref.read(workoutHistoryProvider.notifier).add(entry);
+    // Auto-mirror completed sessions into the fitness calendar (no double log).
+    try {
+      await _ref
+          .read(fitnessCalendarProvider.notifier)
+          .onWorkoutCompleted(entry);
+    } catch (_) {
+      // Calendar is additive — never block saving history.
+    }
+    await ActiveWorkoutDraft.clear();
     stop();
+  }
+
+  Future<void> _persistActiveDraft() async {
+    if (!state.running && !state.summaryPending && !state.hasProgress) return;
+    final kind = state.activityKind ?? WorkoutActivityKind.custom;
+    await ActiveWorkoutDraft.persist(
+      ActiveWorkoutDraft(
+        savedAt: DateTime.now().toUtc(),
+        activityKind: kind,
+        elapsedSeconds: state.elapsedSeconds(),
+        setLogs: state.setLogs.where((log) => log.completed).toList(),
+        routineId: state.routine?.id,
+        routineName: state.routine?.name,
+        notes: state.notes,
+        distanceMeters: state.distanceMeters,
+      ),
+    );
   }
 
   double _trainingVolumeKg() {
@@ -975,7 +1005,10 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
     return total;
   }
 
-  void discard() => stop();
+  void discard() {
+    unawaited(ActiveWorkoutDraft.clear());
+    stop();
+  }
 
   void stop() {
     _tick?.cancel();

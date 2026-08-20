@@ -8,7 +8,7 @@ import 'destinations.dart';
 import 'edge_swipe_back.dart';
 
 /// Bottom dock. Only the active tab's [child] is mounted — other tabs are
-/// not built, so Vitals/Workouts/Coach/More do not load until tapped.
+/// not built until tapped (Today / Workout / Body / Coach / Profile).
 class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.child});
 

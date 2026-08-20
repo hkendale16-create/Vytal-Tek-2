@@ -169,10 +169,9 @@ enum DeviceArrivalChoice {
 extension DeviceArrivalChoiceX on DeviceArrivalChoice {
   String get label => switch (this) {
         DeviceArrivalChoice.undecided => 'Not chosen yet',
-        DeviceArrivalChoice.alreadyHaveDevice => 'I already have my device',
-        DeviceArrivalChoice.deviceOnTheWay => 'My device is on the way',
-        DeviceArrivalChoice.appWithoutDevice =>
-          'I’m using the app without a device',
+        DeviceArrivalChoice.alreadyHaveDevice => 'Connect Vytal Device',
+        DeviceArrivalChoice.deviceOnTheWay => 'My device is arriving soon',
+        DeviceArrivalChoice.appWithoutDevice => 'Continue Without Device',
       };
 }
 

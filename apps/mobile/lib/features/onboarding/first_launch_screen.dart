@@ -47,32 +47,32 @@ class FirstLaunchScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 28),
                       Text(
-                        'Do you already have a Vytal Tek device?',
+                        'How will you use Vytal?',
                         style: theme.textTheme.titleMedium,
                       ),
                       const SizedBox(height: 12),
                       _ChoiceCard(
                         title: DeviceArrivalChoice.alreadyHaveDevice.label,
                         subtitle:
-                            'Continue into the app, then connect when ready.',
+                            'Pair when ready. Live readings unlock with hardware.',
                         onTap: () => _enter(ref, DeviceArrivalChoice.alreadyHaveDevice),
-                      ),
-                      _ChoiceCard(
-                        title: DeviceArrivalChoice.deviceOnTheWay.label,
-                        subtitle:
-                            'Use App-Only Mode until it arrives. Your profile stays.',
-                        onTap: () => _enter(ref, DeviceArrivalChoice.deviceOnTheWay),
                       ),
                       _ChoiceCard(
                         title: DeviceArrivalChoice.appWithoutDevice.label,
                         subtitle:
-                            'AI coaching, routines, timers, notes, and goals are available now.',
+                            'Plan, train, track, and progress — wearable optional.',
                         onTap: () => _enter(ref, DeviceArrivalChoice.appWithoutDevice),
+                      ),
+                      _ChoiceCard(
+                        title: DeviceArrivalChoice.deviceOnTheWay.label,
+                        subtitle:
+                            'Use the fitness hub now. Connect later without losing progress.',
+                        onTap: () => _enter(ref, DeviceArrivalChoice.deviceOnTheWay),
                       ),
                       const Spacer(),
                       const SizedBox(height: 16),
                       Text(
-                        'No pressure to pair hardware. App-Only and Connected Mode share one account.',
+                        'Vytal works without a device. A Vytal wearable makes it significantly smarter.',
                         style: theme.textTheme.bodySmall,
                         textAlign: TextAlign.center,
                       ),

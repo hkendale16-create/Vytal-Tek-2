@@ -50,7 +50,7 @@ class _WorkoutsScreenState extends ConsumerState<WorkoutsScreen> {
     final readiness = ref.watch(todayHealthProvider).valueOrNull?.readinessScore;
 
     return SectionScaffold(
-      title: 'Workouts',
+      title: 'Workout',
       actions: [
         IconButton(
           tooltip: 'History',
@@ -87,6 +87,90 @@ class _WorkoutsScreenState extends ConsumerState<WorkoutsScreen> {
             const FirstSessionPanel(compact: true),
             const SizedBox(height: 12),
           ],
+          const VytalSectionHeader(
+            title: 'Train',
+            subtitle: 'Quick Start, routines, and plans.',
+          ),
+          HudStrip(
+            icon: Icons.flash_on_outlined,
+            title: 'Quick Start',
+            subtitle: 'Empty logger — add exercises live',
+            onTap: () => startChosenWorkout(
+              context,
+              ref,
+              WorkoutActivityKind.strength,
+              quickStart: true,
+            ),
+          ),
+          const SizedBox(height: 8),
+          HudStrip(
+            icon: Icons.view_week_outlined,
+            title: 'Plans',
+            subtitle: 'Build muscle, strength, conditioning, home',
+            onTap: () => context.push('/fitness/plans'),
+          ),
+          const SizedBox(height: 16),
+          const VytalSectionHeader(
+            title: 'Plan',
+            subtitle: 'Calendar and AI builder.',
+          ),
+          HudStrip(
+            icon: Icons.calendar_month_outlined,
+            title: 'Calendar',
+            subtitle: 'Week view · scheduled & completed sessions',
+            onTap: () => context.push('/fitness/calendar'),
+          ),
+          const SizedBox(height: 8),
+          HudStrip(
+            icon: Icons.auto_awesome_outlined,
+            title: 'AI Workout Builder',
+            subtitle: 'Goal · experience · equipment-aware',
+            onTap: () => context.push('/fitness/ai-builder'),
+          ),
+          const SizedBox(height: 16),
+          const VytalSectionHeader(
+            title: 'Discover',
+            subtitle: 'Exercises and gyms near you.',
+          ),
+          HudStrip(
+            icon: Icons.search_outlined,
+            title: 'Exercises',
+            subtitle: 'Library, filters, alternatives',
+            onTap: () => context.push('/fitness/exercises'),
+          ),
+          const SizedBox(height: 8),
+          HudStrip(
+            icon: Icons.location_on_outlined,
+            title: 'Gyms Near Me',
+            subtitle: 'Location optional · list first',
+            onTap: () => context.push('/fitness/gyms'),
+          ),
+          const SizedBox(height: 8),
+          HudStrip(
+            icon: Icons.home_outlined,
+            title: 'My Home Gym',
+            subtitle: 'Equipment you own',
+            onTap: () => context.push('/fitness/home-gym'),
+          ),
+          const SizedBox(height: 16),
+          const VytalSectionHeader(
+            title: 'Review',
+            subtitle: 'History and progress — no wearable required.',
+          ),
+          HudStrip(
+            icon: Icons.history,
+            title: 'History',
+            subtitle: 'Past sessions and set logs',
+            onTap: () => context.push('/workouts/history'),
+          ),
+          const SizedBox(height: 8),
+          HudStrip(
+            icon: Icons.insights_outlined,
+            title: 'Progress',
+            subtitle: 'Volume, consistency, strength PRs',
+            onTap: () => context.push('/fitness/progress'),
+          ),
+          const SizedBox(height: 16),
           GlassPanel(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(
