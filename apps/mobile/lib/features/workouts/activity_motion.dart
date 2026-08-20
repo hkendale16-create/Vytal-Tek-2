@@ -49,12 +49,20 @@ class _ActivityMotionState extends State<ActivityMotion>
 
   Duration _durationFor(WorkoutActivityKind kind) {
     return switch (kind) {
-      WorkoutActivityKind.running => const Duration(milliseconds: 420),
+      WorkoutActivityKind.running ||
+      WorkoutActivityKind.treadmill =>
+        const Duration(milliseconds: 420),
       WorkoutActivityKind.walking => const Duration(milliseconds: 780),
-      WorkoutActivityKind.cycling => const Duration(milliseconds: 520),
-      WorkoutActivityKind.hiit => const Duration(milliseconds: 360),
+      WorkoutActivityKind.cycling ||
+      WorkoutActivityKind.elliptical =>
+        const Duration(milliseconds: 520),
+      WorkoutActivityKind.stairClimber => const Duration(milliseconds: 480),
+      WorkoutActivityKind.rowing => const Duration(milliseconds: 640),
+      WorkoutActivityKind.jumpRope || WorkoutActivityKind.hiit =>
+        const Duration(milliseconds: 360),
       WorkoutActivityKind.cardio => const Duration(milliseconds: 500),
       WorkoutActivityKind.strength => const Duration(milliseconds: 900),
+      WorkoutActivityKind.calisthenics => const Duration(milliseconds: 720),
       WorkoutActivityKind.custom => const Duration(milliseconds: 700),
     };
   }
@@ -102,10 +110,12 @@ class _ActivityPainter extends CustomPainter {
     final cy = size.height / 2;
     switch (kind) {
       case WorkoutActivityKind.running:
+      case WorkoutActivityKind.treadmill:
         _figure(canvas, Offset(cx, cy), paint, stride: 28 + t * 18, bounce: t * 10);
       case WorkoutActivityKind.walking:
         _figure(canvas, Offset(cx, cy), paint, stride: 14 + t * 10, bounce: t * 4);
       case WorkoutActivityKind.cycling:
+      case WorkoutActivityKind.elliptical:
         canvas.drawCircle(Offset(cx - 28, cy + 18), 16, paint);
         canvas.drawCircle(Offset(cx + 28, cy + 18), 16, paint);
         canvas.drawLine(Offset(cx - 28, cy + 18), Offset(cx + 28, cy + 18), paint);
@@ -123,10 +133,27 @@ class _ActivityPainter extends CustomPainter {
           ),
           paint,
         );
+      case WorkoutActivityKind.stairClimber:
+        _figure(canvas, Offset(cx, cy), paint, stride: 10 + t * 8, bounce: t * 16);
+      case WorkoutActivityKind.rowing:
+        final stroke = math.sin(t * 6.28) * 18;
+        canvas.drawLine(Offset(cx - 36, cy + 22), Offset(cx + 36, cy + 22), paint);
+        _figure(canvas, Offset(cx + stroke, cy), paint, stride: 6, bounce: 2);
+      case WorkoutActivityKind.jumpRope:
+        _figure(canvas, Offset(cx, cy), paint, stride: 8, bounce: t * 18);
+        canvas.drawArc(
+          Rect.fromCircle(center: Offset(cx, cy + 8), radius: 34),
+          t * 6.28,
+          3.2,
+          false,
+          paint,
+        );
       case WorkoutActivityKind.strength:
         final lift = (t - 0.5).abs() * 24;
         canvas.drawLine(Offset(cx - 40, cy + 10 - lift), Offset(cx + 40, cy + 10 - lift), paint);
         _figure(canvas, Offset(cx, cy + 8), paint, stride: 8, bounce: -lift);
+      case WorkoutActivityKind.calisthenics:
+        _figure(canvas, Offset(cx, cy), paint, stride: 16 + t * 8, bounce: t * 8);
       case WorkoutActivityKind.cardio:
       case WorkoutActivityKind.hiit:
         _figure(canvas, Offset(cx, cy), paint, stride: 22 + t * 16, bounce: t * 12);

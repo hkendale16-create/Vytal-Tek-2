@@ -118,6 +118,20 @@ class WorkoutLibraryController extends StateNotifier<WorkoutLibraryState> {
     await _persistCustom();
   }
 
+  Future<WorkoutRoutine?> duplicateCustom(String id) async {
+    WorkoutRoutine? match;
+    for (final routine in state.routines) {
+      if (routine.id == id) match = routine;
+    }
+    if (match == null || match.builtIn) return null;
+    return addCustomRoutine(
+      match.copyWith(
+        id: '',
+        name: '${match.name} copy',
+      ),
+    );
+  }
+
   Future<void> _persistCustom() async {
     final prefs = await SharedPreferences.getInstance();
     final custom = state.custom.map((r) => r.toJson()).toList();
@@ -341,8 +355,8 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
       );
       return;
     }
-    if (kind == WorkoutActivityKind.strength) {
-      startStrengthDraft(name: label);
+    if (kind.usesStrengthSets) {
+      startStrengthDraft(name: label, kind: kind);
       return;
     }
     _resetSensors();
@@ -433,14 +447,19 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
     unawaited(_setDeviceWorkoutMonitoring(true));
   }
 
-  void startStrengthDraft({String name = 'Strength'}) {
+  void startStrengthDraft({
+    String? name,
+    WorkoutActivityKind kind = WorkoutActivityKind.strength,
+  }) {
+    final resolved = kind.usesStrengthSets ? kind : WorkoutActivityKind.strength;
+    final label = name ?? resolved.label;
     _resetSensors();
     state = WorkoutSessionState(
       routine: WorkoutRoutine(
-        id: 'activity-strength',
-        name: name,
+        id: 'activity-${resolved.name}',
+        name: label,
         exercises: const [],
-        activityKind: WorkoutActivityKind.strength,
+        activityKind: resolved,
         source: 'activity',
       ),
       phases: const [],
@@ -449,7 +468,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
       running: true,
       completed: false,
       playMode: WorkoutPlayMode.routine,
-      activityKind: WorkoutActivityKind.strength,
+      activityKind: resolved,
       runningSince: DateTime.now(),
     );
     _ref.read(monitoringControllerProvider.notifier).setWorkoutActive(true);
@@ -458,12 +477,13 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
   }
 
   void addExerciseToSession(WorkoutExercise exercise) {
+    final kind = state.activityKind ?? WorkoutActivityKind.strength;
     final current = state.routine ??
         WorkoutRoutine(
-          id: 'activity-strength',
-          name: 'Strength',
+          id: 'activity-${kind.name}',
+          name: kind.label,
           exercises: const [],
-          activityKind: WorkoutActivityKind.strength,
+          activityKind: kind,
           source: 'activity',
         );
     final routine = current.copyWith(
@@ -551,17 +571,29 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
     );
   }
 
-  void updateCurrentSet({int? reps, double? weightKg, int? restSeconds}) {
+  void updateCurrentSet({
+    int? reps,
+    double? weightKg,
+    int? restSeconds,
+    int? durationSeconds,
+  }) {
     if (state.phases.isEmpty) return;
     final i = state.phaseIndex.clamp(0, state.phases.length - 1);
     final phase = state.phases[i];
     final phases = [...state.phases];
+    var nextRemaining = state.remainingSeconds;
     phases[i] = phase.copyWith(
       reps: reps,
       weightKg: weightKg,
       clearReps: reps != null && reps <= 0,
       clearWeight: weightKg != null && weightKg <= 0,
+      seconds: durationSeconds,
     );
+    if (durationSeconds != null &&
+        i == state.phaseIndex &&
+        phase.kind == WorkoutTimerKind.exercise) {
+      nextRemaining = durationSeconds.clamp(5, 600);
+    }
     if (restSeconds != null) {
       for (var j = i + 1; j < phases.length; j++) {
         if (phases[j].kind == WorkoutTimerKind.rest &&
@@ -581,8 +613,10 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
                 reps: reps,
                 weightKg: weightKg,
                 restSeconds: restSeconds,
+                durationSeconds: durationSeconds,
                 clearReps: reps != null && reps <= 0,
                 clearWeight: weightKg != null && weightKg <= 0,
+                clearDuration: durationSeconds != null && durationSeconds <= 0,
               )
             else
               ex,
@@ -592,6 +626,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
     state = _copy(
       routine: routine,
       phases: phases,
+      remainingSeconds: nextRemaining,
     );
   }
 

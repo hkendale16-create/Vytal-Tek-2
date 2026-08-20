@@ -23,6 +23,7 @@ import '../features/subscription/subscription_screen.dart';
 import '../features/timers/timers_screens.dart';
 import '../features/today/today_screen.dart';
 import '../features/vitals/vitals_screen.dart';
+import '../domain/models/workout_models.dart';
 import '../features/workouts/muscle_group_screen.dart';
 import '../features/workouts/workouts_screen.dart';
 import '../state/app_session_controller.dart';
@@ -182,7 +183,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _overlay(
         '/workouts/builder',
         (context, state) =>
-            RoutineBuilderScreen(routineId: state.uri.queryParameters['id']),
+            RoutineBuilderScreen(
+          routineId: state.uri.queryParameters['id'],
+          initialKind: state.uri.queryParameters['kind'] == null
+              ? null
+              : WorkoutActivityKind.fromJson(
+                  state.uri.queryParameters['kind'],
+                  orElse: WorkoutActivityKind.strength,
+                ),
+        ),
       ),
       _overlay('/devices', (context, state) => const DevicesScreen()),
       _overlay('/settings', (context, state) => const SettingsScreen()),
