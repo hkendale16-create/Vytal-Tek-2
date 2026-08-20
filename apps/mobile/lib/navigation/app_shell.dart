@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/theme/vytal_theme.dart';
 import 'destinations.dart';
 import 'edge_swipe_back.dart';
 
@@ -15,14 +16,14 @@ class AppShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final path = GoRouterState.of(context).uri.path;
     final selected = NavDestinations.indexForPath(path);
-    final surface = Theme.of(context).colorScheme.surface;
+    final surface = context.vytalExtras.canvas;
 
     return RootPopGuard(
       child: Scaffold(
         extendBody: false,
         body: child,
         bottomNavigationBar: Material(
-          elevation: 8,
+          elevation: 0,
           color: surface,
           child: NavigationBar(
             key: const Key('vytal-hud-dock'),

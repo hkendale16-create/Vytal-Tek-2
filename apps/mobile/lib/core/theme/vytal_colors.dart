@@ -2,34 +2,35 @@ import 'package:flutter/material.dart';
 
 /// Vytal Tek brand palette — shared across Light and Dark.
 ///
-/// Do not invent a separate visual identity per theme.
+/// Dark mode is a true-black fitness OS: charcoal elevation, white type,
+/// teal/cyan only where they carry meaning. Do not flood canvases with green.
 abstract final class VytalColors {
-  // Brand accents — neon cyan/teal from approved boards
+  // Brand accents — used for primary actions, live health, and status only
   static const teal = Color(0xFF00E0D0);
-  static const cyan = Color(0xFF00FFD1);
-  static const green = Color(0xFF00E88A);
-  static const violet = Color(0xFF9B6BFF);
+  static const cyan = Color(0xFF00C6B8);
+  static const green = Color(0xFF3DDC97);
+  static const violet = Color(0xFF8B7CFF);
 
   // Semantic
   static const caution = Color(0xFFFFB020);
   static const alert = Color(0xFFFF5A5A);
   static const info = Color(0xFF4DA3FF);
 
-  // Dark surfaces (deep navy/charcoal — mockup glow canvas)
-  static const darkCanvas = Color(0xFF070B12);
-  static const darkSurface = Color(0xFF0E1522);
-  static const darkElevated = Color(0xFF162033);
-  static const darkBorder = Color(0xFF243049);
-  static const darkTextPrimary = Color(0xFFF4F7FB);
-  static const darkTextSecondary = Color(0xFFA8B3C7);
-  static const darkTextMuted = Color(0xFF6F7B91);
+  // Dark surfaces — true black canvas, charcoal elevation (not navy/teal mist)
+  static const darkCanvas = Color(0xFF050505);
+  static const darkSurface = Color(0xFF111111);
+  static const darkElevated = Color(0xFF1A1A1A);
+  static const darkBorder = Color(0xFF2C2C2C);
+  static const darkTextPrimary = Color(0xFFF5F5F5);
+  static const darkTextSecondary = Color(0xFFA3A3A3);
+  static const darkTextMuted = Color(0xFF737373);
 
-  // Light surfaces (clean white / soft gray)
-  static const lightCanvas = Color(0xFFF5F7FA);
+  // Light surfaces (same identity, quieter glow)
+  static const lightCanvas = Color(0xFFF4F4F5);
   static const lightSurface = Color(0xFFFFFFFF);
-  static const lightElevated = Color(0xFFEEF2F7);
-  static const lightBorder = Color(0xFFD7DEE8);
-  static const lightTextPrimary = Color(0xFF0F1724);
-  static const lightTextSecondary = Color(0xFF4A5568);
-  static const lightTextMuted = Color(0xFF7A8699);
+  static const lightElevated = Color(0xFFEEEEF0);
+  static const lightBorder = Color(0xFFD4D4D8);
+  static const lightTextPrimary = Color(0xFF111111);
+  static const lightTextSecondary = Color(0xFF52525B);
+  static const lightTextMuted = Color(0xFF71717A);
 }

@@ -43,7 +43,7 @@ class TodayScreen extends ConsumerWidget {
       },
       child: Stack(
         children: [
-          const AnimatedAmbientBackground(intensity: 0.9),
+          const AnimatedAmbientBackground(intensity: 0.28),
           CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
