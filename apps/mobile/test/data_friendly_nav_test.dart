@@ -31,7 +31,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('bottom nav is Today, Vitals, Workouts, Coach, More', (
+  testWidgets('bottom nav is Today, Vitals, Workouts, Plans, More', (
     tester,
   ) async {
     await enterAppOnly(tester);
@@ -41,7 +41,7 @@ void main() {
     final labels = bar.destinations
         .map((d) => (d as NavigationDestination).label)
         .toList();
-    expect(labels, ['Today', 'Vitals', 'Workouts', 'Coach', 'More']);
+    expect(labels, ['Today', 'Vitals', 'Workouts', 'Plans', 'More']);
     expect(find.text('Home'), findsNothing);
     expect(find.text(OperatingMode.appOnly.label), findsOneWidget);
 
@@ -49,7 +49,7 @@ void main() {
     expect(find.text('Missing values stay missing.'), findsNothing);
     expect(find.text('Calisthenics'), findsNothing);
     expect(find.text('Quick Start'), findsNothing);
-    expect(find.textContaining('grounded in your data'), findsNothing);
+    expect(find.textContaining('Structured workouts from your data'), findsNothing);
     expect(find.text('Recovery / Readiness'), findsNothing);
   });
 
@@ -58,7 +58,7 @@ void main() {
   ) async {
     await enterAppOnly(tester);
 
-    await tester.tap(find.byKey(const Key('today-analytics')));
+    await tester.tap(find.byKey(const Key('today-view-analytics')));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Daily totals'), findsOneWidget);
@@ -74,8 +74,8 @@ void main() {
     expect(find.text('Calisthenics'), findsOneWidget);
     expect(find.text('Quick Start'), findsOneWidget);
 
-    await tapNav(tester, 'Coach');
-    expect(find.text('Ask Vytal'), findsOneWidget);
+    await tapNav(tester, 'Plans');
+    expect(find.text('Training plans'), findsOneWidget);
 
     await tapNav(tester, 'More');
     expect(find.text('Recovery / Readiness'), findsOneWidget);
@@ -84,7 +84,7 @@ void main() {
     expect(find.text('Missing values stay missing.'), findsNothing);
     expect(find.text('Calisthenics'), findsNothing);
     expect(find.text('Quick Start'), findsNothing);
-    expect(find.textContaining('grounded in your data'), findsNothing);
+    expect(find.textContaining('Structured workouts from your data'), findsNothing);
     expect(find.text('Recovery / Readiness'), findsNothing);
   });
 
@@ -132,7 +132,7 @@ void main() {
   });
 
   testWidgets(
-    'Workouts hub exposes category tabs, my workouts, and Ask Vytal',
+    'Workouts hub exposes category tabs, my workouts, and training plans',
     (tester) async {
       await enterAppOnly(tester);
 
@@ -143,7 +143,7 @@ void main() {
       expect(find.text('Calisthenics'), findsOneWidget);
       expect(find.text('Quick Start'), findsOneWidget);
       expect(find.text('MY WORKOUTS'), findsOneWidget);
-      expect(find.text('Ask Vytal to build a workout'), findsOneWidget);
+      expect(find.text('Build a workout plan'), findsOneWidget);
       expect(find.text('Timers'), findsWidgets);
     },
   );
@@ -168,14 +168,14 @@ void main() {
     expect(find.text('Start rest'), findsOneWidget);
   });
 
-  testWidgets('Coach tab is Ask Vytal with suggested questions', (
+  testWidgets('Plans tab shows training plans with suggested questions', (
     tester,
   ) async {
     await enterAppOnly(tester);
 
-    await tapNav(tester, 'Coach');
+    await tapNav(tester, 'Plans');
 
-    expect(find.text('Ask Vytal'), findsOneWidget);
+    expect(find.text('Training plans'), findsOneWidget);
     expect(find.text('How am I doing today?'), findsOneWidget);
     expect(find.text('Build me a workout.'), findsOneWidget);
   });

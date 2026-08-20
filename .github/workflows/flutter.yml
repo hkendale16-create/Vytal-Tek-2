@@ -41,3 +41,30 @@ jobs:
         working-directory: apps/mobile
       - run: flutter test
         working-directory: apps/mobile
+
+  publish-web:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: analyze-and-test
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Flutter SDK
+        working-directory: ${{ github.workspace }}
+        env:
+          FLUTTER_CHANNEL: stable
+          FLUTTER_ROOT: ${{ runner.tool_cache }}/flutter
+        run: bash .github/scripts/install-flutter.sh
+
+      - name: Build Flutter web for Netlify
+        run: bash scripts/publish_web.sh
+
+      - name: Commit updated site/app bundle
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: 'Rebuild Flutter web app for Netlify'
+          file_pattern: site/app/**
+          commit_user_name: github-actions[bot]
+          commit_user_email: 41898282+github-actions[bot]@users.noreply.github.com

@@ -23,6 +23,7 @@ import '../shared/ui_primitives.dart';
 import '../shared/vytal_controls.dart';
 import '../subscription/soft_paywall.dart';
 import '../today/today_health_provider.dart';
+import '../today/training_guidance.dart';
 import 'workout_history_ui.dart';
 
 class WorkoutsScreen extends ConsumerStatefulWidget {
@@ -44,6 +45,7 @@ class _WorkoutsScreenState extends ConsumerState<WorkoutsScreen> {
         .watch(appSessionProvider)
         .entitlements
         .canUse(EntitlementKeys.workoutsCustom);
+    final readiness = ref.watch(todayHealthProvider).valueOrNull?.readinessScore;
 
     return SectionScaffold(
       title: 'Workouts',
@@ -78,6 +80,23 @@ class _WorkoutsScreenState extends ConsumerState<WorkoutsScreen> {
                 ),
               ),
             ),
+          GlassPanel(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.bolt_outlined, color: VytalColors.teal, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    TrainingGuidance.workoutHubHint(readiness),
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
           VytalTabSelector<WorkoutHubCategory>(
             values: WorkoutHubCategory.values,
             selected: _category,
@@ -240,7 +259,7 @@ class _StrengthHub extends ConsumerWidget {
             const SizedBox(height: 10),
           ],
         ],
-        const VytalSectionHeader(title: 'Ask Vytal'),
+        const VytalSectionHeader(title: 'Training plans'),
         GlassPanel(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -252,7 +271,7 @@ class _StrengthHub extends ConsumerWidget {
               const SizedBox(height: 8),
               TextButton(
                 onPressed: () => context.go('/ask'),
-                child: const Text('Ask Vytal to build a workout'),
+                child: const Text('Build a workout plan'),
               ),
             ],
           ),
@@ -852,6 +871,7 @@ class _WorkoutSummaryScreenState extends ConsumerState<WorkoutSummaryScreen> {
   Widget build(BuildContext context) {
     final session = ref.watch(workoutSessionProvider);
     final theme = Theme.of(context);
+    final readiness = ref.watch(todayHealthProvider).valueOrNull?.readinessScore;
     if (session.phases.isEmpty && !session.summaryPending && !session.completed) {
       return const SectionScaffold(
         title: 'Summary',
@@ -868,8 +888,18 @@ class _WorkoutSummaryScreenState extends ConsumerState<WorkoutSummaryScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           GlassPanel(
+            glow: true,
             child: Column(
               children: [
+                Text(
+                  'Session complete',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    letterSpacing: 1.6,
+                    color: VytalColors.teal,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
                 Text(session.routine?.name ?? 'Workout',
                     style: theme.textTheme.titleLarge),
                 Text(
@@ -879,6 +909,13 @@ class _WorkoutSummaryScreenState extends ConsumerState<WorkoutSummaryScreen> {
                     color: VytalColors.teal,
                   ),
                 ),
+                const SizedBox(height: 8),
+                Text(
+                  TrainingGuidance.postWorkoutTip(readiness),
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 8),
                 Text(
                   'Avg HR ${session.averageHr ?? '—'} · Max HR ${session.maxHr ?? '—'}'
                   '${session.distanceMeters > 0 ? ' · ${formatDistanceKm(session.distanceMeters)}' : ''}',

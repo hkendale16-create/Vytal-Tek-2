@@ -11,7 +11,12 @@ flutter build web --release --base-href /app/ --no-wasm-dry-run
 rm -rf "$ROOT/site/app"
 mkdir -p "$ROOT/site/app"
 # CanvasKit is loaded from gstatic (web-resources-cdn). Keep the commit small.
-rsync -a --exclude canvaskit "$ROOT/apps/mobile/build/web/" "$ROOT/site/app/"
+if command -v rsync >/dev/null 2>&1; then
+  rsync -a --exclude canvaskit "$ROOT/apps/mobile/build/web/" "$ROOT/site/app/"
+else
+  cp -a "$ROOT/apps/mobile/build/web/." "$ROOT/site/app/"
+  rm -rf "$ROOT/site/app/canvaskit"
+fi
 
 python3 - "$ROOT" <<'PY'
 from pathlib import Path

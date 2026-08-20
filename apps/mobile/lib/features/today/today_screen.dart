@@ -8,18 +8,18 @@ import '../../core/theme/vytal_theme.dart';
 import '../../devices/connection/device_connection_controller.dart';
 import '../../domain/devices/device_connection_state.dart';
 import '../../domain/devices/wearable_device.dart';
-import '../../domain/models/data_provenance.dart';
 import '../../domain/models/health_metric.dart';
 import '../../domain/models/monitoring_mode.dart';
 import '../../domain/models/operating_mode.dart';
 import '../../monitoring/monitoring_controller.dart';
-import '../../domain/models/workout_models.dart';
 import '../../state/app_session_controller.dart';
 import '../../workouts/workout_controllers.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
 import 'live_device_stage.dart';
 import 'today_health_provider.dart';
+import 'today_hero.dart';
+import 'training_guidance.dart';
 
 class TodayScreen extends ConsumerWidget {
   const TodayScreen({super.key});
@@ -30,14 +30,14 @@ class TodayScreen extends ConsumerWidget {
     final connection = ref.watch(deviceConnectionProvider);
     final monitoring = ref.watch(monitoringControllerProvider);
     final workout = ref.watch(workoutSessionProvider);
+    final history = ref.watch(workoutHistoryProvider);
     final healthAsync = ref.watch(todayHealthProvider);
     final name = session.profile.displayName?.trim();
-    final greeting = (name == null || name.isEmpty)
-        ? 'Welcome'
-        : 'Hello, $name';
+    final greeting = (name == null || name.isEmpty) ? 'Welcome' : 'Hello, $name';
     final device = connection.activeDevice ?? session.pairedDevice;
     final theme = Theme.of(context);
     final extras = context.vytalExtras;
+    final weekDays = TrainingGuidance.trainingDaysThisWeek(history.entries);
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -46,7 +46,7 @@ class TodayScreen extends ConsumerWidget {
       },
       child: Stack(
         children: [
-          const AnimatedAmbientBackground(intensity: 0.12),
+          const AnimatedAmbientBackground(intensity: 0.1),
           CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
@@ -70,12 +70,6 @@ class TodayScreen extends ConsumerWidget {
                   ],
                 ),
                 actions: [
-                  TextButton.icon(
-                    key: const Key('today-analytics-appbar'),
-                    onPressed: () => context.push('/analytics'),
-                    icon: const Icon(Icons.insights_outlined, size: 18),
-                    label: const Text('Analytics'),
-                  ),
                   IconButton(
                     tooltip: 'Devices',
                     onPressed: () => context.push('/devices'),
@@ -98,65 +92,121 @@ class TodayScreen extends ConsumerWidget {
                       message: 'Could not load health surface. Pull to retry.',
                     ),
                     data: (health) {
-                      final monitoringCaption =
-                          session.automaticMonitoringEnabled
-                          ? 'Automatic — ${monitoring.mode.label}'
-                          : monitoring.mode.label;
+                      final headline = TrainingGuidance.dailyHeadline(
+                        readinessScore: health.readinessScore,
+                        operatingMode: session.operatingMode,
+                        hasWearableContext: health.hasWearableContext,
+                      );
+                      final hasActiveWorkout = workout.running ||
+                          workout.summaryPending ||
+                          workout.completed;
+                      final primaryLabel = workout.summaryPending
+                          ? 'View summary'
+                          : hasActiveWorkout
+                              ? 'Resume workout'
+                              : 'Start workout';
+                      void onPrimary() {
+                        context.push(
+                          workout.summaryPending
+                              ? '/workouts/summary'
+                              : hasActiveWorkout
+                                  ? '/workouts/active'
+                                  : '/workouts',
+                        );
+                      }
+
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          if (workout.running ||
-                              workout.summaryPending ||
-                              workout.completed) ...[
-                            HudStrip(
-                              icon: Icons.fitness_center_outlined,
-                              title: workout.summaryPending
-                                  ? 'View workout summary'
-                                  : 'Resume active workout',
-                              subtitle: workout.routine?.name ??
-                                  workout.activityKind?.label ??
-                                  'In progress',
-                              onTap: () => context.push(
-                                workout.summaryPending
-                                    ? '/workouts/summary'
-                                    : '/workouts/active',
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                          ],
-                          Text(
-                            'How am I doing today?',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: extras.textMuted,
-                              fontWeight: FontWeight.w500,
+                          TodayHero(
+                            headline: headline,
+                            guidance: health.readinessMessage,
+                            readinessScore: health.readinessScore,
+                            provenance: health.readinessScore == null
+                                ? null
+                                : health.provenance,
+                            primaryLabel: primaryLabel,
+                            onPrimary: onPrimary,
+                            secondaryLabel: 'View analytics',
+                            secondaryKey: const Key('today-view-analytics'),
+                            onSecondary: () => context.push('/analytics'),
+                          ),
+                          const SizedBox(height: 12),
+                          GlassPanel(
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.local_fire_department_outlined,
+                                  color: weekDays > 0
+                                      ? VytalColors.teal
+                                      : extras.textMuted,
+                                  size: 22,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'This week',
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                          color: extras.textMuted,
+                                          letterSpacing: 1.2,
+                                        ),
+                                      ),
+                                      Text(
+                                        TrainingGuidance.weekSummary(weekDays),
+                                        style: theme.textTheme.titleMedium
+                                            ?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (weekDays > 0)
+                                  TextButton(
+                                    onPressed: () =>
+                                        context.push('/workouts/history'),
+                                    child: const Text('History'),
+                                  ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 6),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 6,
-                            crossAxisAlignment: WrapCrossAlignment.center,
+                          const SizedBox(height: 12),
+                          TodayMetricRow(
                             children: [
-                              StatusPill(
-                                label: session.operatingMode.label,
-                                emphasis: true,
+                              TodayCompactMetric(
+                                label: 'Sleep',
+                                value: health.sleep.hasValue
+                                    ? '${health.sleep.value!.inHours}h'
+                                    : null,
+                                onTap: () => context.push('/sleep'),
                               ),
-                              if (session.demoModeEnabled)
-                                const StatusPill(
-                                  label: 'Demo mode',
-                                  emphasis: true,
+                              TodayCompactMetric(
+                                label: 'Heart rate',
+                                value: health.heartRate.hasValue
+                                    ? '${health.heartRate.value}'
+                                    : null,
+                                unit: 'BPM',
+                                onTap: () => context.push(
+                                  '/vitals/${HealthMetricKeys.heartRate}',
                                 ),
-                              Text(
-                                monitoringCaption,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: extras.textMuted,
-                                ),
+                              ),
+                              TodayCompactMetric(
+                                label: 'Activity',
+                                value: health.steps?.toString(),
+                                unit: 'steps',
+                                onTap: () => context.push('/activity'),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 16),
                           LiveDeviceStage(
-                            deviceKind: device?.kind ?? VytalDeviceKind.smartRing,
+                            deviceKind:
+                                device?.kind ?? VytalDeviceKind.smartRing,
                             connected: device != null,
                             demo: session.demoModeEnabled ||
                                 (device?.isDemo ?? false),
@@ -168,201 +218,59 @@ class TodayScreen extends ConsumerWidget {
                           Text(
                             device == null
                                 ? (session.demoModeEnabled
-                                    ? 'Demo ring · tap to pulse'
-                                    : 'Vytal ring · tap to preview')
-                                : '${device.kind.label} · tap for a live pulse',
+                                    ? 'Demo ring · tap to preview live HR'
+                                    : 'Works without a device · tap to connect')
+                                : '${device.displayName} · ${connection.state.label}'
+                                    '${device.isDemo ? ' · Demo' : ''}',
                             textAlign: TextAlign.center,
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: extras.textMuted,
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          HudStrip(
-                            key: const Key('today-analytics'),
-                            icon: Icons.insights_outlined,
-                            title: 'Analytics',
-                            subtitle: '7 day / 30 day / 90 day / 1 year trends',
-                            onTap: () => context.push('/analytics'),
                           ),
                           const SizedBox(height: 16),
-                          SizedBox(
-                            height: 420,
-                            child: Stack(
-                              clipBehavior: Clip.hardEdge,
-                              children: [
-                                Align(
-                                  alignment: Alignment.center,
-                                  child: FloatingHud(
-                                    amplitude: 5,
-                                    child: ReadinessGauge(
-                                      score: health.readinessScore,
-                                      size: 248,
-                                      label: 'READINESS',
-                                      subtitle: health.readinessScore == null
-                                          ? null
-                                          : health.provenance ==
-                                                DataProvenance.demo
-                                          ? 'Demo presentation'
-                                          : 'Baseline learning',
-                                      provenance: health.readinessScore == null
-                                          ? null
-                                          : health.provenance,
-                                      onTap: () => context.push('/recovery'),
-                                    ),
-                                  ),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              StatusPill(
+                                label: session.operatingMode.label,
+                                emphasis: true,
+                              ),
+                              if (session.demoModeEnabled)
+                                const StatusPill(
+                                  label: 'Demo mode',
+                                  emphasis: true,
                                 ),
-                                Align(
-                                  alignment: const Alignment(-1.0, -0.82),
-                                  child: FloatingHud(
-                                    delay: const Duration(milliseconds: 160),
-                                    child: HudMetricChip(
-                                      label: 'Heart Rate',
-                                      value: health.heartRate.hasValue
-                                          ? '${health.heartRate.value}'
-                                          : null,
-                                      unit: 'BPM',
-                                      icon: Icons.favorite_outline,
-                                      provenance: health.heartRate.provenance,
-                                      onTap: () => context.push(
-                                        '/vitals/${HealthMetricKeys.heartRate}',
-                                      ),
-                                    ),
-                                  ),
+                              Text(
+                                session.automaticMonitoringEnabled
+                                    ? 'Auto · ${monitoring.mode.label}'
+                                    : monitoring.mode.label,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: extras.textMuted,
                                 ),
-                                Align(
-                                  alignment: const Alignment(1.0, -0.48),
-                                  child: FloatingHud(
-                                    delay: const Duration(milliseconds: 380),
-                                    child: HudMetricChip(
-                                      label: 'Sleep',
-                                      value: health.sleep.hasValue
-                                          ? '${health.sleep.value!.inHours}h'
-                                          : null,
-                                      unit: '',
-                                      icon: Icons.bedtime_outlined,
-                                      provenance: health.sleep.provenance,
-                                      onTap: () => context.push('/sleep'),
-                                    ),
-                                  ),
-                                ),
-                                Align(
-                                  alignment: const Alignment(-1.0, 0.78),
-                                  child: FloatingHud(
-                                    delay: const Duration(milliseconds: 620),
-                                    child: HudMetricChip(
-                                      label: 'Activity',
-                                      value: health.steps?.toString(),
-                                      unit: health.steps == null ? '' : 'steps',
-                                      icon: Icons.directions_run_outlined,
-                                      provenance: health.steps == null
-                                          ? null
-                                          : health.provenance,
-                                      onTap: () => context.push('/activity'),
-                                    ),
-                                  ),
-                                ),
-                                Align(
-                                  alignment: const Alignment(1.0, 0.62),
-                                  child: FloatingHud(
-                                    delay: const Duration(milliseconds: 840),
-                                    child: HudMetricChip(
-                                      label: 'HRV',
-                                      value: health.hrv.hasValue
-                                          ? '${health.hrv.value}'
-                                          : null,
-                                      unit: 'ms',
-                                      icon: Icons.graphic_eq,
-                                      provenance: health.hrv.provenance,
-                                      onTap: () => context.push(
-                                        '/vitals/${HealthMetricKeys.hrv}',
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                          Text(
-                            health.readinessMessage,
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: extras.textMuted,
-                            ),
-                          ),
-                          const SizedBox(height: 18),
+                          const SizedBox(height: 16),
                           HudActionRail(
                             actions: [
-                              HudAction(
-                                icon: Icons.play_arrow_rounded,
-                                label: 'Workout',
-                                onTap: () => context.push('/workouts/start'),
-                              ),
                               HudAction(
                                 icon: Icons.favorite_outline,
                                 label: 'Vitals',
                                 onTap: () => context.go('/vitals'),
                               ),
                               HudAction(
-                                key: const Key('today-orb-analytics'),
+                                key: const Key('today-analytics'),
                                 icon: Icons.insights_outlined,
                                 label: 'Analytics',
                                 onTap: () => context.push('/analytics'),
                               ),
                               HudAction(
-                                icon: Icons.timer_outlined,
-                                label: 'Timer',
-                                onTap: () => context.push('/timers/countdown'),
-                              ),
-                              HudAction(
-                                icon: Icons.timer_outlined,
-                                label: 'Stopwatch',
-                                onTap: () => context.push('/timers/stopwatch'),
-                              ),
-                              HudAction(
                                 icon: Icons.auto_awesome_outlined,
-                                label: 'Ask Vytal',
+                                label: 'Plans',
                                 onTap: () => context.go('/ask'),
                               ),
                             ],
-                          ),
-                          const SizedBox(height: 16),
-                          HudStrip(
-                            icon: Icons.watch_outlined,
-                            title: device == null
-                                ? 'No Vytal connected'
-                                : device.displayName,
-                            subtitle: device == null
-                                ? 'Connect a ring to light live metrics'
-                                : '${connection.state.label}'
-                                      '${device.isDemo ? ' · Demo' : ''}'
-                                      '${health.battery.value != null ? ' · ${health.battery.value}%' : ''}',
-                            trailing: health.battery.hasValue
-                                ? IconButton(
-                                    tooltip: 'Battery',
-                                    onPressed: () => context.push('/battery'),
-                                    icon: const Icon(
-                                      Icons.battery_charging_full_outlined,
-                                      size: 18,
-                                    ),
-                                  )
-                                : IconButton(
-                                    tooltip: 'Notes',
-                                    onPressed: () => context.push('/notes'),
-                                    icon: const Icon(
-                                      Icons.note_alt_outlined,
-                                      size: 18,
-                                    ),
-                                  ),
-                            onTap: () => context.push('/devices'),
-                          ),
-                          const SizedBox(height: 10),
-                          HudStrip(
-                            icon: Icons.auto_awesome_outlined,
-                            title: "Today's insight",
-                            subtitle: health.readinessMessage,
-                            onTap: () => context.go(
-                              '/ask?prompt=${Uri.encodeQueryComponent("How am I doing today?")}',
-                            ),
                           ),
                         ],
                       );
