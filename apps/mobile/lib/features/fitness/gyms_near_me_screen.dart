@@ -6,7 +6,11 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/vytal_colors.dart';
 import '../../core/theme/vytal_theme.dart';
 import '../../domain/models/fitness_hub_models.dart';
+import '../../domain/models/workout_models.dart';
+import '../../fitness/calendar_controller.dart';
+import '../../fitness/equipment_workout_builder.dart';
 import '../../fitness/gym_discovery_controller.dart';
+import '../../workouts/workout_controllers.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
 import '../shared/vytal_controls.dart';
@@ -360,6 +364,7 @@ class _GymProfileScreenState extends ConsumerState<GymProfileScreen> {
   }
 
   Future<void> _workoutHere(GymPlace place, SavedGym? saved) async {
+    var equipment = saved?.effectiveEquipment ?? place.equipment;
     final reliable = saved?.hasReliableEquipment == true || place.equipmentKnown;
     if (!reliable) {
       final confirmed = await showModalBottomSheet<List<GymEquipmentItem>>(
@@ -367,7 +372,7 @@ class _GymProfileScreenState extends ConsumerState<GymProfileScreen> {
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         builder: (context) => _EquipmentChecklistSheet(
-          initial: saved?.effectiveEquipment ?? place.equipment,
+          initial: equipment,
         ),
       );
       if (confirmed == null) return;
@@ -375,13 +380,19 @@ class _GymProfileScreenState extends ConsumerState<GymProfileScreen> {
       await ref
           .read(gymDiscoveryProvider.notifier)
           .updateEquipment(place.id, confirmed);
+      equipment = confirmed;
       if (!mounted) return;
     }
 
     await showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _WorkoutHereSheet(gymName: place.name),
+      builder: (context) => _WorkoutHereSheet(
+        gymName: place.name,
+        gymId: place.id,
+        equipment: equipment,
+      ),
     );
   }
 }
@@ -474,22 +485,31 @@ class _EquipmentChecklistSheetState extends State<_EquipmentChecklistSheet> {
   }
 }
 
-class _WorkoutHereSheet extends StatefulWidget {
-  const _WorkoutHereSheet({required this.gymName});
+class _WorkoutHereSheet extends ConsumerStatefulWidget {
+  const _WorkoutHereSheet({
+    required this.gymName,
+    required this.gymId,
+    required this.equipment,
+  });
 
   final String gymName;
+  final String gymId;
+  final List<GymEquipmentItem> equipment;
 
   @override
-  State<_WorkoutHereSheet> createState() => _WorkoutHereSheetState();
+  ConsumerState<_WorkoutHereSheet> createState() => _WorkoutHereSheetState();
 }
 
-class _WorkoutHereSheetState extends State<_WorkoutHereSheet> {
+class _WorkoutHereSheetState extends ConsumerState<_WorkoutHereSheet> {
   var _duration = 45;
   var _goal = 'Full body';
+  WorkoutRoutine? _routine;
 
   @override
   Widget build(BuildContext context) {
     final extras = context.vytalExtras;
+    final labels = EquipmentWorkoutBuilder.labelsFromItems(widget.equipment);
+
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
@@ -498,57 +518,151 @@ class _WorkoutHereSheetState extends State<_WorkoutHereSheet> {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: extras.border),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Workout at ${widget.gymName}',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 12),
-          Text('Goal', style: Theme.of(context).textTheme.labelLarge),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: [
-              for (final g in ['Full body', 'Upper', 'Lower', 'Cardio'])
-                ChoiceChip(
-                  label: Text(g),
-                  selected: _goal == g,
-                  showCheckmark: false,
-                  selectedColor: VytalColors.teal.withValues(alpha: 0.16),
-                  onSelected: (_) => setState(() => _goal = g),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'BUILD A WORKOUT',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    letterSpacing: 1.4,
+                    fontWeight: FontWeight.w800,
+                    color: VytalColors.teal,
+                  ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '$_duration-minute $_goal',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              labels.isEmpty
+                  ? 'Equipment available here · not yet confirmed'
+                  : 'Equipment available here · ${labels.take(5).join(' · ')}',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: extras.textMuted),
+            ),
+            const SizedBox(height: 12),
+            Text('Goal', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final g in ['Full body', 'Upper', 'Lower', 'Pull', 'Cardio'])
+                  ChoiceChip(
+                    label: Text(g),
+                    selected: _goal == g,
+                    showCheckmark: false,
+                    selectedColor: VytalColors.teal.withValues(alpha: 0.16),
+                    onSelected: (_) => setState(() {
+                      _goal = g;
+                      _routine = null;
+                    }),
+                  ),
+              ],
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Duration'),
+              subtitle: Text('$_duration min'),
+              trailing: SizedBox(
+                width: 140,
+                child: Slider(
+                  value: _duration.toDouble(),
+                  min: 20,
+                  max: 90,
+                  divisions: 14,
+                  onChanged: (v) => setState(() {
+                    _duration = v.round();
+                    _routine = null;
+                  }),
                 ),
-            ],
-          ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Duration'),
-            subtitle: Text('$_duration min'),
-            trailing: SizedBox(
-              width: 140,
-              child: Slider(
-                value: _duration.toDouble(),
-                min: 20,
-                max: 90,
-                divisions: 14,
-                onChanged: (v) => setState(() => _duration = v.round()),
               ),
             ),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context.push('/workouts/builder');
-            },
-            child: const Text('Open workout builder'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Not now'),
-          ),
-        ],
+            if (_routine != null) ...[
+              GlassPanel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _routine!.name,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 6),
+                    for (final ex in _routine!.exercises.take(6))
+                      Text(
+                        '• ${ex.name}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    Text(
+                      '~${_routine!.estimatedMinutes} min · ${_routine!.exercises.length} exercises',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: extras.textMuted),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: () async {
+                  final routine = _routine!;
+                  await ref
+                      .read(workoutLibraryProvider.notifier)
+                      .addCustomRoutine(routine);
+                  ref.read(workoutSessionProvider.notifier).startRoutine(routine);
+                  if (!context.mounted) return;
+                  Navigator.pop(context);
+                  context.push('/workouts/active');
+                },
+                child: const Text('Start Workout'),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton(
+                onPressed: () async {
+                  final routine = _routine!;
+                  await ref.read(fitnessCalendarProvider.notifier).scheduleWorkout(
+                        title: routine.name,
+                        date: DateTime.now(),
+                        kind: FitnessEventKind.scheduledWorkout,
+                        durationMinutes: routine.estimatedMinutes,
+                        gymId: widget.gymId,
+                        routineId: routine.id,
+                        notes: 'Workout Here · ${widget.gymName}',
+                      );
+                  if (!context.mounted) return;
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Added to today’s calendar')),
+                  );
+                },
+                child: const Text('Add to Calendar'),
+              ),
+            ] else
+              FilledButton(
+                onPressed: () {
+                  setState(() {
+                    _routine = EquipmentWorkoutBuilder.build(
+                      minutes: _duration,
+                      focus: _goal,
+                      equipmentLabels: labels,
+                      locationName: widget.gymName,
+                    );
+                  });
+                },
+                child: const Text('Build Workout'),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Not now'),
+            ),
+          ],
+        ),
       ),
     );
   }

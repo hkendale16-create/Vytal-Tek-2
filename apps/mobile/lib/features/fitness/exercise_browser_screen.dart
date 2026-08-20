@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/vytal_colors.dart';
 import '../../core/theme/vytal_theme.dart';
+import '../../domain/models/fitness_hub_models.dart';
 import '../../domain/models/workout_models.dart';
+import '../../fitness/equipment_workout_builder.dart';
+import '../../fitness/gym_discovery_controller.dart';
 import '../../workouts/exercise_library.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
@@ -120,6 +123,7 @@ class _ExerciseBrowserScreenState extends ConsumerState<ExerciseBrowserScreen> {
   String? _equipment;
   var _difficulty = _DifficultyFilter.all;
   var _type = _TypeFilter.all;
+  var _matchHomeGym = false;
   ExerciseDefinition? _detail;
 
   @override
@@ -142,12 +146,20 @@ class _ExerciseBrowserScreenState extends ConsumerState<ExerciseBrowserScreen> {
     return set;
   }
 
-  List<ExerciseDefinition> get _filtered {
+  List<ExerciseDefinition> _filtered(List<GymEquipmentItem> homeEquipment) {
     final q = _search.text.trim().toLowerCase();
     return _catalog.where((e) {
       if (q.isNotEmpty && !e.name.toLowerCase().contains(q)) return false;
       if (_category != null && !_category!.matches(e)) return false;
       if (_equipment != null && e.equipment != _equipment) return false;
+      if (_matchHomeGym &&
+          homeEquipment.isNotEmpty &&
+          !EquipmentWorkoutBuilder.exerciseMatchesEquipment(
+            e.equipment,
+            homeEquipment,
+          )) {
+        return false;
+      }
       if (_type == _TypeFilter.duration && !e.usesDuration) return false;
       if (_type == _TypeFilter.strength && e.usesDuration) return false;
       if (_type == _TypeFilter.bodyweight &&
@@ -184,7 +196,8 @@ class _ExerciseBrowserScreenState extends ConsumerState<ExerciseBrowserScreen> {
     }
 
     final extras = context.vytalExtras;
-    final results = _filtered;
+    final home = ref.watch(homeGymProvider);
+    final results = _filtered(home.equipment);
 
     return SectionScaffold(
       title: 'Exercises',
@@ -210,6 +223,24 @@ class _ExerciseBrowserScreenState extends ConsumerState<ExerciseBrowserScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Match my home gym'),
+            subtitle: Text(
+              home.isEmpty
+                  ? 'Set equipment in My Home Gym to enable'
+                  : 'Only show moves that fit ${home.equipment.length} items',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: extras.textMuted),
+            ),
+            value: _matchHomeGym && !home.isEmpty,
+            onChanged: home.isEmpty
+                ? null
+                : (v) => setState(() => _matchHomeGym = v),
+          ),
+          const SizedBox(height: 8),
           SizedBox(
             height: 36,
             child: ListView(

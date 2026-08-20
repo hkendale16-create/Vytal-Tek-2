@@ -338,7 +338,9 @@ final pendingRoutineDraftProvider =
 
 final workoutSessionProvider =
     StateNotifierProvider<WorkoutSessionController, WorkoutSessionState>((ref) {
-  return WorkoutSessionController(ref);
+  final controller = WorkoutSessionController(ref);
+  unawaited(controller.restoreActiveDraft());
+  return controller;
 });
 
 /// Exercise / rest / interval / activity / stopwatch engine.
@@ -351,6 +353,135 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
   StreamSubscription<int>? _liveHrSub;
   StreamSubscription<GpsFix>? _gpsSub;
   final _gps = WorkoutGpsTracker();
+  var _draftRestoreAttempted = false;
+
+  /// Cold-start resume for in-progress sessions that survived process death.
+  Future<bool> restoreActiveDraft() async {
+    if (_draftRestoreAttempted) return false;
+    _draftRestoreAttempted = true;
+    if (state.running || state.hasProgress || state.summaryPending) {
+      return false;
+    }
+    final draft = await ActiveWorkoutDraft.load();
+    if (draft == null) return false;
+    // Ignore stale drafts older than 24h.
+    if (DateTime.now().toUtc().difference(draft.savedAt) >
+        const Duration(hours: 24)) {
+      await ActiveWorkoutDraft.clear();
+      return false;
+    }
+
+    final kind = draft.activityKind;
+    if (draft.setLogs.isNotEmpty || kind.usesStrengthSets) {
+      _restoreStrengthDraft(draft);
+    } else {
+      _restoreActivityDraft(draft);
+    }
+    return true;
+  }
+
+  void _restoreStrengthDraft(ActiveWorkoutDraft draft) {
+    final uuid = const Uuid();
+    final byExercise = <String, List<WorkoutSetLog>>{};
+    for (final log in draft.setLogs) {
+      byExercise.putIfAbsent(log.exerciseName, () => []).add(log);
+    }
+    final exercises = <WorkoutExercise>[];
+    for (final entry in byExercise.entries) {
+      final logs = [...entry.value]
+        ..sort((a, b) => a.setNumber.compareTo(b.setNumber));
+      final last = logs.last;
+      exercises.add(
+        WorkoutExercise(
+          id: uuid.v4(),
+          name: entry.key,
+          sets: logs.map((l) => l.setNumber).fold<int>(0, (m, n) => n > m ? n : m)
+              .clamp(1, 20),
+          reps: last.reps,
+          weightKg: last.weightKg,
+          durationSeconds: last.durationSeconds,
+          restSeconds: 60,
+        ),
+      );
+    }
+    final routine = WorkoutRoutine(
+      id: draft.routineId ?? 'restored-${draft.activityKind.name}',
+      name: draft.routineName ?? draft.activityKind.label,
+      exercises: exercises,
+      activityKind: draft.activityKind,
+      source: 'restored',
+    );
+    final phases = List<TimerPhase>.from(buildPhases(routine));
+    for (var i = 0; i < phases.length; i++) {
+      final phase = phases[i];
+      if (phase.kind != WorkoutTimerKind.exercise) continue;
+      WorkoutSetLog? match;
+      for (final log in draft.setLogs) {
+        if (log.exerciseName == phase.exerciseName &&
+            log.setNumber == phase.setNumber &&
+            log.completed) {
+          match = log;
+          break;
+        }
+      }
+      if (match == null) continue;
+      phases[i] = phase.copyWith(
+        completed: true,
+        reps: match.reps,
+        weightKg: match.weightKg,
+        setType: match.setType,
+      );
+    }
+    var index = phases.indexWhere(
+      (p) => p.kind == WorkoutTimerKind.exercise && !p.completed,
+    );
+    if (index < 0) index = 0;
+    _resetSensors();
+    state = WorkoutSessionState(
+      routine: routine,
+      phases: phases,
+      phaseIndex: index.clamp(0, phases.isEmpty ? 0 : phases.length - 1),
+      remainingSeconds: phases.isEmpty ? 0 : phases[index.clamp(0, phases.length - 1)].seconds,
+      running: false,
+      completed: false,
+      playMode: WorkoutPlayMode.routine,
+      activityKind: draft.activityKind,
+      elapsedAtResumeSeconds: draft.elapsedSeconds,
+      notes: draft.notes,
+      distanceMeters: draft.distanceMeters,
+    );
+  }
+
+  void _restoreActivityDraft(ActiveWorkoutDraft draft) {
+    final kind = draft.activityKind;
+    final label = draft.routineName ?? kind.label;
+    _resetSensors();
+    state = WorkoutSessionState(
+      routine: WorkoutRoutine(
+        id: draft.routineId ?? 'activity-${kind.name}',
+        name: label,
+        exercises: const [],
+        activityKind: kind,
+        source: 'restored',
+      ),
+      phases: [
+        TimerPhase(
+          kind: WorkoutTimerKind.activity,
+          label: label,
+          seconds: 0,
+        ),
+      ],
+      phaseIndex: 0,
+      remainingSeconds: 0,
+      running: false,
+      completed: false,
+      playMode: WorkoutPlayMode.activity,
+      activityKind: kind,
+      elapsedAtResumeSeconds: draft.elapsedSeconds,
+      notes: draft.notes,
+      distanceMeters: draft.distanceMeters,
+    );
+  }
 
   void startRoutine(WorkoutRoutine routine) {
     _resetSensors();

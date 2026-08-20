@@ -9,6 +9,7 @@ import '../../domain/models/entitlements.dart';
 import '../../domain/models/fitness_hub_models.dart';
 import '../../domain/models/workout_models.dart';
 import '../../fitness/calendar_controller.dart';
+import '../../fitness/equipment_workout_builder.dart';
 import '../../fitness/gym_discovery_controller.dart';
 import '../../state/app_session_controller.dart';
 import '../../workouts/exercise_library.dart';
@@ -143,6 +144,24 @@ class _AiWorkoutBuilderScreenState
               onSave: _saveToLibrary,
               onCalendar: _addToCalendar,
               onStart: _startWorkout,
+              onEasier: () => setState(() {
+                _generated = EquipmentWorkoutBuilder.makeEasier(_generated!);
+              }),
+              onHarder: () => setState(() {
+                _generated = EquipmentWorkoutBuilder.makeHarder(_generated!);
+              }),
+              onShorten: () => setState(() {
+                _generated = EquipmentWorkoutBuilder.shorten(
+                  _generated!,
+                  targetMinutes: (_sessionMinutes * 0.7).round().clamp(15, 90),
+                );
+              }),
+              onReplace: (exerciseId) => setState(() {
+                _generated = EquipmentWorkoutBuilder.replaceExercise(
+                  _generated!,
+                  exerciseId,
+                );
+              }),
               onReset: () => setState(() {
                 _generated = null;
                 _step = 0;
@@ -317,9 +336,16 @@ class _AiWorkoutBuilderScreenState
     final routine = _generated;
     if (routine == null) return;
     final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (picked == null || !mounted) return;
     await ref.read(fitnessCalendarProvider.notifier).scheduleWorkout(
           title: routine.name,
-          date: DateTime(now.year, now.month, now.day),
+          date: DateTime(picked.year, picked.month, picked.day),
           kind: FitnessEventKind.scheduledWorkout,
           timeOfDayMinutes: now.hour * 60 + now.minute,
           durationMinutes: _sessionMinutes,
@@ -327,7 +353,11 @@ class _AiWorkoutBuilderScreenState
         );
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Added to calendar')),
+      SnackBar(
+        content: Text(
+          'Added to calendar · ${picked.month}/${picked.day}',
+        ),
+      ),
     );
   }
 
@@ -704,6 +734,10 @@ class _GeneratedPreview extends StatelessWidget {
     required this.onSave,
     required this.onCalendar,
     required this.onStart,
+    required this.onEasier,
+    required this.onHarder,
+    required this.onShorten,
+    required this.onReplace,
     required this.onReset,
   });
 
@@ -711,6 +745,10 @@ class _GeneratedPreview extends StatelessWidget {
   final VoidCallback onSave;
   final VoidCallback onCalendar;
   final VoidCallback onStart;
+  final VoidCallback onEasier;
+  final VoidCallback onHarder;
+  final VoidCallback onShorten;
+  final ValueChanged<String> onReplace;
   final VoidCallback onReset;
 
   @override
@@ -735,6 +773,25 @@ class _GeneratedPreview extends StatelessWidget {
               ),
             ],
           ),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton(
+              onPressed: onEasier,
+              child: const Text('Make easier'),
+            ),
+            OutlinedButton(
+              onPressed: onHarder,
+              child: const Text('Make harder'),
+            ),
+            OutlinedButton(
+              onPressed: onShorten,
+              child: const Text('Shorten'),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         for (final e in routine.exercises) ...[
@@ -766,6 +823,11 @@ class _GeneratedPreview extends StatelessWidget {
                       ? '${e.sets}×${e.reps}'
                       : '${e.sets}×${e.durationSeconds ?? 0}s',
                   style: Theme.of(context).textTheme.labelLarge,
+                ),
+                IconButton(
+                  tooltip: 'Replace',
+                  onPressed: () => onReplace(e.id),
+                  icon: const Icon(Icons.swap_horiz, size: 20),
                 ),
               ],
             ),

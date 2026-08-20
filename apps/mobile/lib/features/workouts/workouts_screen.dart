@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
@@ -11,7 +12,11 @@ import '../../core/permissions/permission_prompt.dart';
 import '../../core/theme/vytal_colors.dart';
 import '../../core/time/duration_format.dart';
 import '../../domain/models/entitlements.dart';
+import '../../domain/models/fitness_hub_models.dart';
 import '../../domain/models/workout_models.dart';
+import '../../fitness/equipment_workout_builder.dart';
+import '../../fitness/gym_discovery_controller.dart';
+import '../../fitness/progress_analytics.dart';
 import '../../state/app_session_controller.dart';
 import '../../workouts/exercise_library.dart';
 import '../../workouts/phone_gps.dart';
@@ -48,6 +53,7 @@ class _WorkoutsScreenState extends ConsumerState<WorkoutsScreen> {
         .entitlements
         .canUse(EntitlementKeys.workoutsCustom);
     final readiness = ref.watch(todayHealthProvider).valueOrNull?.readinessScore;
+    final homeGym = ref.watch(homeGymProvider);
 
     return SectionScaffold(
       title: 'Workout',
@@ -66,15 +72,22 @@ class _WorkoutsScreenState extends ConsumerState<WorkoutsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (session.running || session.summaryPending || session.completed)
+          if (session.running ||
+              session.summaryPending ||
+              session.completed ||
+              session.hasProgress)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: HudStrip(
                 icon: Icons.play_circle_outline,
                 title: session.summaryPending
                     ? 'View workout summary'
-                    : 'Resume active workout',
-                subtitle: 'Session continues if you leave this screen',
+                    : session.running
+                        ? 'Resume active workout'
+                        : 'Resume saved workout',
+                subtitle: session.running
+                    ? 'Session continues if you leave this screen'
+                    : 'Restored from before the app closed',
                 onTap: () => context.push(
                   session.summaryPending
                       ? '/workouts/summary'
@@ -82,8 +95,23 @@ class _WorkoutsScreenState extends ConsumerState<WorkoutsScreen> {
                 ),
               ),
             ),
+          if (!homeGym.isEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: HudStrip(
+                icon: Icons.home_outlined,
+                title: 'Filtered to your home gym',
+                subtitle:
+                    '${homeGym.equipment.length} equipment items · edit anytime',
+                onTap: () => context.push('/fitness/home-gym'),
+              ),
+            ),
+          ],
           if (history.entries.isEmpty &&
-              !(session.running || session.summaryPending || session.completed)) ...[
+              !(session.running ||
+                  session.summaryPending ||
+                  session.completed ||
+                  session.hasProgress)) ...[
             const FirstSessionPanel(compact: true),
             const SizedBox(height: 12),
           ],
@@ -199,14 +227,17 @@ class _WorkoutsScreenState extends ConsumerState<WorkoutsScreen> {
             WorkoutHubCategory.cardio => _CardioHub(
                 library: library,
                 canCustom: canCustom,
+                homeEquipment: homeGym.equipment,
               ),
             WorkoutHubCategory.strength => _StrengthHub(
                 library: library,
                 canCustom: canCustom,
+                homeEquipment: homeGym.equipment,
               ),
             WorkoutHubCategory.calisthenics => _CalisthenicsHub(
                 library: library,
                 canCustom: canCustom,
+                homeEquipment: homeGym.equipment,
               ),
           },
           const SizedBox(height: 16),
@@ -246,14 +277,22 @@ class _WorkoutsScreenState extends ConsumerState<WorkoutsScreen> {
 }
 
 class _CardioHub extends ConsumerWidget {
-  const _CardioHub({required this.library, required this.canCustom});
+  const _CardioHub({
+    required this.library,
+    required this.canCustom,
+    this.homeEquipment = const [],
+  });
 
   final WorkoutLibraryState library;
   final bool canCustom;
+  final List<GymEquipmentItem> homeEquipment;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final routines = _routinesFor(library, WorkoutHubCategory.cardio);
+    final routines = _filterRoutinesForHome(
+      _routinesFor(library, WorkoutHubCategory.cardio),
+      homeEquipment,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -280,18 +319,29 @@ class _CardioHub extends ConsumerWidget {
 }
 
 class _StrengthHub extends ConsumerWidget {
-  const _StrengthHub({required this.library, required this.canCustom});
+  const _StrengthHub({
+    required this.library,
+    required this.canCustom,
+    this.homeEquipment = const [],
+  });
 
   final WorkoutLibraryState library;
   final bool canCustom;
+  final List<GymEquipmentItem> homeEquipment;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final mine = _routinesFor(library, WorkoutHubCategory.strength);
-    final builtIn = library.builtIn
-        .where((r) => r.activityKind.hubCategory == WorkoutHubCategory.strength)
-        .toList();
+    final mine = _filterRoutinesForHome(
+      _routinesFor(library, WorkoutHubCategory.strength),
+      homeEquipment,
+    );
+    final builtIn = _filterRoutinesForHome(
+      library.builtIn
+          .where((r) => r.activityKind.hubCategory == WorkoutHubCategory.strength)
+          .toList(),
+      homeEquipment,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -373,14 +423,32 @@ class _StrengthHub extends ConsumerWidget {
 }
 
 class _CalisthenicsHub extends ConsumerWidget {
-  const _CalisthenicsHub({required this.library, required this.canCustom});
+  const _CalisthenicsHub({
+    required this.library,
+    required this.canCustom,
+    this.homeEquipment = const [],
+  });
 
   final WorkoutLibraryState library;
   final bool canCustom;
+  final List<GymEquipmentItem> homeEquipment;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final mine = _routinesFor(library, WorkoutHubCategory.calisthenics);
+    final mine = _filterRoutinesForHome(
+      _routinesFor(library, WorkoutHubCategory.calisthenics),
+      homeEquipment,
+    );
+    final catalog = homeEquipment.isEmpty
+        ? ExerciseLibrary.calisthenics
+        : ExerciseLibrary.calisthenics
+            .where(
+              (e) => EquipmentWorkoutBuilder.exerciseMatchesEquipment(
+                e.equipment,
+                homeEquipment,
+              ),
+            )
+            .toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -417,7 +485,7 @@ class _CalisthenicsHub extends ConsumerWidget {
           title: 'Catalog',
           subtitle: 'Holds use duration. Weighted moves keep reps and load.',
         ),
-        for (final def in ExerciseLibrary.calisthenics) ...[
+        for (final def in catalog) ...[
           _CalisthenicsTile(
             definition: def,
             onStart: () {
@@ -509,6 +577,23 @@ List<WorkoutRoutine> _routinesFor(
 ) {
   return library.custom
       .where((routine) => routine.activityKind.hubCategory == category)
+      .toList(growable: false);
+}
+
+List<WorkoutRoutine> _filterRoutinesForHome(
+  List<WorkoutRoutine> routines,
+  List<GymEquipmentItem> homeEquipment,
+) {
+  if (homeEquipment.isEmpty) return routines;
+  return routines
+      .where(
+        (routine) => routine.exercises.every(
+          (ex) => EquipmentWorkoutBuilder.exerciseMatchesEquipment(
+            ex.equipment,
+            homeEquipment,
+          ),
+        ),
+      )
       .toList(growable: false);
 }
 
@@ -951,11 +1036,22 @@ class WorkoutSummaryScreen extends ConsumerStatefulWidget {
 
 class _WorkoutSummaryScreenState extends ConsumerState<WorkoutSummaryScreen> {
   final _notes = TextEditingController();
+  var _celebrated = false;
 
   @override
   void dispose() {
     _notes.dispose();
     super.dispose();
+  }
+
+  void _maybeCelebrate({
+    required List<dynamic> liftPrs,
+    required List<PersonalRecord> records,
+  }) {
+    if (_celebrated) return;
+    if (liftPrs.isEmpty && records.isEmpty) return;
+    _celebrated = true;
+    unawaited(HapticFeedback.mediumImpact());
   }
 
   @override
@@ -994,6 +1090,13 @@ class _WorkoutSummaryScreenState extends ConsumerState<WorkoutSummaryScreen> {
       candidate: candidate,
       history: history,
     );
+    final liftPrs = ProgressAnalytics.newPrsFromSession(
+      candidate: candidate,
+      history: history,
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeCelebrate(liftPrs: liftPrs, records: records);
+    });
     final streak = TrainingGuidance.currentStreakDays([
       candidate,
       ...history,
@@ -1059,6 +1162,51 @@ class _WorkoutSummaryScreenState extends ConsumerState<WorkoutSummaryScreen> {
               ],
             ),
           ),
+          if (liftPrs.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const VytalSectionHeader(title: 'New lift PRs'),
+            GlassPanel(
+              glow: true,
+              accent: VytalColors.teal,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final pr in liftPrs)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.emoji_events_outlined,
+                            color: VytalColors.teal,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              pr.exerciseName,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            pr.previousWeightKg == null
+                                ? '${pr.weightKg.toStringAsFixed(1)} kg'
+                                : '${pr.weightKg.toStringAsFixed(1)} kg '
+                                    '(+${pr.deltaKg!.toStringAsFixed(1)})',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: VytalColors.teal,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
           if (records.isNotEmpty) ...[
             const SizedBox(height: 12),
             const VytalSectionHeader(title: 'Personal records'),

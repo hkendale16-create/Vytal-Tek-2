@@ -121,6 +121,52 @@ abstract final class ProgressAnalytics {
     return list;
   }
 
+  /// Muscle groups touched in recent completed sets (from exercise names).
+  static Set<MuscleGroup> recentMuscleGroups(
+    List<WorkoutHistoryEntry> history, {
+    int lookback = 8,
+  }) {
+    final found = <MuscleGroup>{};
+    for (final entry in history.take(lookback)) {
+      for (final log in entry.setLogs) {
+        if (!log.completed) continue;
+        for (final group in MuscleGroup.values) {
+          final hint = group.label.toLowerCase();
+          final name = log.exerciseName.toLowerCase();
+          if (name.contains(hint) ||
+              (group == MuscleGroup.quadriceps && name.contains('squat')) ||
+              (group == MuscleGroup.chest && name.contains('bench')) ||
+              (group == MuscleGroup.back &&
+                  (name.contains('row') || name.contains('pull'))) ||
+              (group == MuscleGroup.shoulders && name.contains('press')) ||
+              (group == MuscleGroup.core && name.contains('plank'))) {
+            found.add(group);
+          }
+        }
+      }
+    }
+    return found;
+  }
+
+  /// Groups not covered recently — used for device-free Coach hints.
+  static List<String> undertrainedMuscleLabels(
+    List<WorkoutHistoryEntry> history,
+  ) {
+    final covered = recentMuscleGroups(history);
+    const priority = [
+      MuscleGroup.chest,
+      MuscleGroup.back,
+      MuscleGroup.quadriceps,
+      MuscleGroup.shoulders,
+      MuscleGroup.core,
+      MuscleGroup.glutes,
+    ];
+    return [
+      for (final g in priority)
+        if (!covered.contains(g)) g.label,
+    ];
+  }
+
   /// Detect new lift PRs vs prior history for celebration UI.
   static List<StrengthPersonalRecord> newPrsFromSession({
     required WorkoutHistoryEntry candidate,

@@ -4,11 +4,13 @@ import 'package:vytal_tek/analytics/conversion_analytics.dart';
 import 'package:vytal_tek/domain/models/entitlements.dart';
 import 'package:vytal_tek/domain/models/fitness_hub_models.dart';
 import 'package:vytal_tek/domain/models/workout_models.dart';
+import 'package:vytal_tek/fitness/equipment_workout_builder.dart';
 import 'package:vytal_tek/fitness/plan_library.dart';
 import 'package:vytal_tek/fitness/progress_analytics.dart';
 import 'package:vytal_tek/subscription/feature_access_config.dart';
 import 'package:vytal_tek/subscription/monetization.dart';
 import 'package:vytal_tek/subscription/product_catalog.dart';
+import 'package:vytal_tek/workouts/active_workout_draft.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -160,6 +162,148 @@ void main() {
         range: ProgressRange.d30,
       );
       expect(snap.workouts, 1);
+    });
+
+    test('newPrsFromSession detects lift breakthroughs', () {
+      final prior = [
+        WorkoutHistoryEntry(
+          id: 'old',
+          name: 'Old',
+          activityKind: WorkoutActivityKind.strength,
+          durationSeconds: 1200,
+          completedAt: DateTime.now().toUtc().subtract(const Duration(days: 2)),
+          setLogs: const [
+            WorkoutSetLog(
+              exerciseName: 'Squat',
+              setNumber: 1,
+              setType: WorkoutSetType.working,
+              completed: true,
+              reps: 5,
+              weightKg: 100,
+            ),
+          ],
+        ),
+      ];
+      final candidate = WorkoutHistoryEntry(
+        id: 'new',
+        name: 'New',
+        activityKind: WorkoutActivityKind.strength,
+        durationSeconds: 1200,
+        completedAt: DateTime.now().toUtc(),
+        setLogs: const [
+          WorkoutSetLog(
+            exerciseName: 'Squat',
+            setNumber: 1,
+            setType: WorkoutSetType.working,
+            completed: true,
+            reps: 5,
+            weightKg: 110,
+          ),
+        ],
+      );
+      final prs = ProgressAnalytics.newPrsFromSession(
+        candidate: candidate,
+        history: prior,
+      );
+      expect(prs, hasLength(1));
+      expect(prs.first.exerciseName, 'Squat');
+      expect(prs.first.weightKg, 110);
+      expect(prs.first.previousWeightKg, 100);
+    });
+
+    test('undertrainedMuscleLabels surfaces gaps', () {
+      final history = [
+        WorkoutHistoryEntry(
+          id: 'a',
+          name: 'Push',
+          activityKind: WorkoutActivityKind.strength,
+          durationSeconds: 1200,
+          completedAt: DateTime.now().toUtc(),
+          setLogs: const [
+            WorkoutSetLog(
+              exerciseName: 'Bench Press',
+              setNumber: 1,
+              setType: WorkoutSetType.working,
+              completed: true,
+              reps: 8,
+              weightKg: 60,
+            ),
+          ],
+        ),
+      ];
+      final gaps = ProgressAnalytics.undertrainedMuscleLabels(history);
+      expect(gaps, contains('Back'));
+      expect(gaps, isNot(contains('Chest')));
+    });
+  });
+
+  group('equipment workout builder', () {
+    test('builds equipment-filtered strength session', () {
+      final routine = EquipmentWorkoutBuilder.build(
+        minutes: 40,
+        focus: 'Upper',
+        equipmentLabels: const ['Dumbbells', 'Bench'],
+        locationName: 'Home',
+      );
+      expect(routine.exercises, isNotEmpty);
+      expect(routine.name, contains('40-min'));
+      expect(routine.source, 'equipment');
+    });
+
+    test('makeEasier reduces sets and makeHarder adds them', () {
+      final base = EquipmentWorkoutBuilder.build(
+        minutes: 45,
+        focus: 'Full body',
+        equipmentLabels: const [],
+      );
+      final easier = EquipmentWorkoutBuilder.makeEasier(base);
+      final harder = EquipmentWorkoutBuilder.makeHarder(base);
+      expect(easier.exercises.first.sets,
+          lessThanOrEqualTo(base.exercises.first.sets));
+      expect(harder.exercises.first.sets,
+          greaterThanOrEqualTo(base.exercises.first.sets));
+    });
+
+    test('bodyweight-only home gym rejects barbell moves', () {
+      final ok = EquipmentWorkoutBuilder.exerciseMatchesEquipment(
+        'Bodyweight',
+        const [GymEquipmentItem.noEquipment],
+      );
+      final no = EquipmentWorkoutBuilder.exerciseMatchesEquipment(
+        'Barbell',
+        const [GymEquipmentItem.noEquipment],
+      );
+      expect(ok, isTrue);
+      expect(no, isFalse);
+    });
+  });
+
+  group('active workout draft', () {
+    test('round-trips set logs for cold start restore', () async {
+      final draft = ActiveWorkoutDraft(
+        savedAt: DateTime.now().toUtc(),
+        activityKind: WorkoutActivityKind.strength,
+        elapsedSeconds: 420,
+        setLogs: const [
+          WorkoutSetLog(
+            exerciseName: 'Goblet Squat',
+            setNumber: 1,
+            setType: WorkoutSetType.working,
+            completed: true,
+            reps: 10,
+            weightKg: 20,
+          ),
+        ],
+        routineName: 'Home session',
+      );
+      await ActiveWorkoutDraft.persist(draft);
+      final loaded = await ActiveWorkoutDraft.load();
+      expect(loaded, isNotNull);
+      expect(loaded!.elapsedSeconds, 420);
+      expect(loaded.setLogs, hasLength(1));
+      expect(loaded.routineName, 'Home session');
+      await ActiveWorkoutDraft.clear();
+      expect(await ActiveWorkoutDraft.load(), isNull);
     });
   });
 

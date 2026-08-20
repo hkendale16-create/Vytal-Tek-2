@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/vytal_colors.dart';
 import '../../core/theme/vytal_theme.dart';
 import '../../domain/models/fitness_hub_models.dart';
+import '../../domain/models/notes_models.dart';
 import '../../domain/models/workout_models.dart';
 import '../../fitness/calendar_controller.dart';
+import '../../notes/notes_controller.dart';
 import '../../workouts/workout_controllers.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
@@ -111,7 +113,7 @@ class _FitnessCalendarScreenState extends ConsumerState<FitnessCalendarScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _ScheduleWorkoutSheet(initialDate: day),
+      builder: (context) => _DayPlanSheet(initialDate: day),
     );
   }
 
@@ -365,6 +367,139 @@ extension on _ScheduleKind {
       };
 }
 
+class _DayPlanSheet extends ConsumerWidget {
+  const _DayPlanSheet({required this.initialDate});
+
+  final DateTime initialDate;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final extras = context.vytalExtras;
+    final events = ref.watch(fitnessCalendarProvider).forDay(initialDate);
+    final theme = Theme.of(context);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        16,
+        20,
+        20 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      decoration: BoxDecoration(
+        color: extras.elevated,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: extras.border),
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '${initialDate.month}/${initialDate.day} plan',
+              style: theme.textTheme.titleLarge,
+            ),
+            const SizedBox(height: 12),
+            if (events.isEmpty)
+              Text(
+                'Nothing scheduled yet.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: extras.textMuted,
+                ),
+              )
+            else
+              for (final event in events) ...[
+                GlassPanel(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(event.title, style: theme.textTheme.titleSmall),
+                      const SizedBox(height: 4),
+                      Text(
+                        [
+                          event.kind.label,
+                          if (event.durationMinutes != null)
+                            '${event.durationMinutes} min',
+                          if (event.reminder.enabled) 'Reminder on',
+                        ].join(' · '),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: extras.textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          TextButton(
+                            onPressed: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: event.date,
+                                firstDate: DateTime.now()
+                                    .subtract(const Duration(days: 1)),
+                                lastDate: DateTime.now()
+                                    .add(const Duration(days: 365)),
+                              );
+                              if (picked == null) return;
+                              await ref
+                                  .read(fitnessCalendarProvider.notifier)
+                                  .reschedule(event.id, picked);
+                              if (!context.mounted) return;
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Moved to ${picked.month}/${picked.day}',
+                                  ),
+                                ),
+                              );
+                            },
+                            child: const Text('Reschedule'),
+                          ),
+                          TextButton(
+                            onPressed: () async {
+                              await ref
+                                  .read(fitnessCalendarProvider.notifier)
+                                  .remove(event.id);
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Removed')),
+                              );
+                            },
+                            child: const Text('Remove'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+            const SizedBox(height: 8),
+            FilledButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                await showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (context) =>
+                      _ScheduleWorkoutSheet(initialDate: initialDate),
+                );
+              },
+              child: const Text('Add workout'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ScheduleWorkoutSheet extends ConsumerStatefulWidget {
   const _ScheduleWorkoutSheet({required this.initialDate});
 
@@ -519,7 +654,9 @@ class _ScheduleWorkoutSheetState extends ConsumerState<_ScheduleWorkoutSheet> {
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Reminder'),
-              subtitle: const Text('Notify 30 minutes before'),
+              subtitle: const Text(
+                'Adds an in-app reminder 30 minutes before',
+              ),
               value: _reminder,
               onChanged: (v) => setState(() => _reminder = v),
             ),
@@ -548,6 +685,7 @@ class _ScheduleWorkoutSheetState extends ConsumerState<_ScheduleWorkoutSheet> {
 
   Future<void> _save() async {
     final title = _title.text.trim().isEmpty ? _kind.label : _title.text.trim();
+    final reminder = ReminderSettings(enabled: _reminder);
     await ref.read(fitnessCalendarProvider.notifier).scheduleWorkout(
           title: title,
           date: _date,
@@ -556,10 +694,24 @@ class _ScheduleWorkoutSheetState extends ConsumerState<_ScheduleWorkoutSheet> {
               ? null
               : _time.hour * 60 + _time.minute,
           durationMinutes: _kind == _ScheduleKind.rest ? null : _duration,
-          reminder: ReminderSettings(enabled: _reminder),
+          reminder: reminder,
           routineId: _routine?.id,
           notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
         );
+    if (_reminder && _kind != _ScheduleKind.rest) {
+      final when = DateTime(
+        _date.year,
+        _date.month,
+        _date.day,
+        _time.hour,
+        _time.minute,
+      ).subtract(Duration(minutes: reminder.minutesBefore));
+      await ref.read(notesProvider.notifier).addReminder(
+            title: 'Workout: $title',
+            when: when,
+            category: ReminderCategories.workout,
+          );
+    }
     if (!mounted) return;
     Navigator.pop(context);
   }
