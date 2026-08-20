@@ -5,14 +5,13 @@ import 'package:flutter/material.dart';
 import '../theme/vytal_colors.dart';
 import 'vytal_motion.dart';
 
-/// App-wide ambient canvas: slow gradient drift + very light particles.
+/// Near-static charcoal field. Accent blobs stay barely visible.
 ///
-/// One engine per screen via [SectionScaffold] / Home. Honors Reduce Motion,
-/// [HudMotionScope] (background / Standby / battery saver), and widget tests.
+/// Honors Reduce Motion, [HudMotionScope], and widget tests.
 class AnimatedAmbientBackground extends StatefulWidget {
   const AnimatedAmbientBackground({
     super.key,
-    this.intensity = 0.85,
+    this.intensity = 0.35,
     this.includeViolet = false,
   });
 
@@ -33,7 +32,7 @@ class _AnimatedAmbientBackgroundState extends State<AnimatedAmbientBackground>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 28),
+      duration: const Duration(seconds: 42),
     );
   }
 
@@ -41,7 +40,7 @@ class _AnimatedAmbientBackgroundState extends State<AnimatedAmbientBackground>
     if (!VytalMotion.hudMotionEnabled(context)) return false;
     final binding = WidgetsBinding.instance.runtimeType.toString();
     if (binding.contains('TestWidgetsFlutter')) return false;
-    return true;
+    return widget.intensity > 0.05;
   }
 
   @override
@@ -64,7 +63,7 @@ class _AnimatedAmbientBackgroundState extends State<AnimatedAmbientBackground>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final scale = widget.intensity * (isDark ? 1.0 : 0.72);
+    final scale = widget.intensity * (isDark ? 1.0 : 0.55);
     if (!_canAnimate(context)) {
       return IgnorePointer(
         child: CustomPaint(
@@ -118,6 +117,8 @@ class _AmbientPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final drift = animate ? math.sin(t * math.pi * 2) : 0.0;
     final drift2 = animate ? math.cos(t * math.pi * 2) : 0.0;
+    final charcoal = isDark ? VytalColors.darkElevated : VytalColors.lightElevated;
+    final accent = includeViolet ? VytalColors.violet : VytalColors.teal;
 
     void blob(Offset c, double r, Color color, double opacity) {
       canvas.drawCircle(
@@ -134,33 +135,23 @@ class _AmbientPainter extends CustomPainter {
     }
 
     blob(
-      Offset(size.width * 0.18 + drift * 18, size.height * 0.08 + drift2 * 10),
-      210,
-      VytalColors.teal,
-      0.09 * scale,
+      Offset(size.width * 0.5 + drift * 8, size.height * 0.08 + drift2 * 6),
+      240,
+      charcoal,
+      0.55 * scale,
     );
     blob(
-      Offset(size.width * 0.88 + drift2 * 14, size.height * 0.28 + drift * 12),
-      180,
-      includeViolet ? VytalColors.violet : VytalColors.cyan,
-      0.07 * scale,
-    );
-    blob(
-      Offset(size.width * 0.22 + drift2 * 10, size.height * 0.92 + drift * 8),
+      Offset(size.width * 0.86 + drift2 * 6, size.height * 0.22),
       160,
-      VytalColors.cyan,
-      0.06 * scale,
+      accent,
+      0.028 * scale,
     );
-
-    if (!animate) return;
-    final particlePaint = Paint()
-      ..color = VytalColors.teal.withValues(alpha: isDark ? 0.10 : 0.06);
-    for (var i = 0; i < 8; i++) {
-      final phase = (t + i / 8) % 1.0;
-      final x = size.width * ((0.12 + i * 0.11 + drift * 0.01) % 1.0);
-      final y = size.height * (0.15 + (phase * 0.7));
-      canvas.drawCircle(Offset(x, y), 1.6, particlePaint);
-    }
+    blob(
+      Offset(size.width * 0.12, size.height * 0.92 + drift * 4),
+      180,
+      charcoal,
+      0.4 * scale,
+    );
   }
 
   @override

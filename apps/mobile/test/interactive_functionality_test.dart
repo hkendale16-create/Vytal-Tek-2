@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vytal_tek/core/permissions/permission_catalog.dart';
+import 'package:vytal_tek/core/theme/vytal_colors.dart';
 import 'package:vytal_tek/devices/connection/bluetooth_readiness.dart';
 import 'package:vytal_tek/devices/connection/ble_signal.dart';
 import 'package:vytal_tek/devices/connection/device_connection_exception.dart';
@@ -71,8 +72,14 @@ void main() {
 
   group('Theme glow', () {
     test('dark glow token stays restrained', () {
-      const glow = Color(0xFF00FFD1);
-      expect(glow.withValues(alpha: 0.11).a, lessThan(0.2));
+      const glow = Color(0xFF00E0D0);
+      expect(glow.withValues(alpha: 0.05).a, lessThan(0.1));
+    });
+
+    test('dark canvas is true black, not navy-teal', () {
+      expect(VytalColors.darkCanvas, const Color(0xFF050505));
+      expect(VytalColors.darkSurface, const Color(0xFF111111));
+      expect(VytalColors.green, isNot(VytalColors.darkCanvas));
     });
   });
 

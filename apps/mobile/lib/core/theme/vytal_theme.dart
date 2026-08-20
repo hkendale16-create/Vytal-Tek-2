@@ -15,7 +15,7 @@ abstract final class VytalTheme {
     textPrimary: VytalColors.lightTextPrimary,
     textSecondary: VytalColors.lightTextSecondary,
     textMuted: VytalColors.lightTextMuted,
-    glowOpacity: 0.06,
+    glowOpacity: 0.04,
   );
 
   static ThemeData dark() => _build(
@@ -27,7 +27,7 @@ abstract final class VytalTheme {
     textPrimary: VytalColors.darkTextPrimary,
     textSecondary: VytalColors.darkTextSecondary,
     textMuted: VytalColors.darkTextMuted,
-    glowOpacity: 0.11,
+    glowOpacity: 0.05,
   );
 
   static ThemeData _build({
@@ -45,9 +45,9 @@ abstract final class VytalTheme {
     final colorScheme = ColorScheme(
       brightness: brightness,
       primary: VytalColors.teal,
-      onPrimary: isDark ? VytalColors.darkCanvas : Colors.white,
-      secondary: VytalColors.green,
-      onSecondary: isDark ? VytalColors.darkCanvas : Colors.white,
+      onPrimary: isDark ? Colors.black : Colors.white,
+      secondary: isDark ? const Color(0xFF8A8A8A) : const Color(0xFF52525B),
+      onSecondary: isDark ? Colors.black : Colors.white,
       tertiary: VytalColors.violet,
       onTertiary: Colors.white,
       error: VytalColors.alert,
@@ -64,6 +64,7 @@ abstract final class VytalTheme {
     ).apply(bodyColor: textPrimary, displayColor: textPrimary);
 
     final display = GoogleFonts.soraTextTheme(baseText);
+    final radius = BorderRadius.circular(14);
 
     return ThemeData(
       useMaterial3: true,
@@ -91,21 +92,28 @@ abstract final class VytalTheme {
         ),
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: canvas.withValues(alpha: 0.92),
+        backgroundColor: canvas.withValues(alpha: 0.94),
         foregroundColor: textPrimary,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
         systemOverlayStyle: isDark
-            ? SystemUiOverlayStyle.light
-            : SystemUiOverlayStyle.dark,
+            ? SystemUiOverlayStyle.light.copyWith(
+                statusBarColor: Colors.transparent,
+                systemNavigationBarColor: canvas,
+              )
+            : SystemUiOverlayStyle.dark.copyWith(
+                statusBarColor: Colors.transparent,
+                systemNavigationBarColor: canvas,
+              ),
         titleTextStyle: display.titleLarge?.copyWith(
           color: textPrimary,
           fontWeight: FontWeight.w700,
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: surface,
+        backgroundColor: canvas,
+        elevation: 0,
         indicatorColor: VytalColors.teal.withValues(alpha: glowOpacity),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
@@ -126,11 +134,9 @@ abstract final class VytalTheme {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: VytalColors.teal,
-          foregroundColor: isDark ? VytalColors.darkCanvas : Colors.white,
+          foregroundColor: isDark ? Colors.black : Colors.white,
           minimumSize: const Size(48, 48),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: radius),
           textStyle: const TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
@@ -139,9 +145,13 @@ abstract final class VytalTheme {
           foregroundColor: textPrimary,
           minimumSize: const Size(48, 48),
           side: BorderSide(color: border),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: radius),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: VytalColors.teal,
+          textStyle: const TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
       cardTheme: CardThemeData(
@@ -149,16 +159,94 @@ abstract final class VytalTheme {
         elevation: isDark ? 0 : 1,
         shadowColor: Colors.black.withValues(alpha: 0.08),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-          side: BorderSide(color: border.withValues(alpha: 0.85)),
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: border.withValues(alpha: 0.9)),
         ),
       ),
       chipTheme: ChipThemeData(
         backgroundColor: elevated,
-        selectedColor: VytalColors.teal.withValues(alpha: glowOpacity),
+        selectedColor: VytalColors.teal.withValues(alpha: glowOpacity + 0.08),
         labelStyle: TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
         side: BorderSide(color: border),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return VytalColors.teal.withValues(alpha: glowOpacity + 0.08);
+            }
+            return elevated;
+          }),
+          foregroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) return VytalColors.teal;
+            return textMuted;
+          }),
+          side: WidgetStateProperty.all(BorderSide(color: border)),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: elevated.withValues(alpha: isDark ? 0.7 : 1),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        hintStyle: TextStyle(color: textMuted),
+        labelStyle: TextStyle(color: textSecondary, fontWeight: FontWeight.w500),
+        floatingLabelStyle: const TextStyle(color: VytalColors.teal),
+        border: OutlineInputBorder(
+          borderRadius: radius,
+          borderSide: BorderSide(color: border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: radius,
+          borderSide: BorderSide(color: border.withValues(alpha: 0.85)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: radius,
+          borderSide: const BorderSide(color: VytalColors.teal, width: 1.2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: radius,
+          borderSide: const BorderSide(color: VytalColors.alert),
+        ),
+      ),
+      dropdownMenuTheme: DropdownMenuThemeData(
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: elevated,
+          isDense: true,
+          border: OutlineInputBorder(
+            borderRadius: radius,
+            borderSide: BorderSide(color: border),
+          ),
+        ),
+        menuStyle: MenuStyle(
+          backgroundColor: WidgetStatePropertyAll(surface),
+          elevation: const WidgetStatePropertyAll(8),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: radius),
+          ),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: surface,
+        modalBackgroundColor: surface,
+        surfaceTintColor: Colors.transparent,
+        showDragHandle: true,
+        dragHandleColor: textMuted.withValues(alpha: 0.5),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: radius),
       ),
       listTileTheme: ListTileThemeData(
         iconColor: textSecondary,
@@ -171,14 +259,18 @@ abstract final class VytalTheme {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: VytalColors.teal,
+      ),
+      dividerTheme: DividerThemeData(color: border, space: 1, thickness: 1),
       extensions: <ThemeExtension<dynamic>>[
         VytalThemeExtras(
           canvas: canvas,
           elevated: elevated,
           border: border,
           textMuted: textMuted,
-          glow: VytalColors.cyan.withValues(alpha: glowOpacity),
-          glassFill: surface.withValues(alpha: isDark ? 0.55 : 0.72),
+          glow: VytalColors.teal.withValues(alpha: glowOpacity),
+          glassFill: surface.withValues(alpha: isDark ? 0.78 : 0.88),
         ),
       ],
     );

@@ -11,7 +11,7 @@ class SectionScaffold extends StatelessWidget {
     required this.child,
     this.subtitle,
     this.actions,
-    this.glow = true,
+    this.glow = false,
     this.violetGlow = false,
   });
 
@@ -47,14 +47,17 @@ class SectionScaffold extends StatelessWidget {
         ),
       ],
     );
-    if (!glow) {
+    if (!glow && !violetGlow) {
       return Scaffold(backgroundColor: extras.canvas, body: scroll);
     }
     return Scaffold(
       backgroundColor: extras.canvas,
       body: Stack(
         children: [
-          AnimatedAmbientBackground(includeViolet: violetGlow),
+          AnimatedAmbientBackground(
+            intensity: 0.22,
+            includeViolet: violetGlow,
+          ),
           scroll,
         ],
       ),
@@ -202,7 +205,7 @@ class _VytalVPainter extends CustomPainter {
           ..style = PaintingStyle.stroke
           ..strokeWidth = w * 0.16
           ..strokeCap = StrokeCap.round
-          ..color = color.withValues(alpha: 0.18)
+          ..color = color.withValues(alpha: 0.10)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
       );
     }

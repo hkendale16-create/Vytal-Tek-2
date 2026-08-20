@@ -26,17 +26,22 @@ class GlassPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final extras = context.vytalExtras;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final edge = accent ?? VytalColors.teal;
+    final edge = accent ?? extras.border;
+    final highlight = glow ? (accent ?? VytalColors.teal) : edge;
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         color: extras.glassFill,
-        border: Border.all(color: edge.withValues(alpha: isDark ? 0.45 : 0.28)),
+        border: Border.all(
+          color: glow
+              ? highlight.withValues(alpha: isDark ? 0.28 : 0.22)
+              : extras.border,
+        ),
         boxShadow: [
           if (glow)
             BoxShadow(
-              color: edge.withValues(alpha: isDark ? 0.10 : 0.07),
-              blurRadius: isDark ? 10 : 8,
+              color: highlight.withValues(alpha: isDark ? 0.06 : 0.05),
+              blurRadius: 8,
               spreadRadius: 0,
             ),
           if (!isDark)
@@ -74,21 +79,21 @@ class AmbientCanvasGlow extends StatelessWidget {
           Positioned(
             top: -120,
             left: -80,
-            child: _blob(VytalColors.teal, 420, 0.42 * scale),
+            child: _blob(VytalColors.darkElevated, 420, 0.18 * scale),
           ),
           Positioned(
             top: 120,
             right: -110,
             child: _blob(
-              includeViolet ? VytalColors.violet : VytalColors.cyan,
+              includeViolet ? VytalColors.violet : VytalColors.teal,
               360,
-              0.34 * scale,
+              0.05 * scale,
             ),
           ),
           Positioned(
             bottom: -40,
             left: -20,
-            child: _blob(VytalColors.cyan, 280, 0.22 * scale),
+            child: _blob(VytalColors.darkSurface, 280, 0.12 * scale),
           ),
         ],
       ),
@@ -263,21 +268,8 @@ class _HudOrb extends StatelessWidget {
               height: 52,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    VytalColors.teal.withValues(alpha: 0.22),
-                    extras.glassFill,
-                  ],
-                ),
-                border: Border.all(
-                  color: VytalColors.teal.withValues(alpha: 0.55),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: VytalColors.teal.withValues(alpha: 0.14),
-                    blurRadius: 10,
-                  ),
-                ],
+                color: extras.elevated,
+                border: Border.all(color: extras.border),
               ),
               child: Icon(action.icon, color: VytalColors.teal, size: 22),
             ),
@@ -323,7 +315,6 @@ class HudStrip extends StatelessWidget {
     final extras = context.vytalExtras;
     final child = GlassPanel(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      accent: accent,
       child: Row(
         children: [
           Icon(icon, color: accent, size: 18),
@@ -426,7 +417,7 @@ class ReadinessGauge extends StatelessWidget {
                   shadows: isDark && hasScore
                       ? [
                           Shadow(
-                            color: color.withValues(alpha: 0.18),
+                            color: color.withValues(alpha: 0.08),
                             blurRadius: 8,
                           ),
                         ]
@@ -538,7 +529,7 @@ class _HudGaugePainter extends CustomPainter {
       ..shader = SweepGradient(
         startAngle: start,
         endAngle: start + sweep,
-        colors: [accent.withValues(alpha: 0.15), accent, VytalColors.cyan],
+        colors: [accent.withValues(alpha: 0.08), accent, accent],
       ).createShader(rect)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 14
@@ -548,7 +539,7 @@ class _HudGaugePainter extends CustomPainter {
       ..shader = SweepGradient(
         startAngle: start,
         endAngle: start + sweep,
-        colors: [accent, VytalColors.cyan, accent],
+        colors: [accent, accent, accent],
       ).createShader(rect)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 11
@@ -639,8 +630,6 @@ class MetricHudTile extends StatelessWidget {
     final edge = accent ?? VytalColors.teal;
     final panel = GlassPanel(
       padding: EdgeInsets.all(compact ? 10 : 14),
-      glow: compact,
-      accent: edge,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
