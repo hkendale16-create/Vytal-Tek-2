@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/devices/wearable_connection_indicator.dart';
 import 'destinations.dart';
 import 'edge_swipe_back.dart';
 
 /// Bottom dock. Only the active tab's [child] is mounted — other tabs are
 /// not built, so Vitals/Workouts/Coach/More do not load until tapped.
-class AppShell extends StatelessWidget {
+class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.child});
 
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final path = GoRouterState.of(context).uri.path;
     final selected = NavDestinations.indexForPath(path);
     final surface = Theme.of(context).colorScheme.surface;
@@ -20,7 +22,17 @@ class AppShell extends StatelessWidget {
     return RootPopGuard(
       child: Scaffold(
         extendBody: false,
-        body: child,
+        body: Stack(
+          children: [
+            child,
+            const Align(
+              alignment: Alignment.topRight,
+              child: SafeArea(
+                child: WearableConnectionIndicator(),
+              ),
+            ),
+          ],
+        ),
         bottomNavigationBar: Material(
           elevation: 8,
           color: surface,

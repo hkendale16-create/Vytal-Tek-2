@@ -96,6 +96,12 @@ final deviceConnectionProvider = StateNotifierProvider<DeviceConnectionControlle
   return DeviceConnectionController(ref);
 });
 
+/// Single live adapter — owned by [DeviceConnectionController].
+final wearableDeviceProvider = Provider<WearableDevice>((ref) {
+  ref.watch(deviceConnectionProvider);
+  return ref.read(deviceConnectionProvider.notifier).adapter;
+});
+
 class DeviceConnectionController
     extends StateNotifier<DeviceConnectionSnapshot> {
   DeviceConnectionController(this._ref)
@@ -111,7 +117,12 @@ class DeviceConnectionController
   WearableDevice _adapter = UnpairedWearableDevice();
   StreamSubscription<DeviceConnectionState>? _stateSub;
   StreamSubscription<WearableDeviceInfo?>? _infoSub;
+  StreamSubscription<void>? _nativeDisconnectSub;
+  Timer? _reconnectTimer;
   bool _disposed = false;
+  bool _userInitiatedDisconnect = false;
+  int _scanGeneration = 0;
+  bool _scanning = false;
 
   void _setState(DeviceConnectionSnapshot next) {
     if (_disposed) return;
@@ -134,6 +145,7 @@ class DeviceConnectionController
       // Soft reconnect attempt — failures stay user-friendly.
       try {
         await reconnect();
+        await _initialSyncIfLinked();
       } catch (_) {
         // Keep saved pairing; show disconnected until user retries.
         if (_disposed) return;
@@ -151,13 +163,32 @@ class DeviceConnectionController
       _adapter = DemoWearableAdapter(knownDevice: device);
     } else if (device.adapterId == 'qring') {
       _adapter = QRingWearableAdapter(knownDevice: device);
+      _nativeDisconnectSub =
+          (_adapter as QRingWearableAdapter).unexpectedDisconnects.listen(
+                (_) => _onUnexpectedDisconnect(),
+              );
     } else {
       _adapter = UnpairedWearableDevice();
     }
     _stateSub = _adapter.connectionState.listen((value) {
       if (value == DeviceConnectionState.disconnected &&
-          state.state == DeviceConnectionState.connected) {
-        _setState(state.copyWith(state: DeviceConnectionState.disconnected));
+          state.state.isLinked) {
+        _onUnexpectedDisconnect();
+        return;
+      }
+      if (value == DeviceConnectionState.syncing) {
+        _setState(state.copyWith(
+          state: DeviceConnectionState.syncing,
+          isSyncing: true,
+        ));
+        return;
+      }
+      if (value == DeviceConnectionState.connected &&
+          state.state == DeviceConnectionState.syncing) {
+        _setState(state.copyWith(
+          state: DeviceConnectionState.connected,
+          isSyncing: false,
+        ));
         return;
       }
       _setState(state.copyWith(state: value));
@@ -176,8 +207,12 @@ class DeviceConnectionController
   Future<void> _detachAdapter() async {
     await _stateSub?.cancel();
     await _infoSub?.cancel();
+    await _nativeDisconnectSub?.cancel();
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     _stateSub = null;
     _infoSub = null;
+    _nativeDisconnectSub = null;
     final current = _adapter;
     if (current is UnpairedWearableDevice) current.dispose();
     if (current is DemoWearableAdapter) current.dispose();
@@ -187,7 +222,74 @@ class DeviceConnectionController
 
   WearableDevice get adapter => _adapter;
 
+  void _onUnexpectedDisconnect() {
+    if (_userInitiatedDisconnect || state.activeDevice == null) return;
+    _setState(state.copyWith(
+      state: DeviceConnectionState.disconnected,
+      isSyncing: false,
+    ));
+    unawaited(
+      _ref.read(appSessionProvider.notifier).setConnectionState(
+            DeviceConnectionState.disconnected,
+          ),
+    );
+    _scheduleAutoReconnect();
+  }
+
+  void _scheduleAutoReconnect() {
+    if (_disposed || _userInitiatedDisconnect || state.activeDevice == null) {
+      return;
+    }
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(const Duration(seconds: 4), () {
+      if (_disposed || _userInitiatedDisconnect) return;
+      unawaited(reconnectIfNeeded());
+    });
+  }
+
+  Future<void> reconnectIfNeeded() async {
+    if (state.activeDevice == null || state.state.isLinked) return;
+    try {
+      await reconnect();
+      await _initialSyncIfLinked();
+    } catch (_) {
+      _scheduleAutoReconnect();
+    }
+  }
+
+  Future<void> _initialSyncIfLinked() async {
+    if (!state.state.isLinked && state.state != DeviceConnectionState.connected) {
+      return;
+    }
+    try {
+      await syncNow();
+      _setState(state.copyWith(state: DeviceConnectionState.ready));
+      await _ref.read(appSessionProvider.notifier).setConnectionState(
+            DeviceConnectionState.ready,
+          );
+    } catch (_) {
+      _setState(state.copyWith(state: DeviceConnectionState.connected));
+    }
+  }
+
+  Future<void> cancelScan() async {
+    if (!_scanning) return;
+    _scanGeneration++;
+    _scanning = false;
+    _setState(state.copyWith(
+      isScanning: false,
+      state: state.activeDevice == null
+          ? DeviceConnectionState.unpaired
+          : state.state,
+    ));
+  }
+
+  Future<void> forgetDevice() => disconnect(remove: true);
+
   Future<void> scanForDevices() async {
+    if (_scanning) return;
+    final generation = ++_scanGeneration;
+    _scanning = true;
     _setState(state.copyWith(
       clearError: true,
       isScanning: true,
@@ -203,6 +305,7 @@ class DeviceConnectionController
             PairingPlatform.limitationMessage(demoModeEnabled: false),
         canRetry: false,
       );
+      _scanning = false;
       _setState(state.copyWith(
         isScanning: false,
         lastError: error,
@@ -214,6 +317,7 @@ class DeviceConnectionController
     final readiness = await _readiness.check(requestIfNeeded: true);
     if (!readiness.canScan && !session.demoModeEnabled) {
       final error = readiness.asException ?? DeviceConnectionException.permissionDenied;
+      _scanning = false;
       _setState(state.copyWith(
         isScanning: false,
         lastError: error,
@@ -227,12 +331,14 @@ class DeviceConnectionController
           ? DemoWearableAdapter()
           : QRingWearableAdapter();
       final found = await scanner.scan();
+      if (generation != _scanGeneration || _disposed) return;
+      _scanning = false;
       _setState(state.copyWith(
         isScanning: false,
         discovered: found,
         state: found.isEmpty
             ? DeviceConnectionState.disconnected
-            : DeviceConnectionState.disconnected,
+            : DeviceConnectionState.devicesFound,
         lastError: found.isEmpty && !session.demoModeEnabled
             ? const DeviceConnectionException(
                 code: 'no_devices',
@@ -243,6 +349,7 @@ class DeviceConnectionController
         clearError: found.isNotEmpty,
       ));
     } on DeviceConnectionException catch (error) {
+      _scanning = false;
       _setState(state.copyWith(
         isScanning: false,
         lastError: error,
@@ -250,6 +357,7 @@ class DeviceConnectionController
       ));
       rethrow;
     } catch (error) {
+      _scanning = false;
       final detail = error.toString().toLowerCase();
       final wrapped = detail.contains('timeout')
           ? DeviceConnectionException.scanTimeout
@@ -273,11 +381,11 @@ class DeviceConnectionController
     if (discovered.isDemo && !session.demoModeEnabled) {
       throw DeviceConnectionException.demoRequired;
     }
-    if (state.activeDevice != null &&
-        state.state == DeviceConnectionState.connected) {
+    if (state.activeDevice != null && state.state.isLinked) {
       throw DeviceConnectionException.alreadyConnected;
     }
 
+    _userInitiatedDisconnect = false;
     _setState(state.copyWith(
       clearError: true,
       state: DeviceConnectionState.connecting,
@@ -315,6 +423,7 @@ class DeviceConnectionController
       ));
 
       await _ref.read(appSessionProvider.notifier).markDevicePaired(connected);
+      await _initialSyncIfLinked();
     } on DeviceConnectionException catch (error) {
       _setState(state.copyWith(
         lastError: error,
@@ -329,6 +438,7 @@ class DeviceConnectionController
     if (device == null) {
       throw DeviceConnectionException.deviceNotNearby;
     }
+    _userInitiatedDisconnect = false;
     _setState(state.copyWith(
       clearError: true,
       state: DeviceConnectionState.reconnecting,
@@ -345,6 +455,7 @@ class DeviceConnectionController
       await _ref.read(appSessionProvider.notifier).setConnectionState(
             DeviceConnectionState.connected,
           );
+      await _initialSyncIfLinked();
     } on DeviceConnectionException catch (error) {
       _setState(state.copyWith(
         state: DeviceConnectionState.disconnected,
@@ -358,12 +469,15 @@ class DeviceConnectionController
   }
 
   Future<void> disconnect({bool remove = false}) async {
+    _userInitiatedDisconnect = true;
+    _reconnectTimer?.cancel();
     try {
       await _adapter.disconnect();
     } catch (_) {
       // Still clear local state.
     }
     if (remove) {
+      _userInitiatedDisconnect = false;
       final id = state.activeDevice?.id;
       var registry = state.registry;
       if (id != null) registry = registry.remove(id);
@@ -405,7 +519,7 @@ class DeviceConnectionController
     }
     _setState(state.copyWith(isSyncing: true, clearError: true));
     try {
-      if (state.state != DeviceConnectionState.connected) {
+      if (!state.state.isLinked) {
         await reconnect();
       }
       final result = await _syncEngine.syncDevice(_adapter, deviceId: device.id);
@@ -425,6 +539,10 @@ class DeviceConnectionController
         state: DeviceConnectionState.connected,
       ));
       await _ref.read(appSessionProvider.notifier).updatePairedDevice(updated);
+      _setState(state.copyWith(state: DeviceConnectionState.ready));
+      await _ref.read(appSessionProvider.notifier).setConnectionState(
+            DeviceConnectionState.ready,
+          );
       if (!result.ok) {
         if (result.errorCode == DeviceConnectionException.sdkUnavailable.code) {
           throw DeviceConnectionException.sdkUnavailable;
@@ -458,6 +576,7 @@ class DeviceConnectionController
   @override
   void dispose() {
     _disposed = true;
+    _reconnectTimer?.cancel();
     unawaited(_detachAdapter());
     super.dispose();
   }

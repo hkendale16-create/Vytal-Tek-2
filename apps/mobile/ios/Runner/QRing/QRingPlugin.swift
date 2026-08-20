@@ -72,10 +72,16 @@ final class QRingPlugin: NSObject {
     case "syncHealth":
       syncHealth(result: result)
     case "startWorkoutMonitoring":
+      QCSDKManager.shareInstance().realTimeHeartRate = { [weak self] hr in
+        if hr > 0 {
+          self?.emit(type: "heartRateUpdate", payload: ["bpm": hr])
+        }
+      }
       QCSDKCmdCreator.beginRealTimeHeartRateSuccess({ result(nil) }, fail: {
         result(FlutterError(code: "workout_failed", message: "Could not start heart-rate monitoring.", details: nil))
       })
     case "stopWorkoutMonitoring":
+      QCSDKManager.shareInstance().realTimeHeartRate = nil
       QCSDKCmdCreator.endRealTimeHeartRateSuccess({ result(nil) }, fail: { result(nil) })
     default:
       result(FlutterMethodNotImplemented)

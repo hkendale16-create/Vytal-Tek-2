@@ -4,8 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../devices/adapters/demo_adapter.dart';
-import '../../devices/adapters/qring_adapter.dart';
-import '../../devices/adapters/unpaired_adapter.dart';
 import '../../domain/devices/device_capabilities.dart';
 import '../../domain/devices/device_connection_state.dart';
 import '../../domain/devices/wearable_device.dart';
@@ -181,19 +179,6 @@ extension DeviceArrivalChoiceX on DeviceArrivalChoice {
 final appSessionProvider =
     StateNotifierProvider<AppSessionController, AppSession>((ref) {
   return AppSessionController()..restore();
-});
-
-final wearableDeviceProvider = Provider<WearableDevice>((ref) {
-  final session = ref.watch(appSessionProvider);
-  final paired = session.pairedDevice;
-  if (paired == null) return UnpairedWearableDevice();
-  if (paired.isDemo || paired.adapterId == DemoWearableAdapter.adapterKey) {
-    return DemoWearableAdapter(knownDevice: paired);
-  }
-  if (paired.adapterId == 'qring') {
-    return QRingWearableAdapter(knownDevice: paired);
-  }
-  return UnpairedWearableDevice();
 });
 
 class AppSessionController extends StateNotifier<AppSession> {
