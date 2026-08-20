@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
@@ -833,6 +834,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
       skip();
       return;
     }
+    unawaited(HapticFeedback.mediumImpact());
     final phases = [...state.phases];
     phases[i] = phase.copyWith(completed: true);
     state = _copy(phases: phases);
@@ -844,6 +846,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
 
   void skipRest() {
     if (state.currentPhase?.kind != WorkoutTimerKind.rest) return;
+    unawaited(HapticFeedback.selectionClick());
     _stopSharedRestTimer();
     skip();
   }
@@ -1096,7 +1099,12 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
       return;
     }
     if (index < 0) return;
+    final previous = state.currentPhase;
     final phase = state.phases[index];
+    if (previous?.kind == WorkoutTimerKind.rest &&
+        phase.kind != WorkoutTimerKind.rest) {
+      unawaited(HapticFeedback.heavyImpact());
+    }
     if (phase.kind == WorkoutTimerKind.rest) {
       _startSharedRestTimer(phase.seconds);
     } else {
