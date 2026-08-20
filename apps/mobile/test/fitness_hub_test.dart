@@ -1,13 +1,17 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vytal_tek/analytics/conversion_analytics.dart';
+import 'package:vytal_tek/domain/models/data_provenance.dart';
 import 'package:vytal_tek/domain/models/entitlements.dart';
 import 'package:vytal_tek/domain/models/fitness_hub_models.dart';
+import 'package:vytal_tek/domain/models/health_metric.dart';
 import 'package:vytal_tek/domain/models/workout_models.dart';
 import 'package:vytal_tek/fitness/equipment_workout_builder.dart';
 import 'package:vytal_tek/fitness/plan_library.dart';
 import 'package:vytal_tek/fitness/progress_analytics.dart';
+import 'package:vytal_tek/fitness/repositories/local_fitness_sync.dart';
 import 'package:vytal_tek/fitness/today_plan_launcher.dart';
+import 'package:vytal_tek/fitness/wearable_readiness.dart';
 import 'package:vytal_tek/subscription/feature_access_config.dart';
 import 'package:vytal_tek/subscription/monetization.dart';
 import 'package:vytal_tek/subscription/product_catalog.dart';
@@ -336,6 +340,87 @@ void main() {
         ),
         'Start lighter · Full Body A',
       );
+    });
+  });
+
+  group('wearable readiness', () {
+    test('returns null without verified sleep or HRV', () {
+      expect(
+        WearableReadiness.fromVerified(
+          hrv: const HealthMetricReading<int>(
+            key: HealthMetricKeys.hrv,
+            displayName: 'HRV',
+            unit: 'ms',
+            provenance: DataProvenance.wearable,
+            freshness: ReadingFreshness.unavailable,
+          ),
+          sleep: const HealthMetricReading<Duration>(
+            key: HealthMetricKeys.sleepDuration,
+            displayName: 'Sleep',
+            provenance: DataProvenance.wearable,
+            freshness: ReadingFreshness.unavailable,
+          ),
+        ),
+        isNull,
+      );
+    });
+
+    test('scores from verified sleep + HRV only', () {
+      final result = WearableReadiness.fromVerified(
+        hrv: const HealthMetricReading<int>(
+          key: HealthMetricKeys.hrv,
+          displayName: 'HRV',
+          unit: 'ms',
+          value: 60,
+          provenance: DataProvenance.wearable,
+          freshness: ReadingFreshness.lastSynced,
+        ),
+        sleep: const HealthMetricReading<Duration>(
+          key: HealthMetricKeys.sleepDuration,
+          displayName: 'Sleep',
+          value: Duration(hours: 7, minutes: 30),
+          provenance: DataProvenance.wearable,
+          freshness: ReadingFreshness.lastSynced,
+        ),
+      );
+      expect(result, isNotNull);
+      expect(result!.score, inInclusiveRange(1, 99));
+      expect(result.message.toLowerCase(), contains('not a diagnosis'));
+    });
+  });
+
+  group('local fitness sync queue', () {
+    test('enqueues completed workouts for future flush', () async {
+      final port = LocalQueuedFitnessSyncPort();
+      await port.enqueueWorkout(
+        WorkoutHistoryEntry(
+          id: 'sync-1',
+          name: 'Session',
+          activityKind: WorkoutActivityKind.strength,
+          durationSeconds: 600,
+          completedAt: DateTime.now().toUtc(),
+        ),
+      );
+      expect(await port.pendingCount(), 1);
+      final peek = await port.peek();
+      expect(peek.first['id'], 'sync-1');
+      expect(peek.first['kind'], 'workout_completed');
+    });
+  });
+
+  group('progress photo metadata', () {
+    test('entries persist angle and optional path', () {
+      final photo = ProgressPhoto(
+        id: 'p1',
+        capturedAt: DateTime.utc(2026, 8, 20),
+        localPath: '/tmp/progress.jpg',
+        angle: 'side',
+        weightKg: 80,
+      );
+      final round = ProgressPhoto.fromJson(photo.toJson());
+      expect(round.angle, 'side');
+      expect(round.localPath, '/tmp/progress.jpg');
+      expect(round.weightKg, 80);
     });
   });
 

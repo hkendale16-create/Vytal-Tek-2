@@ -211,13 +211,19 @@ class CoachVitalEngine {
         return 'You already have "$currentWorkoutName" in progress. I can still generate another structured session you can save.\n\n$safetyFooter';
       }
       if (advanced) {
+        final readiness = health?.readinessScore;
         final recovery = health?.hrv.hasValue == true
             ? 'Your latest verified HRV reading is ${health!.hrv.value} ms.'
-            : 'I don’t have a verified HRV reading yet, so intensity advice stays general.';
+            : readiness != null
+                ? 'Informational readiness is $readiness from verified metrics.'
+                : 'I don’t have a verified HRV reading yet, so intensity advice stays general.';
         final gear = fitness.equipmentLabels.isEmpty
             ? ''
             : ' Available equipment on file: ${fitness.equipmentLabels.take(4).join(', ')}.';
-        return 'Let’s keep training practical. $recovery$gear '
+        final plan = fitness.todaysPlanTitle == null
+            ? ''
+            : ' Calendar plan: ${fitness.todaysPlanTitle}.';
+        return 'Let’s keep training practical. $recovery$plan$gear '
             'Prefer a session that matches your stated goals and available time. '
             'I won’t invent readiness scores.\n\n$safetyFooter';
       }

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../domain/models/fitness_hub_models.dart';
 import 'fitness_repositories.dart';
+import 'local_fitness_sync.dart';
 
 const _calendarKey = 'vytal.fitness.calendar.v1';
 const _savedGymsKey = 'vytal.fitness.saved_gyms.v1';
@@ -187,5 +188,5 @@ final progressPhotoRepositoryProvider =
 });
 
 final fitnessSyncPortProvider = Provider<FitnessSyncPort>((ref) {
-  return NoOpFitnessSyncPort();
+  return LocalQueuedFitnessSyncPort();
 });

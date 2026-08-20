@@ -6,6 +6,7 @@ import '../../domain/models/data_provenance.dart';
 import '../../domain/models/health_metric.dart';
 import '../../domain/models/operating_mode.dart';
 import '../../domain/models/personal_profile.dart';
+import '../../fitness/wearable_readiness.dart';
 import '../../state/app_session_controller.dart';
 
 /// Aggregated Today / health surface values.
@@ -168,9 +169,20 @@ final todayHealthProvider = FutureProvider<TodayHealthSnapshot>((ref) async {
     readiness = null;
     readinessMessage = key.baselineState.userFacingMessage;
   } else {
-    readiness = null;
-    readinessMessage =
-        'Wearable connected. Composite readiness scoring arrives after baseline learning — individual metrics below are from sync.';
+    final computed = WearableReadiness.fromVerified(
+      hrv: hrv,
+      sleep: sleep,
+      heartRate: heart,
+    );
+    if (computed != null) {
+      readiness = computed.score;
+      readinessMessage = computed.message;
+    } else {
+      readiness = null;
+      readinessMessage =
+          'Wearable connected. Individual metrics below are from sync — '
+          'readiness needs verified sleep and/or HRV.';
+    }
   }
 
   return TodayHealthSnapshot(

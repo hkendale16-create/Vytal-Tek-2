@@ -55,6 +55,12 @@
 	<string>Vytal Tek uses motion data to improve activity and workout tracking when you allow it.</string>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>Vytal Tek uses notifications for timers, reminders, and optional battery alerts when you enable them.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Vytal Tek uses the camera only when you choose to add a private progress photo. Photos stay on this device.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Vytal Tek accesses your photo library only when you choose an image for a private progress check-in. Photos stay on this device.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Vytal Tek does not save progress photos back to your library by default.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>bluetooth-central</string>
