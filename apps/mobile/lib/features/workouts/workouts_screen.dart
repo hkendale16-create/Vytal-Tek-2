@@ -16,6 +16,7 @@ import '../../state/app_session_controller.dart';
 import '../../workouts/exercise_library.dart';
 import '../../workouts/phone_gps.dart';
 import '../../workouts/workout_controllers.dart';
+import '../../workouts/workout_gps.dart';
 import '../../workouts/workout_metrics.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';

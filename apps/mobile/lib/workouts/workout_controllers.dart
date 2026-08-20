@@ -683,7 +683,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
       weightKg: weightKg,
       clearReps: reps != null && reps <= 0,
       clearWeight: weightKg != null && weightKg <= 0,
-      seconds: durationSeconds == null ? null : durationSeconds.clamp(5, 600),
+      seconds: durationSeconds?.clamp(5, 600),
       setType: setType,
     );
     if (durationSeconds != null &&
