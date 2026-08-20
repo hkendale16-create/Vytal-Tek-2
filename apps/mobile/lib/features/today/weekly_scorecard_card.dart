@@ -6,6 +6,7 @@ import '../../core/theme/vytal_theme.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
 import 'training_guidance.dart';
+import 'week_share_sheet.dart';
 
 class WeeklyScorecardCard extends StatelessWidget {
   const WeeklyScorecardCard({super.key, required this.scorecard});
@@ -68,16 +69,23 @@ class WeeklyScorecardCard extends StatelessWidget {
               height: 1.35,
             ),
           ),
-          if (scorecard.sessions > 0) ...[
-            const SizedBox(height: 4),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                onPressed: () => context.push('/workouts/history'),
-                child: const Text('History'),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              if (scorecard.sessions > 0)
+                TextButton(
+                  onPressed: () => context.push('/workouts/history'),
+                  child: const Text('History'),
+                ),
+              TextButton(
+                onPressed: () => showWeekShareSheet(
+                  context,
+                  scorecard: scorecard,
+                ),
+                child: const Text('Share week'),
               ),
-            ),
-          ],
+            ],
+          ),
         ],
       ),
     );

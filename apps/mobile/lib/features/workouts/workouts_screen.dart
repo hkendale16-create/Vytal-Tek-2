@@ -25,6 +25,7 @@ import '../subscription/soft_paywall.dart';
 import '../today/today_health_provider.dart';
 import '../today/training_guidance.dart';
 import 'first_session_panel.dart';
+import 'ring_connect_prompt.dart';
 import 'workout_history_ui.dart';
 
 class WorkoutsScreen extends ConsumerStatefulWidget {
@@ -1054,6 +1055,8 @@ class _WorkoutSummaryScreenState extends ConsumerState<WorkoutSummaryScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Workout saved.')),
               );
+              await maybeOfferRingConnect(context: context, ref: ref);
+              if (!context.mounted) return;
               context.go('/workouts');
             },
             child: const Text('Save'),
