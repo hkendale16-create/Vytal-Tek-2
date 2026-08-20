@@ -24,6 +24,7 @@ import '../shared/vytal_controls.dart';
 import '../subscription/soft_paywall.dart';
 import '../today/today_health_provider.dart';
 import '../today/training_guidance.dart';
+import 'first_session_panel.dart';
 import 'workout_history_ui.dart';
 
 class WorkoutsScreen extends ConsumerStatefulWidget {
@@ -80,6 +81,11 @@ class _WorkoutsScreenState extends ConsumerState<WorkoutsScreen> {
                 ),
               ),
             ),
+          if (history.entries.isEmpty &&
+              !(session.running || session.summaryPending || session.completed)) ...[
+            const FirstSessionPanel(compact: true),
+            const SizedBox(height: 12),
+          ],
           GlassPanel(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(
@@ -870,6 +876,7 @@ class _WorkoutSummaryScreenState extends ConsumerState<WorkoutSummaryScreen> {
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(workoutSessionProvider);
+    final history = ref.watch(workoutHistoryProvider).entries;
     final theme = Theme.of(context);
     final readiness = ref.watch(todayHealthProvider).valueOrNull?.readinessScore;
     if (session.phases.isEmpty && !session.summaryPending && !session.completed) {
@@ -881,6 +888,31 @@ class _WorkoutSummaryScreenState extends ConsumerState<WorkoutSummaryScreen> {
         ),
       );
     }
+
+    final candidateVolume = session.setLogs.fold<double>(0, (sum, log) {
+      if (!log.completed || !log.setType.countsForVolume) return sum;
+      if (log.weightKg == null || log.reps == null) return sum;
+      return sum + log.weightKg! * log.reps!;
+    });
+    final candidate = WorkoutHistoryEntry(
+      id: 'pending-summary',
+      name: session.routine?.name ?? 'Workout',
+      activityKind: session.activityKind ?? WorkoutActivityKind.custom,
+      durationSeconds: session.elapsedSeconds(),
+      completedAt: DateTime.now().toUtc(),
+      distanceMeters:
+          session.distanceMeters <= 0 ? null : session.distanceMeters,
+      trainingVolumeKg: candidateVolume == 0 ? null : candidateVolume,
+      setLogs: session.setLogs.where((log) => log.completed).toList(),
+    );
+    final records = TrainingGuidance.personalRecordsBroken(
+      candidate: candidate,
+      history: history,
+    );
+    final streak = TrainingGuidance.currentStreakDays([
+      candidate,
+      ...history,
+    ]);
 
     return SectionScaffold(
       title: 'Workout summary',
@@ -915,6 +947,15 @@ class _WorkoutSummaryScreenState extends ConsumerState<WorkoutSummaryScreen> {
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyMedium,
                 ),
+                if (streak > 0) ...[
+                  const SizedBox(height: 10),
+                  StatusPill(
+                    label: streak == 1
+                        ? '1 day streak started'
+                        : '$streak day streak',
+                    emphasis: true,
+                  ),
+                ],
                 const SizedBox(height: 8),
                 Text(
                   'Avg HR ${session.averageHr ?? '—'} · Max HR ${session.maxHr ?? '—'}'
@@ -933,6 +974,48 @@ class _WorkoutSummaryScreenState extends ConsumerState<WorkoutSummaryScreen> {
               ],
             ),
           ),
+          if (records.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const VytalSectionHeader(title: 'Personal records'),
+            GlassPanel(
+              glow: true,
+              accent: VytalColors.teal,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final record in records)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.emoji_events_outlined,
+                            color: VytalColors.teal,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              record.label,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            record.detail,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: VytalColors.teal,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
           if (session.setLogs.any((log) => log.completed)) ...[
             const SizedBox(height: 12),
             const VytalSectionHeader(title: 'Sets'),

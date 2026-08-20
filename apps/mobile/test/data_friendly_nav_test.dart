@@ -73,6 +73,7 @@ void main() {
     await tapNav(tester, 'Workouts');
     expect(find.text('Calisthenics'), findsOneWidget);
     expect(find.text('Quick Start'), findsOneWidget);
+    expect(find.text('YOUR FIRST SESSION'), findsOneWidget);
 
     await tapNav(tester, 'Plans');
     expect(find.text('Training plans'), findsOneWidget);

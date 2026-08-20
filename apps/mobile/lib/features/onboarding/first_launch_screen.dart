@@ -42,7 +42,7 @@ class FirstLaunchScreen extends ConsumerWidget {
                       const SizedBox(height: 12),
                       Text(
                         'Vytal Tek is a personal health and performance platform. '
-                        'You can start today — a wearable makes it smarter later.',
+                        'Works with or without a wearable — and never invents vitals.',
                         style: theme.textTheme.bodyLarge,
                       ),
                       const SizedBox(height: 28),
