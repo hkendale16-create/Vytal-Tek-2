@@ -97,6 +97,9 @@ class UnpairedWearableDevice implements WearableDevice {
   @override
   Future<void> stopWorkoutMonitoring() async {}
 
+  @override
+  Stream<int> watchLiveHeartRate() => const Stream.empty();
+
   void dispose() {
     _connection.close();
     _info.close();

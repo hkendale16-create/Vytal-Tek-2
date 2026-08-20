@@ -153,7 +153,7 @@ class QRingDeviceSupportFlags {
       supportsDistance: distanceAvailable,
       supportsBattery: true,
       supportsFirmwareUpdate: supportFirmwareUpdate,
-      supportsWorkoutMonitoring: true,
+      supportsWorkoutMonitoring: supportAppMeasure,
     );
   }
 }

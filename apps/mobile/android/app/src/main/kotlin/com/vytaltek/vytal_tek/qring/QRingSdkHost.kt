@@ -20,8 +20,10 @@ import com.oudmon.ble.base.communication.Constants
 import com.oudmon.ble.base.communication.ICommandResponse
 import com.oudmon.ble.base.communication.LargeDataHandler
 import com.oudmon.ble.base.communication.req.DeviceSupportReq
+import com.oudmon.ble.base.communication.req.RealTimeHeartRate
 import com.oudmon.ble.base.communication.req.SetTimeReq
 import com.oudmon.ble.base.communication.req.SimpleKeyReq
+import com.oudmon.ble.base.communication.rsp.RealTimeHeartRateRsp
 import com.oudmon.ble.base.communication.rsp.BaseRspCmd
 import com.oudmon.ble.base.communication.rsp.BatteryRsp
 import com.oudmon.ble.base.communication.rsp.DeviceSupportFunctionRsp
@@ -72,6 +74,11 @@ object QRingSdkHost : MethodChannel.MethodCallHandler, EventChannel.StreamHandle
     private var pendingConnectResult: MethodChannel.Result? = null
 
     private var connectTimeoutRunnable: Runnable? = null
+
+    @Volatile
+    private var workoutMonitoringActive = false
+
+    private var workoutHrPollRunnable: Runnable? = null
 
     fun init(application: Application) {
         app = application
@@ -138,10 +145,17 @@ object QRingSdkHost : MethodChannel.MethodCallHandler, EventChannel.StreamHandle
             "readBattery" -> readBattery(result)
             "syncHealth" -> syncHealth(result)
             "startWorkoutMonitoring" -> {
-                // Realtime HR start is capability-gated on the Dart side.
+                if (!BleOperateManager.getInstance().isConnected) {
+                    result.error("not_connected", "Wearable is not connected.", null)
+                    return
+                }
+                startWorkoutMonitoring()
                 result.success(null)
             }
-            "stopWorkoutMonitoring" -> result.success(null)
+            "stopWorkoutMonitoring" -> {
+                stopWorkoutMonitoring()
+                result.success(null)
+            }
             else -> result.notImplemented()
         }
     }
@@ -555,6 +569,65 @@ object QRingSdkHost : MethodChannel.MethodCallHandler, EventChannel.StreamHandle
     private fun emit(type: String, payload: Map<String, Any?>) {
         mainHandler.post {
             eventSink?.success(mapOf("type" to type, "payload" to payload))
+        }
+    }
+
+    private fun startWorkoutMonitoring() {
+        workoutMonitoringActive = true
+        sendRealTimeHeartCommand(1)
+        scheduleHrPoll()
+    }
+
+    private fun stopWorkoutMonitoring() {
+        workoutMonitoringActive = false
+        workoutHrPollRunnable?.let { mainHandler.removeCallbacks(it) }
+        workoutHrPollRunnable = null
+        sendRealTimeHeartCommand(2)
+    }
+
+    private fun sendRealTimeHeartCommand(type: Int) {
+        try {
+            CommandHandle.getInstance().executeReqCmd(
+                RealTimeHeartRate(type),
+                null,
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "RealTimeHeartRate($type): ${e.message}")
+        }
+    }
+
+    private fun scheduleHrPoll() {
+        workoutHrPollRunnable?.let { mainHandler.removeCallbacks(it) }
+        val runnable = object : Runnable {
+            override fun run() {
+                if (!workoutMonitoringActive) return
+                pollRealTimeHeart()
+                mainHandler.postDelayed(this, 2000)
+            }
+        }
+        workoutHrPollRunnable = runnable
+        mainHandler.post(runnable)
+    }
+
+    private fun pollRealTimeHeart() {
+        val latch = CountDownLatch(1)
+        val ref = AtomicReference<RealTimeHeartRateRsp?>()
+        try {
+            CommandHandle.getInstance().executeReqCmd(
+                RealTimeHeartRate(3),
+                ICommandResponse<RealTimeHeartRateRsp> { rsp ->
+                    ref.set(rsp)
+                    latch.countDown()
+                },
+            )
+            if (latch.await(3, TimeUnit.SECONDS)) {
+                val hr = ref.get()?.heart ?: 0
+                if (hr > 0) {
+                    emit("heartRateUpdate", mapOf("bpm" to hr))
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "pollRealTimeHeart: ${e.message}")
         }
     }
 
