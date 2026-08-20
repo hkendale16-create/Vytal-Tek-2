@@ -114,6 +114,7 @@ class TodayScreen extends ConsumerWidget {
                       historyEmpty: isNewUser,
                       progress: progress,
                       scorecard: scorecard,
+                      totalWorkouts: history.entries.length,
                       hasActiveWorkout: workout.running ||
                           workout.summaryPending ||
                           workout.completed,
@@ -311,6 +312,7 @@ class _DeviceFreeToday extends StatelessWidget {
     required this.historyEmpty,
     required this.progress,
     required this.scorecard,
+    required this.totalWorkouts,
     required this.hasActiveWorkout,
     required this.summaryPending,
   });
@@ -321,6 +323,7 @@ class _DeviceFreeToday extends StatelessWidget {
   final bool historyEmpty;
   final ProgressSnapshot progress;
   final WeeklyScorecard scorecard;
+  final int totalWorkouts;
   final bool hasActiveWorkout;
   final bool summaryPending;
 
@@ -444,7 +447,7 @@ class _DeviceFreeToday extends StatelessWidget {
           child: StatusPill(label: 'App-Only', emphasis: true),
         ),
         const SizedBox(height: 16),
-        const DeviceFunnelCard(),
+        DeviceFunnelCard(completedWorkouts: totalWorkouts),
       ],
     );
   }

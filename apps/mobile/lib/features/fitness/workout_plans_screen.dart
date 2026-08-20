@@ -3,12 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/vytal_colors.dart';
 import '../../core/theme/vytal_theme.dart';
+import '../../domain/models/entitlements.dart';
 import '../../domain/models/fitness_hub_models.dart';
 import '../../fitness/calendar_controller.dart';
 import '../../fitness/plan_library.dart';
+import '../../subscription/monetization.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
 import '../shared/vytal_controls.dart';
+import 'upgrade_prompts.dart';
 
 class WorkoutPlansScreen extends ConsumerStatefulWidget {
   const WorkoutPlansScreen({super.key});
@@ -103,6 +106,22 @@ class _WorkoutPlansScreenState extends ConsumerState<WorkoutPlansScreen> {
   }
 
   Future<void> _showStartSheet(WorkoutPlan plan) async {
+    final monetization = ref.read(monetizationProvider);
+    if (WorkoutPlanLibrary.requiresPro(plan) &&
+        !monetization.canUseFeature(EntitlementKeys.plansAdvanced)) {
+      await ContextualUpgradeSheet.show(
+        context,
+        title: plan.name,
+        entitlementKey: EntitlementKeys.plansAdvanced,
+        entitlementHint: 'PRO plan · Vytal Pro helps you train smarter',
+        bullets: const [
+          'Advanced multi-week programming',
+          'Goal-specific and adaptive structures',
+          'Smarter scheduling into your calendar',
+        ],
+      );
+      return;
+    }
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -139,7 +158,7 @@ class _PlanCard extends StatelessWidget {
                     ),
                   ),
                   StatusPill(
-                    label: plan.difficulty.label,
+                    label: plan.advanced ? 'PRO' : plan.difficulty.label,
                     emphasis: plan.advanced,
                   ),
                 ],
@@ -210,6 +229,8 @@ class _PlanDetailView extends StatelessWidget {
                   spacing: 8,
                   runSpacing: 6,
                   children: [
+                    if (plan.advanced)
+                      const StatusPill(label: 'PRO', emphasis: true),
                     StatusPill(label: plan.goal.label, emphasis: true),
                     StatusPill(label: plan.difficulty.label),
                     StatusPill(label: '${plan.weeks} weeks'),
@@ -275,7 +296,7 @@ class _PlanDetailView extends StatelessWidget {
           const SizedBox(height: 8),
           FilledButton(
             onPressed: onStart,
-            child: const Text('Start Plan'),
+            child: Text(plan.advanced ? 'Start Plan · PRO' : 'Start Plan'),
           ),
         ],
       ),

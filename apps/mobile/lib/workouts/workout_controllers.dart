@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
+import '../analytics/conversion_analytics.dart';
 import '../devices/connection/device_connection_controller.dart';
 import '../domain/devices/device_connection_state.dart';
 import '../domain/models/entitlements.dart';
@@ -971,6 +972,16 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
     } catch (_) {
       // Calendar is additive — never block saving history.
     }
+    unawaited(
+      _ref.read(conversionAnalyticsProvider).track(
+            ConversionEvents.workoutCompleted,
+            properties: {
+              'activity': entry.activityKind.name,
+              'duration_seconds': entry.durationSeconds,
+              'sets': entry.setLogs.where((s) => s.completed).length,
+            },
+          ),
+    );
     await ActiveWorkoutDraft.clear();
     stop();
   }

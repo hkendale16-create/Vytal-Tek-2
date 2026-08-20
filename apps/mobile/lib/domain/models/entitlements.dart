@@ -450,7 +450,8 @@ abstract final class EntitlementSecurity {
 /// Hardware / device experience is separate from software Pro entitlements.
 ///
 /// Owning a compatible wearable unlocks capability-gated features. These are
-/// not subscription keys — they depend on [DeviceCapabilities] + connection.
+/// not subscription keys — they depend on device capabilities + connection.
+/// Do **not** lock basic hardware operation behind Pro.
 abstract final class DeviceExperienceFeatures {
   static const liveReadings = 'device.live_readings';
   static const automaticSensors = 'device.automatic_sensors';
@@ -459,4 +460,16 @@ abstract final class DeviceExperienceFeatures {
   static const biometricTrends = 'device.biometric_trends';
   static const deviceSync = 'device.sync';
   static const batteryManagement = 'device.battery';
+
+  static const core = <String>{
+    liveReadings,
+    automaticSensors,
+    sleepSync,
+    workoutSensors,
+    deviceSync,
+    batteryManagement,
+  };
+
+  /// Core device operation — Free owners of hardware get these.
+  static bool isCoreDeviceFeature(String key) => core.contains(key);
 }

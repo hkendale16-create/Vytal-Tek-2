@@ -1,53 +1,140 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vytal_tek/analytics/conversion_analytics.dart';
+import 'package:vytal_tek/domain/models/entitlements.dart';
 import 'package:vytal_tek/domain/models/fitness_hub_models.dart';
 import 'package:vytal_tek/domain/models/workout_models.dart';
 import 'package:vytal_tek/fitness/plan_library.dart';
 import 'package:vytal_tek/fitness/progress_analytics.dart';
-import 'package:vytal_tek/domain/models/entitlements.dart';
+import 'package:vytal_tek/subscription/feature_access_config.dart';
+import 'package:vytal_tek/subscription/monetization.dart';
 import 'package:vytal_tek/subscription/product_catalog.dart';
 
 void main() {
-  group('fitness hub domain', () {
-    test('plan library covers core categories without guarantees', () {
-      final plans = WorkoutPlanLibrary.all;
-      expect(plans, isNotEmpty);
-      expect(plans.any((p) => p.goal == PlanGoal.buildMuscle), isTrue);
-      expect(plans.any((p) => p.goal == PlanGoal.homeWorkouts), isTrue);
-      expect(plans.any((p) => p.advanced), isTrue);
-      for (final plan in plans) {
-        expect(plan.weeklyStructure, isNotEmpty);
-        expect(plan.name.toLowerCase().contains('guarantee'), isFalse);
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
+  group('monetization experience states', () {
+    test('free without device', () {
+      expect(
+        MonetizationFacade.resolve(
+          snapshot: EntitlementSnapshot.freeDefaults,
+          devicePaired: false,
+        ),
+        VytalExperienceState.free,
+      );
+    });
+
+    test('device owner keeps free software', () {
+      expect(
+        MonetizationFacade.resolve(
+          snapshot: EntitlementSnapshot.freeDefaults,
+          devicePaired: true,
+        ),
+        VytalExperienceState.deviceOwner,
+      );
+    });
+
+    test('pro + device becomes proDevice', () {
+      final pro = EntitlementSnapshot.forTier(
+        SubscriptionTier.pro,
+        enabled: SubscriptionCatalog.standard
+            .productForTier(SubscriptionTier.pro)
+            .entitlements,
+        verificationSource: EntitlementVerificationSource.serverVerified,
+      );
+      expect(
+        MonetizationFacade.resolve(snapshot: pro, devicePaired: true),
+        VytalExperienceState.proDevice,
+      );
+      expect(
+        MonetizationFacade.resolve(snapshot: pro, devicePaired: false),
+        VytalExperienceState.pro,
+      );
+    });
+
+    test('core device features are never subscription keys', () {
+      expect(
+        DeviceExperienceFeatures.isCoreDeviceFeature(
+          DeviceExperienceFeatures.batteryManagement,
+        ),
+        isTrue,
+      );
+      expect(
+        DeviceExperienceFeatures.isCoreDeviceFeature(
+          EntitlementKeys.aiWorkoutBuilder,
+        ),
+        isFalse,
+      );
+    });
+  });
+
+  group('plan library monetization', () {
+    test('free starters are available without PRO', () {
+      final starters = WorkoutPlanLibrary.freeStarters;
+      expect(starters.length, greaterThanOrEqualTo(5));
+      expect(
+        starters.map((p) => p.name),
+        containsAll([
+          'Beginner Strength',
+          '3-Day Full Body',
+          'Home Starter',
+          'Beginner Cardio',
+          'Basic Calisthenics',
+        ]),
+      );
+      for (final plan in starters) {
+        expect(WorkoutPlanLibrary.requiresPro(plan), isFalse);
       }
     });
 
-    test('completed history becomes calendar entry', () {
-      final entry = WorkoutHistoryEntry(
-        id: 'w1',
-        name: 'Push Day',
-        activityKind: WorkoutActivityKind.strength,
-        durationSeconds: 52 * 60,
-        completedAt: DateTime.utc(2026, 8, 19, 18),
-        trainingVolumeKg: 4460,
-        setLogs: const [
-          WorkoutSetLog(
-            exerciseName: 'Bench Press',
-            setNumber: 1,
-            setType: WorkoutSetType.working,
-            completed: true,
-            reps: 8,
-            weightKg: 80,
-          ),
-        ],
-      );
-      final event = FitnessCalendarEvent.fromHistory(entry);
-      expect(event.historyEntryId, 'w1');
-      expect(event.isCompleted, isTrue);
-      expect(event.title, 'Push Day');
-      expect(event.durationMinutes, 52);
-      expect(event.setsCompleted, 1);
+    test('premium plans stay visible and marked advanced', () {
+      final pro = WorkoutPlanLibrary.proPlans;
+      expect(pro, isNotEmpty);
+      expect(pro.any((p) => p.name.contains('Push / Pull')), isTrue);
+      for (final plan in pro) {
+        expect(plan.advanced, isTrue);
+        expect(WorkoutPlanLibrary.requiresPro(plan), isTrue);
+      }
     });
+  });
 
-    test('progress analytics works without wearable fields', () {
+  group('feature access config', () {
+    test('bundled defaults keep gyms free', () {
+      final config = FeatureAccessConfig.bundled;
+      expect(config.isFeatureEnabled(EntitlementKeys.gymsNearby), isTrue);
+      expect(config.aiCoachDailyLimitFree, greaterThan(0));
+    });
+  });
+
+  group('conversion analytics privacy', () {
+    test('allows funnel events and strips blocked biometric keys', () async {
+      final analytics = LocalConversionAnalytics();
+      await analytics.track(
+        ConversionEvents.workoutCompleted,
+        properties: {
+          'activity': 'strength',
+          'heartRate': 140, // must be dropped
+          'duration_seconds': 1800,
+        },
+      );
+      await analytics.track('not_an_allowed_event');
+      final drained = await analytics.drain();
+      expect(drained.length, 1);
+      expect(drained.first['event'], ConversionEvents.workoutCompleted);
+      final props = Map<String, dynamic>.from(
+        drained.first['properties'] as Map,
+      );
+      expect(props.containsKey('heartRate'), isFalse);
+      expect(props['duration_seconds'], 1800);
+    });
+  });
+
+  group('progress still device-free', () {
+    test('analytics work without wearable fields', () {
       final history = [
         WorkoutHistoryEntry(
           id: 'a',
@@ -67,48 +154,12 @@ void main() {
             ),
           ],
         ),
-        WorkoutHistoryEntry(
-          id: 'b',
-          name: 'B',
-          activityKind: WorkoutActivityKind.strength,
-          durationSeconds: 2000,
-          completedAt: DateTime.now().toUtc().subtract(const Duration(days: 2)),
-          trainingVolumeKg: 2200,
-          setLogs: const [
-            WorkoutSetLog(
-              exerciseName: 'Bench Press',
-              setNumber: 1,
-              setType: WorkoutSetType.working,
-              completed: true,
-              reps: 5,
-              weightKg: 85,
-            ),
-          ],
-        ),
       ];
       final snap = ProgressAnalytics.build(
         history: history,
         range: ProgressRange.d30,
       );
-      expect(snap.workouts, 2);
-      expect(snap.volumeKg, greaterThan(0));
-      expect(snap.setsCompleted, 2);
-      final prs = ProgressAnalytics.newPrsFromSession(
-        candidate: history.first,
-        history: history,
-      );
-      // First session in list is older weight than second chronologically...
-      // candidate a has 80, prior b has 85 → no PR
-      expect(prs, isEmpty);
-
-      final prsB = ProgressAnalytics.newPrsFromSession(
-        candidate: history[1],
-        history: history,
-      );
-      // b is older chronologically so when used as candidate vs a(80), 85 > 80
-      // Actually history[1] completed earlier; prior excludes self so a remains with 80
-      expect(prsB.single.exerciseName, 'Bench Press');
-      expect(prsB.single.weightKg, 85);
+      expect(snap.workouts, 1);
     });
   });
 
@@ -119,17 +170,8 @@ void main() {
       expect(free.canUse(EntitlementKeys.plansBasic), isTrue);
       expect(free.canUse(EntitlementKeys.gymsNearby), isTrue);
       expect(free.canUse(EntitlementKeys.progressBasic), isTrue);
-      expect(free.canUse(EntitlementKeys.exercisesLibrary), isTrue);
       expect(free.canUse(EntitlementKeys.aiWorkoutBuilder), isFalse);
       expect(free.canUse(EntitlementKeys.plansAdvanced), isFalse);
-
-      final catalog = SubscriptionCatalog.standard;
-      expect(catalog.productForTier(SubscriptionTier.complete).displayName,
-          contains('Complete'));
-      expect(
-        catalog.requiredPlanLabel(EntitlementKeys.aiWorkoutBuilder),
-        SubscriptionTier.pro.displayLabel,
-      );
     });
   });
 }

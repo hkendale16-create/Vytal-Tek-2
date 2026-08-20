@@ -3,30 +3,41 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../analytics/conversion_analytics.dart';
 import '../../core/theme/vytal_colors.dart';
 import '../../core/theme/vytal_theme.dart';
 import '../../domain/models/entitlements.dart';
+import '../../subscription/monetization.dart';
 import '../../subscription/subscription_controller.dart';
 import '../shared/health_ui.dart';
+import '../shared/ui_primitives.dart';
 
 /// Contextual soft upgrade — Start Trial / View Plans / Not Now.
+///
+/// Never shown on every launch — only at intentional Pro feature moments.
 class ContextualUpgradeSheet extends ConsumerWidget {
   const ContextualUpgradeSheet({
     super.key,
     required this.title,
     required this.bullets,
     this.entitlementHint,
+    this.entitlementKey,
+    this.primaryLabel = 'Try Vytal Pro',
   });
 
   final String title;
   final List<String> bullets;
   final String? entitlementHint;
+  final String? entitlementKey;
+  final String primaryLabel;
 
   static Future<void> show(
     BuildContext context, {
     required String title,
     required List<String> bullets,
     String? entitlementHint,
+    String? entitlementKey,
+    String primaryLabel = 'Try Vytal Pro',
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -40,8 +51,27 @@ class ContextualUpgradeSheet extends ConsumerWidget {
           title: title,
           bullets: bullets,
           entitlementHint: entitlementHint,
+          entitlementKey: entitlementKey,
+          primaryLabel: primaryLabel,
         ),
       ),
+    );
+  }
+
+  /// Canonical AI Workout Builder upgrade moment.
+  static Future<void> showAiBuilder(BuildContext context) {
+    return show(
+      context,
+      title: 'Build a plan around you',
+      entitlementKey: EntitlementKeys.aiWorkoutBuilder,
+      entitlementHint: 'Vytal Pro · helps you train smarter',
+      primaryLabel: 'Try Vytal Pro',
+      bullets: const [
+        'Goals and preferred session length',
+        'Your schedule and training days',
+        'Available equipment (home or gym)',
+        'Workout history you have already built',
+      ],
     );
   }
 
@@ -51,6 +81,16 @@ class ContextualUpgradeSheet extends ConsumerWidget {
     final extras = context.vytalExtras;
     final catalog = ref.watch(subscriptionCatalogProvider);
     final pro = catalog.productForTier(SubscriptionTier.pro);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(conversionAnalyticsProvider).track(
+            ConversionEvents.upgradeViewed,
+            properties: {
+              'surface': 'contextual_sheet',
+              if (entitlementKey != null) 'feature': entitlementKey,
+            },
+          );
+    });
 
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
@@ -86,6 +126,11 @@ class ContextualUpgradeSheet extends ConsumerWidget {
             ),
           ],
           const SizedBox(height: 14),
+          Text(
+            'Vytal Pro can create training programs around your:',
+            style: theme.textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 10),
           for (final bullet in bullets) ...[
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -117,7 +162,7 @@ class ContextualUpgradeSheet extends ConsumerWidget {
                 SnackBar(content: Text(result.message)),
               );
             },
-            child: const Text('Start Trial'),
+            child: Text(primaryLabel),
           ),
           const SizedBox(height: 8),
           OutlinedButton(
@@ -125,7 +170,7 @@ class ContextualUpgradeSheet extends ConsumerWidget {
               Navigator.pop(context);
               context.push('/settings/subscription/plans');
             },
-            child: const Text('View Plans'),
+            child: const Text('See What’s Included'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -137,11 +182,106 @@ class ContextualUpgradeSheet extends ConsumerWidget {
   }
 }
 
-const _deviceFunnelDismissedKey = 'vytal.device_funnel.dismissed.v1';
+/// Visible Pro preview — Free users see what advanced unlocks (not hidden).
+class ProPreviewCard extends ConsumerWidget {
+  const ProPreviewCard({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.previewLabel,
+    this.entitlementKey = EntitlementKeys.progressAdvanced,
+  });
 
-/// Soft wearable funnel — exploratory, not aggressive.
+  final String title;
+  final String subtitle;
+  final String previewLabel;
+  final String entitlementKey;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final monetization = ref.watch(monetizationProvider);
+    if (!monetization.showProPreviews) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    final extras = context.vytalExtras;
+
+    return GlassPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(title, style: theme.textTheme.titleMedium),
+              ),
+              const StatusPill(label: 'PRO', emphasis: true),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            style: theme.textTheme.bodySmall?.copyWith(color: extras.textMuted),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            height: 72,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: extras.border),
+              gradient: LinearGradient(
+                colors: [
+                  VytalColors.teal.withValues(alpha: 0.08),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+            child: Text(
+              previewLabel,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: extras.textMuted,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton(
+            onPressed: () {
+              ref.read(conversionAnalyticsProvider).track(
+                    ConversionEvents.proFeatureViewed,
+                    properties: {'feature': entitlementKey},
+                  );
+              ContextualUpgradeSheet.show(
+                context,
+                title: title,
+                entitlementKey: entitlementKey,
+                entitlementHint: 'Vytal Pro · ${monetization.experience.principle}',
+                bullets: const [
+                  'Longer trends and comparisons',
+                  'Deeper volume and progression insights',
+                  'Smarter recommendations from your history',
+                ],
+              );
+            },
+            child: const Text('See What’s Included'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+const _deviceFunnelDismissedKey = 'vytal.device_funnel.dismissed.v1';
+const _deviceFunnelMinWorkouts = 12;
+
+/// Soft wearable funnel — only after meaningful history; not repeated.
 class DeviceFunnelCard extends ConsumerStatefulWidget {
-  const DeviceFunnelCard({super.key});
+  const DeviceFunnelCard({
+    super.key,
+    this.completedWorkouts = 0,
+    this.minWorkouts = _deviceFunnelMinWorkouts,
+  });
+
+  final int completedWorkouts;
+  final int minWorkouts;
 
   @override
   ConsumerState<DeviceFunnelCard> createState() => _DeviceFunnelCardState();
@@ -150,6 +290,7 @@ class DeviceFunnelCard extends ConsumerStatefulWidget {
 class _DeviceFunnelCardState extends ConsumerState<DeviceFunnelCard> {
   var _dismissed = false;
   var _loaded = false;
+  var _tracked = false;
 
   @override
   void initState() {
@@ -175,7 +316,23 @@ class _DeviceFunnelCardState extends ConsumerState<DeviceFunnelCard> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_loaded || _dismissed) return const SizedBox.shrink();
+    final monetization = ref.watch(monetizationProvider);
+    if (!_loaded ||
+        _dismissed ||
+        !monetization.mayPromptDeviceExplore ||
+        widget.completedWorkouts < widget.minWorkouts) {
+      return const SizedBox.shrink();
+    }
+    if (!_tracked) {
+      _tracked = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(conversionAnalyticsProvider).track(
+              ConversionEvents.deviceExploreViewed,
+              properties: {'workouts': widget.completedWorkouts},
+            );
+      });
+    }
+
     final theme = Theme.of(context);
     final extras = context.vytalExtras;
 
@@ -186,9 +343,9 @@ class _DeviceFunnelCardState extends ConsumerState<DeviceFunnelCard> {
           Row(
             children: [
               Text(
-                'GO DEEPER',
+                'YOU’RE BUILDING A TRAINING HISTORY',
                 style: theme.textTheme.labelSmall?.copyWith(
-                  letterSpacing: 1.6,
+                  letterSpacing: 1.2,
                   fontWeight: FontWeight.w700,
                   color: VytalColors.teal,
                 ),
@@ -202,16 +359,56 @@ class _DeviceFunnelCardState extends ConsumerState<DeviceFunnelCard> {
               ),
             ],
           ),
+          const SizedBox(height: 8),
           Text(
-            'Your workout history shows what you did. A Vytal wearable can add '
-            'supported information about how your body responded.',
+            'You’ve completed ${widget.completedWorkouts} workouts with Vytal. '
+            'Add a Vytal wearable to capture supported body metrics alongside '
+            'your training.',
             style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: 12),
           OutlinedButton(
-            onPressed: () => context.push('/devices'),
-            child: const Text('Explore Devices'),
+            onPressed: () {
+              ref.read(conversionAnalyticsProvider).track(
+                    ConversionEvents.deviceConnectStarted,
+                    properties: {'source': 'device_funnel_card'},
+                  );
+              context.push('/devices');
+            },
+            child: const Text('Explore Vytal Device'),
           ),
+          TextButton(
+            onPressed: _dismiss,
+            child: const Text('Not Now'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Ecosystem principle strip for subscription / plans screens.
+class MonetizationPrincipleStrip extends StatelessWidget {
+  const MonetizationPrincipleStrip({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final rows = const [
+      ('Vytal Free', 'Helps you train.'),
+      ('Vytal Pro', 'Helps you train smarter.'),
+      ('Vytal Device', 'Helps Vytal understand how your body responds.'),
+      ('Vytal Complete', 'Training + AI + wearable personalization.'),
+    ];
+    return GlassPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < rows.length; i++) ...[
+            if (i > 0) const SizedBox(height: 10),
+            Text(rows[i].$1, style: theme.textTheme.titleSmall),
+            Text(rows[i].$2, style: theme.textTheme.bodySmall),
+          ],
         ],
       ),
     );

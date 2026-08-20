@@ -17,7 +17,7 @@ import '../ai/coach_vital_engine.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
 import '../shared/vytal_controls.dart';
-import '../subscription/soft_paywall.dart';
+import 'upgrade_prompts.dart';
 
 enum _BuilderGoal {
   strength,
@@ -79,17 +79,39 @@ class _AiWorkoutBuilderScreenState
     if (!canUse && !_paywallDismissed) {
       return SectionScaffold(
         title: 'AI Workout Builder',
-        subtitle: 'Generate a structured session from your gear and goals.',
+        subtitle: 'Vytal Pro · helps you train smarter.',
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SoftPaywall(
-              entitlementKey: EntitlementKeys.aiWorkoutBuilder,
+            GlassPanel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'BUILD A PLAN AROUND YOU',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          letterSpacing: 1.4,
+                          fontWeight: FontWeight.w800,
+                          color: VytalColors.teal,
+                        ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Vytal Pro can create training programs around your goals, '
+                    'schedule, available equipment, and workout history.',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: () => ContextualUpgradeSheet.showAiBuilder(context),
+              child: const Text('Try Vytal Pro'),
+            ),
             TextButton(
               onPressed: () => setState(() => _paywallDismissed = true),
-              child: const Text('Not now'),
+              child: const Text('Not Now'),
             ),
           ],
         ),

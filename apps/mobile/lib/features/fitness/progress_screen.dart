@@ -110,6 +110,13 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
             ],
           ),
           const SizedBox(height: 16),
+          const ProPreviewCard(
+            title: 'Advanced Progress',
+            subtitle:
+                '12-week strength trends, comparisons, and deeper volume analysis.',
+            previewLabel: '12-Week Strength Trend · preview',
+          ),
+          const SizedBox(height: 16),
           const VytalSectionHeader(
             title: 'Strength',
             subtitle: 'Top lift changes from your history.',
@@ -157,6 +164,8 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
               ),
               const SizedBox(height: 8),
             ],
+          const SizedBox(height: 8),
+          DeviceFunnelCard(completedWorkouts: history.length),
           const SizedBox(height: 8),
           const VytalSectionHeader(title: 'Consistency'),
           GlassPanel(

@@ -6,6 +6,7 @@ import '../../core/theme/vytal_colors.dart';
 import '../../domain/models/entitlements.dart';
 import '../../subscription/product_catalog.dart';
 import '../../subscription/subscription_controller.dart';
+import '../fitness/upgrade_prompts.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
 import 'subscription_legal_footer.dart';
@@ -22,9 +23,11 @@ class PlansScreen extends ConsumerWidget {
 
     return SectionScaffold(
       title: 'Plans',
-      subtitle: 'Compare tiers. Live store prices replace placeholders.',
+      subtitle: 'One ecosystem — Free trains you; Pro trains you smarter.',
       child: Column(
         children: [
+          const MonetizationPrincipleStrip(),
+          const SizedBox(height: 12),
           for (final product in catalog.products) ...[
             _PlanCard(
               product: product,
