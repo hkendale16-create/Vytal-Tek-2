@@ -56,10 +56,18 @@ Remote-configurable packaging (device + Pro). Pricing not hard-coded.
 - Device education after meaningful history (e.g. ~12 workouts), dismissible, not repeated.
 - No launch spam, fake urgency, locked navigation, or deceptive discounts.
 
+## Ecosystem marketplace (client UX — no live payments)
+
+Shipped as browse / claim / interest surfaces:
+
+- **Trainer programs** (`/fitness/marketplace`) — seeded catalog, save preview, express interest locally. Platform fee basis points are shown as reserved and **not charged**.
+- **Gym claims** — request claim from a gym profile; pending/verified/partner badges; sponsored must show **Sponsored**.
+- Live StoreKit/Play checkout for trainer programs and gym partner billing remain architecture-only until auth + server verification exist.
+
 ## Future (architecture only — do not implement payments)
 
-- Verified / promoted gym profiles, membership offers, Vytal Partner
-- Trainer marketplace (programs / remote coaching) with platform fee
+- Server-verified gym partner decisions and membership offers
+- Charged trainer marketplace checkout with platform fee settlement
 - Three revenue engines: Software · Hardware · Fitness ecosystem
 
 ## Remote configuration

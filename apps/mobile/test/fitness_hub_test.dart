@@ -1,14 +1,19 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vytal_tek/analytics/conversion_analytics.dart';
 import 'package:vytal_tek/domain/models/data_provenance.dart';
+import 'package:vytal_tek/domain/models/ecosystem_future.dart';
 import 'package:vytal_tek/domain/models/entitlements.dart';
 import 'package:vytal_tek/domain/models/fitness_hub_models.dart';
 import 'package:vytal_tek/domain/models/health_metric.dart';
 import 'package:vytal_tek/domain/models/workout_models.dart';
+import 'package:vytal_tek/fitness/ecosystem_controller.dart';
 import 'package:vytal_tek/fitness/equipment_workout_builder.dart';
 import 'package:vytal_tek/fitness/plan_library.dart';
 import 'package:vytal_tek/fitness/progress_analytics.dart';
+import 'package:vytal_tek/fitness/repositories/fitness_repositories.dart';
 import 'package:vytal_tek/fitness/repositories/local_fitness_sync.dart';
 import 'package:vytal_tek/fitness/today_plan_launcher.dart';
 import 'package:vytal_tek/fitness/wearable_readiness.dart';
@@ -405,6 +410,112 @@ void main() {
       final peek = await port.peek();
       expect(peek.first['id'], 'sync-1');
       expect(peek.first['kind'], 'workout_completed');
+    });
+
+    test('local-only flush keeps queue when endpoint missing', () async {
+      final port = LocalQueuedFitnessSyncPort();
+      await port.enqueueWorkout(
+        WorkoutHistoryEntry(
+          id: 'sync-2',
+          name: 'Session',
+          activityKind: WorkoutActivityKind.strength,
+          durationSeconds: 600,
+          completedAt: DateTime.now().toUtc(),
+        ),
+      );
+      final result = await port.flush();
+      expect(result.mode, FitnessSyncFlushMode.localOnly);
+      expect(result.flushedCount, 0);
+      expect(result.remainingCount, 1);
+      expect(await port.pendingCount(), 1);
+    });
+
+    test('remote flush clears queue on 2xx', () async {
+      String? lastBody;
+      final client = MockClient((request) async {
+        lastBody = request.body;
+        return http.Response('', 204);
+      });
+      final port = LocalQueuedFitnessSyncPort(
+        httpClient: client,
+        endpointUrl: 'https://example.test/fitness/sync',
+      );
+      await port.enqueueWorkout(
+        WorkoutHistoryEntry(
+          id: 'sync-3',
+          name: 'Session',
+          activityKind: WorkoutActivityKind.strength,
+          durationSeconds: 600,
+          completedAt: DateTime.now().toUtc(),
+        ),
+      );
+      final result = await port.flush();
+      expect(result.mode, FitnessSyncFlushMode.remoteOk);
+      expect(result.flushedCount, 1);
+      expect(await port.pendingCount(), 0);
+      expect(lastBody, contains('sync-3'));
+    });
+
+    test('remote flush failure keeps queue', () async {
+      final client = MockClient(
+        (_) async => http.Response('nope', 500),
+      );
+      final port = LocalQueuedFitnessSyncPort(
+        httpClient: client,
+        endpointUrl: 'https://example.test/fitness/sync',
+      );
+      await port.enqueueWorkout(
+        WorkoutHistoryEntry(
+          id: 'sync-4',
+          name: 'Session',
+          activityKind: WorkoutActivityKind.strength,
+          durationSeconds: 600,
+          completedAt: DateTime.now().toUtc(),
+        ),
+      );
+      final result = await port.flush();
+      expect(result.mode, FitnessSyncFlushMode.remoteFailed);
+      expect(await port.pendingCount(), 1);
+    });
+  });
+
+  group('ecosystem marketplace models', () {
+    test('trainer catalog seeds three programs with fee note', () {
+      final featured = TrainerMarketplaceCatalog.featured;
+      expect(featured, hasLength(3));
+      expect(featured.any((p) => p.advanced), isTrue);
+      expect(featured.first.feeNote.toLowerCase(), contains('not charged'));
+    });
+
+    test('gym claim request persists pending status', () async {
+      final controller = EcosystemController();
+      await controller.restore();
+      await controller.requestGymClaim(
+        placeId: 'gym-1',
+        businessName: 'Iron Works',
+        contactEmail: 'owner@example.com',
+      );
+      final claim = controller.state.claimFor('gym-1');
+      expect(claim, isNotNull);
+      expect(claim!.claimStatus, GymClaimStatus.pending);
+      expect(claim.businessName, 'Iron Works');
+
+      await controller.markClaimApproved('gym-1');
+      final approved = controller.state.claimFor('gym-1')!;
+      expect(approved.claimStatus, GymClaimStatus.approved);
+      expect(approved.verified, isTrue);
+      expect(approved.partner, isTrue);
+    });
+
+    test('save program and express interest are idempotent', () async {
+      final controller = EcosystemController();
+      await controller.restore();
+      await controller.saveProgram('trainer-maya-strength');
+      await controller.saveProgram('trainer-maya-strength');
+      await controller.expressInterest('trainer-maya-strength');
+      await controller.expressInterest('trainer-maya-strength');
+      expect(controller.state.savedProgramIds, ['trainer-maya-strength']);
+      expect(controller.state.interestProgramIds, ['trainer-maya-strength']);
     });
   });
 

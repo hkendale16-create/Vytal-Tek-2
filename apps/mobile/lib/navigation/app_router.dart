@@ -14,6 +14,7 @@ import '../features/fitness/fitness_calendar_screen.dart';
 import '../features/fitness/gyms_near_me_screen.dart';
 import '../features/fitness/home_gym_screen.dart';
 import '../features/fitness/progress_screen.dart';
+import '../features/fitness/trainer_marketplace_screen.dart';
 import '../features/fitness/workout_plans_screen.dart';
 import '../features/more/more_screen.dart';
 import '../features/notes/notes_screen.dart';
@@ -21,6 +22,7 @@ import '../features/notes/reminders_screen.dart';
 import '../features/onboarding/first_launch_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/recovery/recovery_screen.dart';
+import '../features/settings/fitness_sync_settings_screen.dart';
 import '../features/settings/monitoring_settings_screen.dart';
 import '../features/settings/permissions_screen.dart';
 import '../features/settings/settings_screen.dart';
@@ -228,8 +230,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         '/fitness/ai-builder',
         (context, state) => const AiWorkoutBuilderScreen(),
       ),
+      _overlay(
+        '/fitness/marketplace',
+        (context, state) => const TrainerMarketplaceScreen(),
+      ),
       _overlay('/devices', (context, state) => const DevicesScreen()),
       _overlay('/settings', (context, state) => const SettingsScreen()),
+      _overlay(
+        '/settings/fitness-sync',
+        (context, state) => const FitnessSyncSettingsScreen(),
+      ),
       _overlay(
         '/settings/subscription',
         (context, state) => const SubscriptionScreen(),

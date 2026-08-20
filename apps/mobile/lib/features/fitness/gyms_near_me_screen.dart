@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/vytal_colors.dart';
 import '../../core/theme/vytal_theme.dart';
+import '../../domain/models/ecosystem_future.dart';
 import '../../domain/models/fitness_hub_models.dart';
 import '../../domain/models/workout_models.dart';
 import '../../fitness/calendar_controller.dart';
+import '../../fitness/ecosystem_controller.dart';
 import '../../fitness/equipment_workout_builder.dart';
 import '../../fitness/gym_discovery_controller.dart';
 import '../../workouts/workout_controllers.dart';
@@ -188,6 +192,11 @@ class _GymMapViewport extends StatelessWidget {
       );
     }
 
+    final center = LatLng(
+      visible.map((e) => e.latitude).reduce((a, b) => a + b) / visible.length,
+      visible.map((e) => e.longitude).reduce((a, b) => a + b) / visible.length,
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -196,56 +205,59 @@ class _GymMapViewport extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SizedBox(
-                height: 220,
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    return Stack(
-                      children: [
-                        Positioned.fill(
-                          child: CustomPaint(
-                            painter: _GymScatterPainter(
-                              places: visible,
-                              pinColor: VytalColors.teal,
-                              gridColor: extras.border,
-                            ),
-                          ),
-                        ),
-                        for (final place in visible) ...[
-                          Builder(
-                            builder: (context) {
-                              final point = _GymMapViewport._normalize(
-                                place,
-                                visible,
-                              );
-                              return Positioned(
-                                left: point.dx * constraints.maxWidth - 22,
-                                top: point.dy * constraints.maxHeight - 22,
-                                width: 44,
-                                height: 44,
-                                child: IconButton(
-                                  tooltip: place.name,
-                                  padding: EdgeInsets.zero,
-                                  onPressed: () => onSelect(place),
-                                  icon: const Icon(
-                                    Icons.location_on,
-                                    color: VytalColors.teal,
-                                  ),
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
+                child: SizedBox(
+                  height: 240,
+                  child: FlutterMap(
+                    options: MapOptions(
+                      initialCenter: center,
+                      initialZoom: 12.5,
+                      interactionOptions: const InteractionOptions(
+                        flags: InteractiveFlag.pinchZoom |
+                            InteractiveFlag.drag |
+                            InteractiveFlag.doubleTapZoom,
+                      ),
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate:
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.vytaltek.mobile',
+                        maxZoom: 18,
+                        // One-shot map open — no background refetch loop.
+                        keepBuffer: 1,
+                        panBuffer: 0,
+                      ),
+                      MarkerLayer(
+                        markers: [
+                          for (final place in visible)
+                            Marker(
+                              point: LatLng(place.latitude, place.longitude),
+                              width: 40,
+                              height: 40,
+                              child: GestureDetector(
+                                onTap: () => onSelect(place),
+                                child: const Icon(
+                                  Icons.location_on,
+                                  color: VytalColors.teal,
+                                  size: 36,
                                 ),
-                              );
-                            },
-                          ),
+                              ),
+                            ),
                         ],
-                      ],
-                    );
-                  },
+                      ),
+                    ],
+                  ),
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
                 child: Text(
-                  'Relative map of nearby results — tap a pin to open a gym. '
-                  'No continuous tile fetch.',
+                  'OpenStreetMap tiles · tap a pin for the gym profile. '
+                  'List stays the default view; map loads only when you open it.',
                   style: Theme.of(context)
                       .textTheme
                       .bodySmall
@@ -263,70 +275,18 @@ class _GymMapViewport extends StatelessWidget {
       ],
     );
   }
-
-  static Offset _normalize(GymPlace place, List<GymPlace> all) {
-    final lats = all.map((e) => e.latitude);
-    final lngs = all.map((e) => e.longitude);
-    final minLat = lats.reduce((a, b) => a < b ? a : b);
-    final maxLat = lats.reduce((a, b) => a > b ? a : b);
-    final minLng = lngs.reduce((a, b) => a < b ? a : b);
-    final maxLng = lngs.reduce((a, b) => a > b ? a : b);
-    final latSpan = (maxLat - minLat).abs() < 0.0001 ? 0.01 : (maxLat - minLat);
-    final lngSpan = (maxLng - minLng).abs() < 0.0001 ? 0.01 : (maxLng - minLng);
-    final x = ((place.longitude - minLng) / lngSpan).clamp(0.08, 0.92);
-    final y = (1 - ((place.latitude - minLat) / latSpan)).clamp(0.08, 0.92);
-    return Offset(x.toDouble(), y.toDouble());
-  }
 }
 
-class _GymScatterPainter extends CustomPainter {
-  _GymScatterPainter({
-    required this.places,
-    required this.pinColor,
-    required this.gridColor,
-  });
-
-  final List<GymPlace> places;
-  final Color pinColor;
-  final Color gridColor;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final grid = Paint()
-      ..color = gridColor.withValues(alpha: 0.55)
-      ..strokeWidth = 1;
-    for (var i = 1; i < 4; i++) {
-      final x = size.width * i / 4;
-      final y = size.height * i / 4;
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), grid);
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
-    }
-    final glow = Paint()
-      ..color = pinColor.withValues(alpha: 0.12)
-      ..style = PaintingStyle.fill;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Offset.zero & size,
-        const Radius.circular(16),
-      ),
-      glow,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _GymScatterPainter oldDelegate) =>
-      oldDelegate.places != places;
-}
-
-class _GymCard extends StatelessWidget {
+class _GymCard extends ConsumerWidget {
   const _GymCard({required this.place, required this.onView});
 
   final GymPlace place;
   final VoidCallback onView;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final extras = context.vytalExtras;
+    final claim = ref.watch(ecosystemProvider).claimFor(place.id);
     return GlassPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -343,6 +303,20 @@ class _GymCard extends StatelessWidget {
                 StatusPill(label: place.distanceLabel, emphasis: true),
             ],
           ),
+          if (claim != null && claim.claimStatus != GymClaimStatus.none) ...[
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                StatusPill(label: claim.claimStatus.label),
+                if (claim.verified) const StatusPill(label: 'Verified'),
+                if (claim.partner) const StatusPill(label: 'Partner'),
+                if (claim.promoted)
+                  const StatusPill(label: 'Sponsored', emphasis: true),
+              ],
+            ),
+          ],
           if (place.hoursLabel != null) ...[
             const SizedBox(height: 4),
             Text(
@@ -389,10 +363,29 @@ class GymProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _GymProfileScreenState extends ConsumerState<GymProfileScreen> {
+  final _businessName = TextEditingController();
+  final _contactEmail = TextEditingController();
+  var _submittingClaim = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _businessName.text = widget.place.name;
+  }
+
+  @override
+  void dispose() {
+    _businessName.dispose();
+    _contactEmail.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final place = widget.place;
     final discovery = ref.watch(gymDiscoveryProvider);
+    final eco = ref.watch(ecosystemProvider);
+    final claim = eco.claimFor(place.id);
     final saved = discovery.saved.where((g) => g.place.id == place.id).firstOrNull;
     final extras = context.vytalExtras;
 
@@ -438,6 +431,31 @@ class _GymProfileScreenState extends ConsumerState<GymProfileScreen> {
                     ],
                   ),
                 ],
+                if (claim != null &&
+                    claim.claimStatus != GymClaimStatus.none) ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      StatusPill(label: claim.claimStatus.label, emphasis: true),
+                      if (claim.verified) const StatusPill(label: 'Verified'),
+                      if (claim.partner) const StatusPill(label: 'Partner'),
+                      if (claim.promoted)
+                        const StatusPill(label: 'Sponsored', emphasis: true),
+                    ],
+                  ),
+                  if (claim.promoted) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Sponsored placement — paid promotion, clearly labeled.',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: extras.textMuted),
+                    ),
+                  ],
+                ],
               ],
             ),
           ),
@@ -463,6 +481,81 @@ class _GymProfileScreenState extends ConsumerState<GymProfileScreen> {
           FilledButton(
             onPressed: () => _workoutHere(place, saved),
             child: const Text('Workout Here'),
+          ),
+          const SizedBox(height: 16),
+          const VytalSectionHeader(
+            title: 'Claim this gym',
+            subtitle: 'Local request only — no fees charged in-app.',
+          ),
+          const SizedBox(height: 8),
+          GlassPanel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (claim?.claimStatus == GymClaimStatus.pending) ...[
+                  Text(
+                    'Claim pending for ${claim!.businessName}. '
+                    'You can demo-approve locally while partner review is offline.',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 10),
+                  OutlinedButton(
+                    onPressed: () => ref
+                        .read(ecosystemProvider.notifier)
+                        .markClaimApproved(place.id),
+                    child: const Text('Demo: mark verified partner'),
+                  ),
+                ] else if (claim?.claimStatus == GymClaimStatus.approved) ...[
+                  Text(
+                    'Claimed as ${claim!.businessName}'
+                    '${claim.contactEmail != null ? ' · ${claim.contactEmail}' : ''}.',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ] else ...[
+                  TextField(
+                    controller: _businessName,
+                    decoration: const InputDecoration(
+                      labelText: 'Business name',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _contactEmail,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'Contact email (optional)',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  FilledButton(
+                    onPressed: _submittingClaim
+                        ? null
+                        : () async {
+                            setState(() => _submittingClaim = true);
+                            await ref
+                                .read(ecosystemProvider.notifier)
+                                .requestGymClaim(
+                                  placeId: place.id,
+                                  businessName: _businessName.text,
+                                  contactEmail: _contactEmail.text,
+                                );
+                            if (!mounted) return;
+                            setState(() => _submittingClaim = false);
+                            ScaffoldMessenger.of(this.context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Claim request saved on this device',
+                                ),
+                              ),
+                            );
+                          },
+                    child: Text(
+                      _submittingClaim ? 'Submitting…' : 'Request claim',
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           Text(

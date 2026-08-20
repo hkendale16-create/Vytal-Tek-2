@@ -158,7 +158,7 @@ class _WorkoutsScreenState extends ConsumerState<WorkoutsScreen> {
           const SizedBox(height: 16),
           const VytalSectionHeader(
             title: 'Discover',
-            subtitle: 'Exercises and gyms near you.',
+            subtitle: 'Exercises, gyms, and trainer programs.',
           ),
           HudStrip(
             icon: Icons.search_outlined,
@@ -179,6 +179,13 @@ class _WorkoutsScreenState extends ConsumerState<WorkoutsScreen> {
             title: 'My Home Gym',
             subtitle: 'Equipment you own',
             onTap: () => context.push('/fitness/home-gym'),
+          ),
+          const SizedBox(height: 8),
+          HudStrip(
+            icon: Icons.storefront_outlined,
+            title: 'Trainer Programs',
+            subtitle: 'Browse previews · fees not charged',
+            onTap: () => context.push('/fitness/marketplace'),
           ),
           const SizedBox(height: 16),
           const VytalSectionHeader(

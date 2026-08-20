@@ -23,7 +23,9 @@ Scope: Expand Vytal Tek so the app is valuable with or without a wearable.
 | Wearable readiness from verified metrics | **Done** |
 | Offline draft autosave + local sync queue | **Done** |
 | Primary nav Today \| Workout \| Body \| Coach \| Profile | **Done** |
-| Future ecosystem marketplace | **Stub only** (`ecosystem_future.dart`) |
+| Future ecosystem marketplace | **Done** (browse + gym claims; no live payments) |
+| Cloud sync flush | **Done** (optional HTTP POST; queue cleared only on 2xx) |
+| Gym map tiles | **Done** (`flutter_map` + OSM; list-first) |
 
 ## Product principle (target)
 
@@ -52,6 +54,8 @@ The wearable makes Vytal smarter; it is not required to love the app.
 ## Notes
 
 - Progress photos store under app documents; never upload by default.
-- `LocalQueuedFitnessSyncPort` persists outbound workout mirrors for a future cloud flush.
-- Map UI is a relative pin viewport (no continuous tile fetch) by design.
+- `LocalQueuedFitnessSyncPort` queues outbound workout mirrors and can POST to a user-configured endpoint from Settings → Fitness sync. Delivery is never claimed without HTTP 2xx.
+- Gym map uses OpenStreetMap tiles via `flutter_map` only when Map view is opened (list remains default).
+- Trainer marketplace and gym claims are local UX; platform fees and partner decisions are not charged/finalized in-app.
 - Readiness scores only compute from verified sleep/HRV (and optional HR nudge); never invented.
+- Sponsored gym placements must show a clear **Sponsored** label when `promoted` is true.
