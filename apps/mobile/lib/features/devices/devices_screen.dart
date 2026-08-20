@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/permissions/permission_catalog.dart';
 import '../../core/permissions/permission_prompt.dart';
 import '../../core/theme/vytal_colors.dart';
+import '../../devices/connection/ble_signal.dart';
 import '../../devices/connection/device_connection_controller.dart';
 import '../../devices/connection/device_connection_exception.dart';
 import '../../devices/connection/pairing_platform.dart';
@@ -17,6 +18,7 @@ import '../../domain/models/operating_mode.dart';
 import '../../state/app_session_controller.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
+import 'wearable_connection_indicator.dart';
 
 class DevicesScreen extends ConsumerStatefulWidget {
   const DevicesScreen({super.key});
@@ -106,8 +108,8 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
     final theme = Theme.of(context);
 
     return SectionScaffold(
-      title: 'Devices',
-      subtitle: 'Pair, reconnect, and sync. Pairing never resets your account.',
+      title: 'My Devices',
+      subtitle: connectionStatusHeadline(connection.state),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -204,21 +206,17 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
             ],
             FilledButton.icon(
               onPressed: connection.isScanning
-                  ? null
+                  ? () => _run(
+                        () => ref
+                            .read(deviceConnectionProvider.notifier)
+                            .cancelScan(),
+                      )
                   : () => _run(_addDevice),
               icon: connection.isScanning
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
+                  ? const Icon(Icons.close)
                   : const Icon(Icons.add),
               label: Text(
-                connection.isScanning
-                    ? 'Scanning…'
-                    : connection.state == DeviceConnectionState.connecting
-                        ? 'Connecting…'
-                        : 'Add Device',
+                connection.isScanning ? 'Cancel search' : 'Add Device',
               ),
             ),
             if (!session.demoModeEnabled) ...[
@@ -303,26 +301,26 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
             const SizedBox(height: 10),
             OutlinedButton.icon(
               onPressed: () => _run(
-                () => ref
-                    .read(deviceConnectionProvider.notifier)
-                    .disconnect(remove: true),
+                () => ref.read(deviceConnectionProvider.notifier).forgetDevice(),
               ),
-              icon: const Icon(Icons.delete_outline),
-              label: const Text('Remove device'),
+              icon: const Icon(Icons.delete_forever_outlined),
+              label: const Text('Forget device'),
             ),
           ],
           if (connection.discovered.isNotEmpty) ...[
             const SizedBox(height: 20),
-            Text('Select a device', style: theme.textTheme.titleMedium),
+            Text('Nearby devices', style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             for (final item in connection.discovered)
               GlassPanel(
                 padding: EdgeInsets.zero,
                 child: ListTile(
                   leading: Icon(
-                    item.kind == VytalDeviceKind.fitnessBand
+                    item.kind == VytalDeviceKind.watch
                         ? Icons.watch
-                        : Icons.circle_outlined,
+                        : item.kind == VytalDeviceKind.fitnessBand
+                            ? Icons.watch
+                            : Icons.circle_outlined,
                     color: VytalColors.teal,
                   ),
                   title: Text(item.displayName),
@@ -330,7 +328,8 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
                     [
                       item.kind.label,
                       if (item.isDemo) 'Demo',
-                      if (item.rssi != null) 'Signal ${item.rssi} dBm',
+                      if (item.rssi != null)
+                        'Signal ${BleSignal.label(item.rssi)}',
                     ].join(' · '),
                   ),
                   trailing: FilledButton(
@@ -345,7 +344,7 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
                     child: Text(
                       connection.state == DeviceConnectionState.connecting
                           ? 'Connecting'
-                          : 'Pair',
+                          : 'Connect',
                     ),
                   ),
                 ),
