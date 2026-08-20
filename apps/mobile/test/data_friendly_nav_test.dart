@@ -47,7 +47,8 @@ void main() {
 
     // Lazy tabs: only Today is built. IndexedStack used to keep all five alive.
     expect(find.text('Missing values stay missing.'), findsNothing);
-    expect(find.text('My Routines'), findsNothing);
+    expect(find.text('Calisthenics'), findsNothing);
+    expect(find.text('Quick Start'), findsNothing);
     expect(find.textContaining('grounded in your data'), findsNothing);
     expect(find.text('Recovery / Readiness'), findsNothing);
   });
@@ -70,7 +71,8 @@ void main() {
     expect(find.text('Missing values stay missing.'), findsOneWidget);
 
     await tapNav(tester, 'Workouts');
-    expect(find.text('My Routines'), findsOneWidget);
+    expect(find.text('Calisthenics'), findsOneWidget);
+    expect(find.text('Quick Start'), findsOneWidget);
 
     await tapNav(tester, 'Coach');
     expect(find.text('Ask Vytal'), findsOneWidget);
@@ -80,7 +82,8 @@ void main() {
 
     await tapNav(tester, 'Today');
     expect(find.text('Missing values stay missing.'), findsNothing);
-    expect(find.text('My Routines'), findsNothing);
+    expect(find.text('Calisthenics'), findsNothing);
+    expect(find.text('Quick Start'), findsNothing);
     expect(find.textContaining('grounded in your data'), findsNothing);
     expect(find.text('Recovery / Readiness'), findsNothing);
   });
@@ -129,17 +132,19 @@ void main() {
   });
 
   testWidgets(
-    'Workouts hub exposes routines, AI, and tools without extra tabs',
+    'Workouts hub exposes category tabs, my workouts, and Ask Vytal',
     (tester) async {
       await enterAppOnly(tester);
 
       await tapNav(tester, 'Workouts');
 
-      expect(find.text('My Routines'), findsOneWidget);
-      expect(find.text('AI Workouts'), findsOneWidget);
-      expect(find.text('Workout Tools'), findsOneWidget);
-      expect(find.text('Interval timer'), findsOneWidget);
-      expect(find.text('Rest timer'), findsOneWidget);
+      expect(find.text('Cardio'), findsOneWidget);
+      expect(find.text('Strength'), findsWidgets);
+      expect(find.text('Calisthenics'), findsOneWidget);
+      expect(find.text('Quick Start'), findsOneWidget);
+      expect(find.text('MY WORKOUTS'), findsOneWidget);
+      expect(find.text('Ask Vytal to build a workout'), findsOneWidget);
+      expect(find.text('Timers'), findsWidgets);
     },
   );
 
