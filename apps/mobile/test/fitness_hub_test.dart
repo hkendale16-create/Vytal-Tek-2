@@ -1,3 +1,4 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -488,7 +489,9 @@ void main() {
     });
 
     test('gym claim request persists pending status', () async {
-      final controller = EcosystemController();
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(ecosystemProvider.notifier);
       await controller.restore();
       await controller.requestGymClaim(
         placeId: 'gym-1',
@@ -508,7 +511,9 @@ void main() {
     });
 
     test('save program and express interest are idempotent', () async {
-      final controller = EcosystemController();
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(ecosystemProvider.notifier);
       await controller.restore();
       await controller.saveProgram('trainer-maya-strength');
       await controller.saveProgram('trainer-maya-strength');

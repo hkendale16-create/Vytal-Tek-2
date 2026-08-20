@@ -2,4 +2,22 @@
 project_id = "sdeifrzdkiiexawwzfvb"
 
 [functions.verify-entitlement]
+verify_jwt = true
+
+[functions.entitlement-lifecycle]
+verify_jwt = true
+
+[functions.fitness-sync]
+verify_jwt = true
+
+[functions.marketplace-checkout]
+verify_jwt = true
+
+[functions.gym-partner]
+verify_jwt = false
+
+[functions.apple-asn]
+verify_jwt = false
+
+[functions.google-rtdn]
 verify_jwt = false

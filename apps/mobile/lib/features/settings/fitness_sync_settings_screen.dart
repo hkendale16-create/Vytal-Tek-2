@@ -115,14 +115,14 @@ class _FitnessSyncSettingsScreenState
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Completed workouts enqueue here for cloud mirror. '
-                        'Nothing is marked delivered until a configured endpoint '
-                        'returns HTTP 2xx.',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(color: extras.textMuted),
-                      ),
+                    'Completed workouts enqueue here and flush to the Vytal '
+                    'fitness-sync Edge Function when you are signed in. '
+                    'Nothing is marked delivered until HTTP 2xx.',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: extras.textMuted),
+                  ),
                     ],
                   ),
                 ),

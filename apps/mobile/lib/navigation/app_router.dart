@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/auth/auth_screen.dart';
 import '../features/activity/activity_screen.dart';
 import '../features/ai/ai_coach_screen.dart';
 import '../features/analytics/analytics_screen.dart';
@@ -235,6 +236,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         (context, state) => const TrainerMarketplaceScreen(),
       ),
       _overlay('/devices', (context, state) => const DevicesScreen()),
+      _overlay('/account', (context, state) => const AuthScreen()),
       _overlay('/settings', (context, state) => const SettingsScreen()),
       _overlay(
         '/settings/fitness-sync',

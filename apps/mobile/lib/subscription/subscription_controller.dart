@@ -20,27 +20,23 @@ final billingPlatformProvider = Provider<BillingPlatform>((ref) {
   return createDefaultBillingPlatform();
 });
 
-/// Production uses [HttpEntitlementVerifier] when `VYTAL_ENTITLEMENT_API` is set.
-/// Release builds without an API fail closed (no mock sandbox grants).
-/// Debug/profile keeps [MockEntitlementVerifier] for sandbox drills only.
+/// Production uses [HttpEntitlementVerifier] against the Vytal Edge Function.
+/// Opt into the local mock with `--dart-define=VYTAL_USE_MOCK_ENTITLEMENTS=true`
+/// (debug/profile only). Release always hits the server and fails closed.
 final entitlementVerifierProvider = Provider<EntitlementVerifier>((ref) {
   final catalog = ref.watch(subscriptionCatalogProvider);
+  const useMock = bool.fromEnvironment('VYTAL_USE_MOCK_ENTITLEMENTS');
+  if (useMock && !kReleaseMode) {
+    return MockEntitlementVerifier(catalog: catalog);
+  }
   final config = EntitlementApiConfig.fromEnvironment();
-  if (config.isConfigured) {
-    return HttpEntitlementVerifier(
-      endpoint: config.endpoint!,
-      catalog: catalog,
-      postJson: defaultEntitlementHttpPost,
-    );
-  }
-  if (kReleaseMode) {
-    return HttpEntitlementVerifier(
-      endpoint: Uri.parse(EntitlementApiConfig.defaultVerifyUrl),
-      catalog: catalog,
-      postJson: defaultEntitlementHttpPost,
-    );
-  }
-  return MockEntitlementVerifier(catalog: catalog);
+  final endpoint = config.endpoint ??
+      Uri.parse(EntitlementApiConfig.defaultVerifyUrl);
+  return HttpEntitlementVerifier(
+    endpoint: endpoint,
+    catalog: catalog,
+    postJson: defaultEntitlementHttpPost,
+  );
 });
 
 final entitlementServiceProvider = Provider<EntitlementService>((ref) {

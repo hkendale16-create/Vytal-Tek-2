@@ -1,11 +1,17 @@
-/// Production entitlement API configuration (Phase G).
+import '../../backend/supabase_config.dart';
+
+/// Production entitlement API configuration (Phase G + backend platform).
 ///
 /// Build with:
 /// `--dart-define=VYTAL_ENTITLEMENT_API=https://sdeifrzdkiiexawwzfvb.supabase.co/functions/v1/verify-entitlement`
 class EntitlementApiConfig {
-  const EntitlementApiConfig({required this.endpoint});
+  const EntitlementApiConfig({
+    required this.endpoint,
+    this.lifecycleEndpoint,
+  });
 
   final Uri? endpoint;
+  final Uri? lifecycleEndpoint;
 
   bool get isConfigured => endpoint != null;
 
@@ -18,6 +24,8 @@ class EntitlementApiConfig {
   static const defaultVerifyUrl =
       'https://sdeifrzdkiiexawwzfvb.supabase.co/functions/v1/verify-entitlement';
 
+  static final defaultLifecycleUri = VytalSupabaseConfig.entitlementLifecycleUri;
+
   /// Reads compile-time defines. Empty string → unconfigured (debug uses mock).
   factory EntitlementApiConfig.fromEnvironment() {
     const raw = String.fromEnvironment('VYTAL_ENTITLEMENT_API');
@@ -25,6 +33,9 @@ class EntitlementApiConfig {
     if (trimmed.isEmpty) {
       return const EntitlementApiConfig(endpoint: null);
     }
-    return EntitlementApiConfig(endpoint: Uri.parse(trimmed));
+    return EntitlementApiConfig(
+      endpoint: Uri.parse(trimmed),
+      lifecycleEndpoint: defaultLifecycleUri,
+    );
   }
 }

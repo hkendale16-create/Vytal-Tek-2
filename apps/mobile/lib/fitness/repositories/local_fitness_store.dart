@@ -2,7 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../backend/supabase_config.dart';
 import '../../domain/models/fitness_hub_models.dart';
 import 'fitness_repositories.dart';
 import 'local_fitness_sync.dart';
@@ -188,5 +190,10 @@ final progressPhotoRepositoryProvider =
 });
 
 final fitnessSyncPortProvider = Provider<FitnessSyncPort>((ref) {
-  return LocalQueuedFitnessSyncPort();
+  return LocalQueuedFitnessSyncPort(
+    endpointUrl: VytalSupabaseConfig.fitnessSyncUri.toString(),
+    authTokenResolver: () async {
+      return Supabase.instance.client.auth.currentSession?.accessToken;
+    },
+  );
 });
