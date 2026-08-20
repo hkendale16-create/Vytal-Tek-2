@@ -246,13 +246,31 @@ class DemoWearableAdapter implements WearableDevice {
     );
   }
 
-  @override
-  Future<void> startWorkoutMonitoring() async {}
+  Timer? _demoHrTimer;
+  final _liveHr = StreamController<int>.broadcast();
 
   @override
-  Future<void> stopWorkoutMonitoring() async {}
+  Stream<int> watchLiveHeartRate() => _liveHr.stream;
+
+  @override
+  Future<void> startWorkoutMonitoring() async {
+    _demoHrTimer?.cancel();
+    _demoHrTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (!_liveHr.isClosed) {
+        _liveHr.add(70 + (DateTime.now().second % 11));
+      }
+    });
+  }
+
+  @override
+  Future<void> stopWorkoutMonitoring() async {
+    _demoHrTimer?.cancel();
+    _demoHrTimer = null;
+  }
 
   void dispose() {
+    _demoHrTimer?.cancel();
+    _liveHr.close();
     _connection.close();
     _info.close();
   }

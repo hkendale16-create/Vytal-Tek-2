@@ -159,13 +159,29 @@ class QRingHealthSnapshot {
 
 /// MethodChannel + EventChannel backed API (Android / iOS).
 class MethodChannelQRingNativeApi implements QRingNativeApi {
-  MethodChannelQRingNativeApi({
+  factory MethodChannelQRingNativeApi({
+    MethodChannel? methodChannel,
+    EventChannel? eventChannel,
+  }) {
+    if (methodChannel != null || eventChannel != null) {
+      return MethodChannelQRingNativeApi._(
+        methodChannel: methodChannel,
+        eventChannel: eventChannel,
+      );
+    }
+    return _shared;
+  }
+
+  MethodChannelQRingNativeApi._({
     MethodChannel? methodChannel,
     EventChannel? eventChannel,
   })  : _methods = methodChannel ??
             const MethodChannel('com.vytaltek.qring/methods'),
         _events =
             eventChannel ?? const EventChannel('com.vytaltek.qring/events');
+
+  static final MethodChannelQRingNativeApi _shared =
+      MethodChannelQRingNativeApi._();
 
   final MethodChannel _methods;
   final EventChannel _events;
@@ -174,11 +190,13 @@ class MethodChannelQRingNativeApi implements QRingNativeApi {
   final _scanController = StreamController<QRingScanResult>.broadcast();
   final _disconnectController = StreamController<void>.broadcast();
   final _errorController = StreamController<String>.broadcast();
+  final _liveHrController = StreamController<int>.broadcast();
   Completer<QRingNativeConnectionResult>? _connectCompleter;
   bool _listening = false;
 
   Stream<void> get unexpectedDisconnects => _disconnectController.stream;
   Stream<String> get nativeErrors => _errorController.stream;
+  Stream<int> get liveHeartRateUpdates => _liveHrController.stream;
 
   static const _unsupportedPlatforms = {
     TargetPlatform.linux,
@@ -211,6 +229,13 @@ class MethodChannelQRingNativeApi implements QRingNativeApi {
       case 'scanResult':
         if (payload is Map) {
           _scanController.add(QRingScanResult.fromMap(payload));
+        }
+      case 'heartRateUpdate':
+        if (payload is Map) {
+          final bpm = payload['bpm'] as int?;
+          if (bpm != null && bpm > 0) {
+            _liveHrController.add(bpm);
+          }
         }
       case 'connection':
         if (payload is Map) {
@@ -359,9 +384,7 @@ class MethodChannelQRingNativeApi implements QRingNativeApi {
   }
 
   void dispose() {
+    // Shared bridge stays alive; cancel only this wrapper's subscription if any.
     _eventSub?.cancel();
-    _scanController.close();
-    _disconnectController.close();
-    _errorController.close();
   }
 }

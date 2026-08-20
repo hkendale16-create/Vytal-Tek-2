@@ -344,6 +344,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
   final Ref _ref;
   Timer? _tick;
   Timer? _hrPoll;
+  StreamSubscription<int>? _liveHrSub;
   StreamSubscription<GpsFix>? _gpsSub;
   final _gps = WorkoutGpsTracker();
 
@@ -1044,6 +1045,8 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
   void _resetSensors() {
     _tick?.cancel();
     _hrPoll?.cancel();
+    unawaited(_liveHrSub?.cancel());
+    _liveHrSub = null;
     unawaited(_gpsSub?.cancel());
     _gpsSub = null;
     _gps.reset();
@@ -1054,13 +1057,20 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
     try {
       final connection = _ref.read(deviceConnectionProvider);
       if (!mounted) return;
-      if (connection.state != DeviceConnectionState.connected && active) {
+      if (!connection.state.isLinked && active) {
         return;
       }
       final adapter = _ref.read(deviceConnectionProvider.notifier).adapter;
       if (active) {
         await adapter.startWorkoutMonitoring();
+        if (!mounted) return;
+        await _liveHrSub?.cancel();
+        _liveHrSub = adapter.watchLiveHeartRate().listen((bpm) {
+          if (bpm > 0) recordHeartRate(bpm);
+        });
       } else {
+        await _liveHrSub?.cancel();
+        _liveHrSub = null;
         await adapter.stopWorkoutMonitoring();
       }
     } catch (_) {

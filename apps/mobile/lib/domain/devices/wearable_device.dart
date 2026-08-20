@@ -151,6 +151,9 @@ abstract class WearableDevice {
 
   Future<void> startWorkoutMonitoring();
   Future<void> stopWorkoutMonitoring();
+
+  /// Live BPM from the SDK during workout monitoring. Empty when inactive.
+  Stream<int> watchLiveHeartRate();
 }
 
 HealthMetricReading<T> unsupportedReading<T>({
