@@ -21,9 +21,9 @@ DeviceConnectionController  ← single WearableDevice adapter instance
         ↓
 QRingWearableAdapter | DemoWearableAdapter | UnpairedWearableDevice
         ↓
-MethodChannelQRingNativeApi (singleton) → QRingSdkHost.kt | QRingPlugin.swift
+MethodChannelQRingNativeApi (singleton) → HBandSdkHost.kt | QRingPlugin.swift
         ↓
-qring_sdk_1.0.0.60.aar | QCBandSDK.framework
+HBand/Veepoo AARs (Android) | QCBandSDK.framework (iOS)
 ```
 
 - **Persistence:** `vytal.app_session.v1` (paired device + connection state), `vytal.devices.registry.v1`
@@ -40,7 +40,7 @@ qring_sdk_1.0.0.60.aar | QCBandSDK.framework
 - [x] Pair / connect / sync / reconnect / disconnect / forget
 - [x] Saved device restore on cold start
 - [x] Wearable abstraction (`WearableDevice`) for ring / band / watch kinds
-- [x] QRing SDK wrapper (scan, connect, sync, battery, capabilities)
+- [x] HBand/Veepoo Android SDK wrapper (scan, connect, pwd, sync, battery, capabilities)
 - [x] Workout live HR stream hook + fallback poll
 - [x] Global connection indicator (tap → My Devices)
 - [x] Singleton native bridge (no duplicate EventChannel listeners)
@@ -71,7 +71,7 @@ Enable **Demo mode** in Settings to exercise the full pair → sync → workout 
 | Connection orchestration | `lib/devices/connection/device_connection_controller.dart` |
 | QRing adapter | `lib/devices/adapters/qring_adapter.dart` |
 | Native Dart bridge | `lib/devices/qring/qring_native_api.dart` |
-| Android SDK host | `android/.../qring/QRingSdkHost.kt` |
+| Android SDK host | `android/.../hband/HBandSdkHost.kt` |
 | iOS plugin | `ios/Runner/QRing/QRingPlugin.swift` |
 | My Devices UI | `lib/features/devices/devices_screen.dart` |
 | Connection indicator | `lib/features/devices/wearable_connection_indicator.dart` |
