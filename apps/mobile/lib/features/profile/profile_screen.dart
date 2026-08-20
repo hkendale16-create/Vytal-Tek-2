@@ -226,6 +226,12 @@ class ProfileScreen extends ConsumerWidget {
                     onTap: () => context.push('/settings/subscription'),
                   ),
                   ListTile(
+                    leading: const Icon(Icons.storefront_outlined),
+                    title: const Text('Marketplace'),
+                    subtitle: const Text('Trainer programs and checkout'),
+                    onTap: () => context.push('/fitness/marketplace'),
+                  ),
+                  ListTile(
                     leading: const Icon(Icons.watch_outlined),
                     title: const Text('Devices'),
                     onTap: () => context.push('/devices'),

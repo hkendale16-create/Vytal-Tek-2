@@ -459,6 +459,11 @@ class _DeviceFreeToday extends ConsumerWidget {
               onTap: () => context.push('/fitness/calendar'),
             ),
             HudAction(
+              icon: Icons.storefront_outlined,
+              label: 'Market',
+              onTap: () => context.push('/fitness/marketplace'),
+            ),
+            HudAction(
               icon: Icons.location_on_outlined,
               label: 'Gym',
               onTap: () => context.push('/fitness/gyms'),
