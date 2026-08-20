@@ -155,6 +155,17 @@ class SettingsScreen extends ConsumerWidget {
           GlassPanel(
             padding: EdgeInsets.zero,
             child: ListTile(
+              leading: const Icon(Icons.cloud_sync_outlined),
+              title: const Text('Fitness sync'),
+              subtitle: const Text('Pending queue · optional cloud flush'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/settings/fitness-sync'),
+            ),
+          ),
+          const SizedBox(height: 12),
+          GlassPanel(
+            padding: EdgeInsets.zero,
+            child: ListTile(
               title: const Text('Privacy & Data'),
               subtitle: const Text(
                 'Export, deletion, and AI personalization controls are planned. Health data uses secure storage and RLS-backed backend access.',

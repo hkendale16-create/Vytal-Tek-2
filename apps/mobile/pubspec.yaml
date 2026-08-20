@@ -24,6 +24,10 @@ dependencies:
   in_app_purchase_storekit: ^0.4.4
   http: ^1.6.0
   geolocator: ^13.0.4
+  path_provider: ^2.1.6
+  image_picker: ^1.2.3
+  flutter_map: ^8.3.1
+  latlong2: ^0.10.1
 
 dev_dependencies:
   flutter_test:

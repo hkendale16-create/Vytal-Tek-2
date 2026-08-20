@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// One bottom-nav destination. Keep this list at five — extra screens open
-/// on demand from Today or More, they are not tabs.
+/// on demand from Today, Workout, or Profile.
 class NavDestination {
   const NavDestination({
     required this.path,
@@ -16,7 +16,7 @@ class NavDestination {
   final IconData selectedIcon;
 }
 
-/// Single source of truth for the HUD dock.
+/// Primary IA: Today | Workout | Body | Coach | Profile
 abstract final class NavDestinations {
   static const today = NavDestination(
     path: '/today',
@@ -25,25 +25,40 @@ abstract final class NavDestinations {
     selectedIcon: Icons.today_rounded,
   );
 
+  static const workouts = NavDestination(
+    path: '/workouts',
+    label: 'Workout',
+    icon: Icons.fitness_center_outlined,
+    selectedIcon: Icons.fitness_center_rounded,
+  );
+
+  static const body = NavDestination(
+    path: '/body',
+    label: 'Body',
+    icon: Icons.accessibility_new_outlined,
+    selectedIcon: Icons.accessibility_new_rounded,
+  );
+
+  static const coach = NavDestination(
+    path: '/ask',
+    label: 'Coach',
+    icon: Icons.auto_awesome_outlined,
+    selectedIcon: Icons.auto_awesome,
+  );
+
+  static const profile = NavDestination(
+    path: '/profile',
+    label: 'Profile',
+    icon: Icons.person_outline_rounded,
+    selectedIcon: Icons.person_rounded,
+  );
+
+  /// Kept for deep links / redirects from older builds.
   static const vitals = NavDestination(
     path: '/vitals',
     label: 'Vitals',
     icon: Icons.favorite_outline,
     selectedIcon: Icons.favorite_rounded,
-  );
-
-  static const workouts = NavDestination(
-    path: '/workouts',
-    label: 'Workouts',
-    icon: Icons.fitness_center_outlined,
-    selectedIcon: Icons.fitness_center_rounded,
-  );
-
-  static const coach = NavDestination(
-    path: '/ask',
-    label: 'Plans',
-    icon: Icons.auto_awesome_outlined,
-    selectedIcon: Icons.auto_awesome,
   );
 
   static const more = NavDestination(
@@ -55,10 +70,10 @@ abstract final class NavDestinations {
 
   static const List<NavDestination> all = [
     today,
-    vitals,
     workouts,
+    body,
     coach,
-    more,
+    profile,
   ];
 
   static int indexForPath(String path) {

@@ -49,9 +49,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('VYTAL'), findsWidgets);
-    expect(find.textContaining('already have my device'), findsOneWidget);
-    expect(find.textContaining('on the way'), findsOneWidget);
-    expect(find.textContaining('without a device'), findsOneWidget);
+    expect(find.textContaining('Connect Vytal Device'), findsOneWidget);
+    expect(find.textContaining('arriving soon'), findsOneWidget);
+    expect(find.textContaining('Without Device'), findsOneWidget);
   });
 
   testWidgets('completing first launch enters App-Only Today', (tester) async {
@@ -60,7 +60,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final appOnly = find.textContaining('without a device');
+    final appOnly = find.textContaining('Without Device');
     await tester.scrollUntilVisible(appOnly, 80);
     await tester.tap(appOnly);
     await tester.pumpAndSettle();

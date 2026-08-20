@@ -9,6 +9,7 @@ import '../../domain/models/personal_profile.dart';
 import '../../state/app_session_controller.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
+import '../shared/vytal_controls.dart';
 
 /// Identity, goals, and onboarding details. Feature hubs live in More.
 class ProfileScreen extends ConsumerWidget {
@@ -117,108 +118,181 @@ class ProfileScreen extends ConsumerWidget {
           const SizedBox(height: 12),
           GlassPanel(
             padding: EdgeInsets.zero,
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.auto_awesome_outlined),
-                  title: const Text('AI personalization'),
-                  subtitle: const Text(
-                    'Coach uses this profile plus today’s summary — not your full history.',
+            child: Material(
+              color: Colors.transparent,
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.auto_awesome_outlined),
+                    title: const Text('AI personalization'),
+                    subtitle: const Text(
+                      'Coach uses this profile plus today’s summary — not your full history.',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.go('/ask'),
                   ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.go('/ask'),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.tune),
-                  title: const Text('Onboarding details'),
-                  subtitle: Text(
-                    profile.skippedSensitiveQuestions.isEmpty
-                        ? 'Answers from first launch stay on-device.'
-                        : 'Skipped: ${profile.skippedSensitiveQuestions.join(', ')}',
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.tune),
+                    title: const Text('Onboarding details'),
+                    subtitle: Text(
+                      profile.skippedSensitiveQuestions.isEmpty
+                          ? 'Answers from first launch stay on-device.'
+                          : 'Skipped: ${profile.skippedSensitiveQuestions.join(', ')}',
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 12),
           GlassPanel(
             padding: EdgeInsets.zero,
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.brightness_6_outlined),
-                  title: const Text('Appearance'),
-                  subtitle: Text(switch (themeMode) {
-                    ThemeMode.system => 'System',
-                    ThemeMode.light => 'Light',
-                    ThemeMode.dark => 'Dark',
-                  }),
-                  onTap: () async {
-                    final next = await showModalBottomSheet<ThemeMode>(
-                      context: context,
-                      builder: (context) => SafeArea(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            ListTile(
-                              title: const Text('System'),
-                              onTap: () => Navigator.pop(context, ThemeMode.system),
-                            ),
-                            ListTile(
-                              title: const Text('Light'),
-                              onTap: () => Navigator.pop(context, ThemeMode.light),
-                            ),
-                            ListTile(
-                              title: const Text('Dark'),
-                              onTap: () => Navigator.pop(context, ThemeMode.dark),
-                            ),
-                          ],
+            child: Material(
+              color: Colors.transparent,
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.brightness_6_outlined),
+                    title: const Text('Appearance'),
+                    subtitle: Text(switch (themeMode) {
+                      ThemeMode.system => 'System',
+                      ThemeMode.light => 'Light',
+                      ThemeMode.dark => 'Dark',
+                    }),
+                    onTap: () async {
+                      final next = await showModalBottomSheet<ThemeMode>(
+                        context: context,
+                        builder: (context) => SafeArea(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ListTile(
+                                title: const Text('System'),
+                                onTap: () =>
+                                    Navigator.pop(context, ThemeMode.system),
+                              ),
+                              ListTile(
+                                title: const Text('Light'),
+                                onTap: () =>
+                                    Navigator.pop(context, ThemeMode.light),
+                              ),
+                              ListTile(
+                                title: const Text('Dark'),
+                                onTap: () =>
+                                    Navigator.pop(context, ThemeMode.dark),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    );
-                    if (next != null) {
-                      await ref.read(themeModeProvider.notifier).setMode(next);
-                    }
-                  },
-                ),
-                const Divider(height: 1),
-                SwitchListTile(
-                  secondary: const Icon(Icons.science_outlined),
-                  title: const Text('Demo mode'),
-                  subtitle: const Text(
-                    'Labeled demo wearable only — never production',
+                      );
+                      if (next != null) {
+                        await ref.read(themeModeProvider.notifier).setMode(next);
+                      }
+                    },
                   ),
-                  value: session.demoModeEnabled,
-                  onChanged: (value) =>
-                      ref.read(appSessionProvider.notifier).setDemoMode(value),
-                ),
-              ],
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    secondary: const Icon(Icons.science_outlined),
+                    title: const Text('Demo mode'),
+                    subtitle: const Text(
+                      'Labeled demo wearable only — never production',
+                    ),
+                    value: session.demoModeEnabled,
+                    onChanged: (value) => ref
+                        .read(appSessionProvider.notifier)
+                        .setDemoMode(value),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 12),
           GlassPanel(
             padding: EdgeInsets.zero,
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.settings_outlined),
-                  title: const Text('Settings'),
-                  onTap: () => context.push('/settings'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.workspace_premium_outlined),
-                  title: const Text('Subscription'),
-                  subtitle: Text(session.entitlements.statusLabel),
-                  onTap: () => context.push('/settings/subscription'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.watch_outlined),
-                  title: const Text('Devices'),
-                  onTap: () => context.push('/devices'),
-                ),
-              ],
+            child: Material(
+              color: Colors.transparent,
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.settings_outlined),
+                    title: const Text('Settings'),
+                    onTap: () => context.push('/settings'),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.workspace_premium_outlined),
+                    title: const Text('Subscription'),
+                    subtitle: Text(session.entitlements.statusLabel),
+                    onTap: () => context.push('/settings/subscription'),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.watch_outlined),
+                    title: const Text('Devices'),
+                    onTap: () => context.push('/devices'),
+                  ),
+                ],
+              ),
             ),
+          ),
+          const SizedBox(height: 12),
+          const VytalSectionHeader(
+            title: 'More',
+            subtitle: 'Health overlays and tools — opened on demand.',
+          ),
+          HudStrip(
+            icon: Icons.favorite_outline,
+            title: 'Vitals',
+            subtitle: 'Heart rate and supported readings',
+            onTap: () => context.push('/vitals'),
+          ),
+          const SizedBox(height: 8),
+          HudStrip(
+            icon: Icons.bolt_outlined,
+            title: 'Recovery / Readiness',
+            subtitle: 'Score, HRV, sleep, load, baseline',
+            onTap: () => context.push('/recovery'),
+          ),
+          const SizedBox(height: 8),
+          HudStrip(
+            icon: Icons.bedtime_outlined,
+            title: 'Sleep',
+            subtitle: 'Duration and overnight context',
+            onTap: () => context.push('/sleep'),
+          ),
+          const SizedBox(height: 8),
+          HudStrip(
+            icon: Icons.insights_outlined,
+            title: 'Analytics',
+            subtitle: 'Trends over time',
+            onTap: () => context.push('/analytics'),
+          ),
+          const SizedBox(height: 8),
+          HudStrip(
+            icon: Icons.note_alt_outlined,
+            title: 'Notes',
+            subtitle: 'Private on-device notes',
+            onTap: () => context.push('/notes'),
+          ),
+          const SizedBox(height: 8),
+          HudStrip(
+            icon: Icons.alarm_outlined,
+            title: 'Reminders',
+            subtitle: 'Workout and habit reminders',
+            onTap: () => context.push('/reminders'),
+          ),
+          const SizedBox(height: 8),
+          HudStrip(
+            icon: Icons.home_outlined,
+            title: 'My Home Gym',
+            subtitle: 'Equipment you own',
+            onTap: () => context.push('/fitness/home-gym'),
+          ),
+          const SizedBox(height: 8),
+          HudStrip(
+            icon: Icons.menu_rounded,
+            title: 'All tools',
+            subtitle: 'Full overflow menu',
+            onTap: () => context.push('/more'),
           ),
           const SizedBox(height: 16),
           const BrandMark(),

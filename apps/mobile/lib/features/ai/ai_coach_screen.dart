@@ -68,8 +68,8 @@ class _AiCoachScreenState extends ConsumerState<AiCoachScreen> {
     final theme = Theme.of(context);
 
     return SectionScaffold(
-      title: 'Training plans',
-      subtitle: 'Structured workouts from your data — not a physician.',
+      title: 'Coach',
+      subtitle: 'Useful with or without a wearable — never invents vitals.',
       actions: [
         IconButton(
           tooltip: 'Clear chat',

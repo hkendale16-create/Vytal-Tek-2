@@ -65,13 +65,13 @@ class BodyScreen extends ConsumerWidget {
                   case BodyRegion.chest:
                     context.push('/vitals/heart_rate');
                   case BodyRegion.legs:
-                    context.push('/workouts');
+                    context.push('/fitness/exercises');
                   case BodyRegion.head:
                     context.push('/recovery');
                   case BodyRegion.shoulders:
                     context.push('/workouts/muscles?group=shoulders');
                   case BodyRegion.core:
-                    context.push('/recovery');
+                    context.push('/fitness/progress');
                 }
               },
               childOverlay: Stack(
@@ -168,6 +168,26 @@ class BodyScreen extends ConsumerWidget {
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: extras.textMuted,
                 ),
+          ),
+          const SizedBox(height: 12),
+          HudActionRail(
+            actions: [
+              HudAction(
+                icon: Icons.insights_outlined,
+                label: 'Progress',
+                onTap: () => context.push('/fitness/progress'),
+              ),
+              HudAction(
+                icon: Icons.calendar_month_outlined,
+                label: 'Calendar',
+                onTap: () => context.push('/fitness/calendar'),
+              ),
+              HudAction(
+                icon: Icons.fitness_center_outlined,
+                label: 'Exercises',
+                onTap: () => context.push('/fitness/exercises'),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           EntitlementGate(

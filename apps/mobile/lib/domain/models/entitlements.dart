@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 abstract final class EntitlementKeys {
   static const aiBasic = 'ai.basic';
   static const aiAdvanced = 'ai.advanced';
+  static const aiWorkoutBuilder = 'ai.workout_builder';
   static const analyticsBasic = 'analytics.basic';
   static const analyticsAdvanced = 'analytics.advanced';
   static const recoveryAdvanced = 'recovery.advanced';
@@ -12,10 +13,19 @@ abstract final class EntitlementKeys {
   static const workoutsCustom = 'workouts.custom';
   static const workoutsAiGenerated = 'workouts.ai_generated';
   static const historyExtended = 'history.extended';
+  static const calendarBasic = 'calendar.basic';
+  static const calendarAdvanced = 'calendar.advanced';
+  static const plansBasic = 'plans.basic';
+  static const plansAdvanced = 'plans.advanced';
+  static const progressBasic = 'progress.basic';
+  static const progressAdvanced = 'progress.advanced';
+  static const gymsNearby = 'gyms.nearby';
+  static const exercisesLibrary = 'exercises.library';
 
   static const all = <String>{
     aiBasic,
     aiAdvanced,
+    aiWorkoutBuilder,
     analyticsBasic,
     analyticsAdvanced,
     recoveryAdvanced,
@@ -24,11 +34,20 @@ abstract final class EntitlementKeys {
     workoutsCustom,
     workoutsAiGenerated,
     historyExtended,
+    calendarBasic,
+    calendarAdvanced,
+    plansBasic,
+    plansAdvanced,
+    progressBasic,
+    progressAdvanced,
+    gymsNearby,
+    exercisesLibrary,
   };
 
   static String displayName(String key) => switch (key) {
         aiBasic => 'Coach Vital (basic)',
         aiAdvanced => 'Adaptive AI Coach',
+        aiWorkoutBuilder => 'AI Workout Builder',
         analyticsBasic => 'Basic insights',
         analyticsAdvanced => 'Advanced analytics',
         recoveryAdvanced => 'Advanced recovery',
@@ -37,15 +56,30 @@ abstract final class EntitlementKeys {
         workoutsCustom => 'Custom workouts',
         workoutsAiGenerated => 'AI-generated workouts',
         historyExtended => 'Extended history',
+        calendarBasic => 'Fitness calendar',
+        calendarAdvanced => 'Advanced calendar planning',
+        plansBasic => 'Workout plan library',
+        plansAdvanced => 'Advanced & adaptive plans',
+        progressBasic => 'Basic progress',
+        progressAdvanced => 'Advanced progress analytics',
+        gymsNearby => 'Gyms Near Me',
+        exercisesLibrary => 'Exercise library',
         _ => key,
       };
 }
 
 /// Tier ids are configurable; do not hardcode marketing names in feature checks.
+///
+/// Product packaging (marketing):
+/// - Free — genuinely useful device-free fitness
+/// - Plus — transitional mid tier (kept for store compatibility)
+/// - Pro — AI + advanced analytics / planning
+/// - Complete — Pro software + device experience packaging (pricing not final)
 enum SubscriptionTier {
   free,
   plus,
   pro,
+  complete,
 }
 
 extension SubscriptionTierX on SubscriptionTier {
@@ -53,9 +87,10 @@ extension SubscriptionTierX on SubscriptionTier {
 
   /// Configurable display labels — not final marketing copy.
   String get displayLabel => switch (this) {
-        SubscriptionTier.free => 'Free / Core',
+        SubscriptionTier.free => 'Vytal Free',
         SubscriptionTier.plus => 'Vytal Plus',
         SubscriptionTier.pro => 'Vytal Pro',
+        SubscriptionTier.complete => 'Vytal Complete',
       };
 }
 
@@ -223,12 +258,18 @@ class EntitlementSnapshot {
     return DateTime.tryParse(raw);
   }
 
+  /// Vytal Free — genuinely useful without a wearable or paid plan.
   static const freeDefaults = EntitlementSnapshot(
     tier: SubscriptionTier.free,
     enabled: {
       EntitlementKeys.aiBasic,
       EntitlementKeys.analyticsBasic,
       EntitlementKeys.workoutsCustom,
+      EntitlementKeys.calendarBasic,
+      EntitlementKeys.plansBasic,
+      EntitlementKeys.progressBasic,
+      EntitlementKeys.gymsNearby,
+      EntitlementKeys.exercisesLibrary,
     },
     lifecycle: SubscriptionLifecycle.none,
     verificationSource: EntitlementVerificationSource.localFreeDefaults,
@@ -404,4 +445,31 @@ abstract final class EntitlementSecurity {
             EntitlementVerificationSource.localCacheUntrusted &&
         snapshot.productId != null;
   }
+}
+
+/// Hardware / device experience is separate from software Pro entitlements.
+///
+/// Owning a compatible wearable unlocks capability-gated features. These are
+/// not subscription keys — they depend on device capabilities + connection.
+/// Do **not** lock basic hardware operation behind Pro.
+abstract final class DeviceExperienceFeatures {
+  static const liveReadings = 'device.live_readings';
+  static const automaticSensors = 'device.automatic_sensors';
+  static const sleepSync = 'device.sleep_sync';
+  static const workoutSensors = 'device.workout_sensors';
+  static const biometricTrends = 'device.biometric_trends';
+  static const deviceSync = 'device.sync';
+  static const batteryManagement = 'device.battery';
+
+  static const core = <String>{
+    liveReadings,
+    automaticSensors,
+    sleepSync,
+    workoutSensors,
+    deviceSync,
+    batteryManagement,
+  };
+
+  /// Core device operation — Free owners of hardware get these.
+  static bool isCoreDeviceFeature(String key) => core.contains(key);
 }

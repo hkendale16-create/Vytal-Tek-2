@@ -44,6 +44,24 @@ class CoachReply {
   final WorkoutRoutine? workout;
 }
 
+/// Device-free training context — calendar, home/gym gear, recent gaps.
+class CoachFitnessContext {
+  const CoachFitnessContext({
+    this.todaysPlanTitle,
+    this.equipmentLabels = const [],
+    this.undertrainedMuscles = const [],
+  });
+
+  final String? todaysPlanTitle;
+  final List<String> equipmentLabels;
+  final List<String> undertrainedMuscles;
+
+  bool get hasAny =>
+      todaysPlanTitle != null ||
+      equipmentLabels.isNotEmpty ||
+      undertrainedMuscles.isNotEmpty;
+}
+
 /// Grounded, non-diagnostic Coach Vital replies.
 ///
 /// Never invents wearable vitals. States missing data as missing.
@@ -54,15 +72,16 @@ class CoachVitalEngine {
       'Vytal is not a physician and does not diagnose conditions.';
 
   static const suggestedPrompts = [
-    'How am I doing today?',
-    'Build me a workout.',
-    'Build me a chest workout.',
-    'Give me a 20-minute workout.',
-    'Build a workout using only dumbbells.',
     'What should I train today?',
+    'Build me a 45-minute workout.',
+    'What can I substitute for bench press?',
+    'How has my squat progressed?',
+    'What haven’t I trained this week?',
+    'Build me a workout.',
+    'Build a workout using only dumbbells.',
+    'How am I doing today?',
     'How did I sleep?',
     'How is my recovery?',
-    'Why is my heart rate higher?',
   ];
 
   String welcome({
@@ -71,8 +90,8 @@ class CoachVitalEngine {
   }) {
     if (mode == OperatingMode.appOnly) {
       return hasNotes
-          ? 'I can use your profile and notes. Wearable vitals appear only after pairing — I will never invent sensor values.\n\n$safetyFooter'
-          : 'I can use your profile now. Add notes anytime; wearable vitals appear only after pairing — I will never invent sensor values.\n\n$safetyFooter';
+          ? 'I can use your profile, calendar, and notes. Wearable vitals appear only after pairing — I will never invent sensor values.\n\n$safetyFooter'
+          : 'I can use your profile and calendar now. Add notes anytime; wearable vitals appear only after pairing — I will never invent sensor values.\n\n$safetyFooter';
     }
     return 'Connected Mode is active. I only reference verified wearable summaries and your profile.\n\n$safetyFooter';
   }
@@ -85,6 +104,7 @@ class CoachVitalEngine {
     required bool advanced,
     List<String> recentWorkoutNames = const [],
     String? currentWorkoutName,
+    CoachFitnessContext fitness = const CoachFitnessContext(),
   }) {
     final text = userText.trim();
     final lower = text.toLowerCase();
@@ -95,6 +115,21 @@ class CoachVitalEngine {
           'I can help with habits, routines, and what your app data actually shows.\n\n$safetyFooter';
     }
 
+    if (lower.contains('haven’t i trained') ||
+        lower.contains('havent i trained') ||
+        lower.contains('what haven’t') ||
+        lower.contains('muscle gap') ||
+        lower.contains('undertrained')) {
+      if (fitness.undertrainedMuscles.isEmpty) {
+        return 'Recent sessions look fairly balanced across major groups, '
+            'or there isn’t enough set history yet to spot gaps. '
+            'Log a few strength sessions and ask again.\n\n$safetyFooter';
+      }
+      return 'From recent logged sets, these areas look lighter lately: '
+          '${fitness.undertrainedMuscles.take(4).join(', ')}. '
+          'I can build a session that emphasizes one of them.\n\n$safetyFooter';
+    }
+
     if (lower.contains('doing today') ||
         lower.contains('how am i') ||
         lower.contains('today?')) {
@@ -102,6 +137,7 @@ class CoachVitalEngine {
         session: session,
         health: health,
         recentWorkoutNames: recentWorkoutNames,
+        fitness: fitness,
       );
     }
 
@@ -142,11 +178,31 @@ class CoachVitalEngine {
     }
     if (lower.contains('what should i train') ||
         lower.contains('train today')) {
+      final parts = <String>[];
+      if (fitness.todaysPlanTitle != null) {
+        parts.add('Your calendar has “${fitness.todaysPlanTitle}” today.');
+      }
       final goals = session.profile.preferredWorkouts;
-      final hint = goals.isEmpty
-          ? 'No preferred workouts are saved on your profile yet.'
-          : 'Your profile lists: ${goals.take(3).join(', ')}.';
-      return '$hint I can build a structured session if you tell me a muscle group or duration.\n\n$safetyFooter';
+      if (goals.isEmpty) {
+        parts.add('No preferred workouts are saved on your profile yet.');
+      } else {
+        parts.add('Your profile lists: ${goals.take(3).join(', ')}.');
+      }
+      if (fitness.undertrainedMuscles.isNotEmpty) {
+        parts.add(
+          'Recent gaps: ${fitness.undertrainedMuscles.take(3).join(', ')}.',
+        );
+      }
+      if (fitness.equipmentLabels.isNotEmpty) {
+        parts.add(
+          'Home/gym gear I’ll respect: '
+          '${fitness.equipmentLabels.take(5).join(', ')}.',
+        );
+      }
+      parts.add(
+        'I can build a structured session if you tell me a muscle group or duration.',
+      );
+      return '${parts.join(' ')}\n\n$safetyFooter';
     }
     if (lower.contains('plan') ||
         lower.contains('workout') ||
@@ -155,10 +211,19 @@ class CoachVitalEngine {
         return 'You already have "$currentWorkoutName" in progress. I can still generate another structured session you can save.\n\n$safetyFooter';
       }
       if (advanced) {
+        final readiness = health?.readinessScore;
         final recovery = health?.hrv.hasValue == true
             ? 'Your latest verified HRV reading is ${health!.hrv.value} ms.'
-            : 'I don’t have a verified HRV reading yet, so intensity advice stays general.';
-        return 'Let’s keep training practical. $recovery '
+            : readiness != null
+                ? 'Informational readiness is $readiness from verified metrics.'
+                : 'I don’t have a verified HRV reading yet, so intensity advice stays general.';
+        final gear = fitness.equipmentLabels.isEmpty
+            ? ''
+            : ' Available equipment on file: ${fitness.equipmentLabels.take(4).join(', ')}.';
+        final plan = fitness.todaysPlanTitle == null
+            ? ''
+            : ' Calendar plan: ${fitness.todaysPlanTitle}.';
+        return 'Let’s keep training practical. $recovery$plan$gear '
             'Prefer a session that matches your stated goals and available time. '
             'I won’t invent readiness scores.\n\n$safetyFooter';
       }
@@ -182,6 +247,7 @@ class CoachVitalEngine {
     required bool advanced,
     List<String> recentWorkoutNames = const [],
     String? currentWorkoutName,
+    CoachFitnessContext fitness = const CoachFitnessContext(),
   }) {
     final text = reply(
       userText: userText,
@@ -191,8 +257,15 @@ class CoachVitalEngine {
       advanced: advanced,
       recentWorkoutNames: recentWorkoutNames,
       currentWorkoutName: currentWorkoutName,
+      fitness: fitness,
     );
-    final workout = tryBuildWorkout(userText, session: session);
+    var prompt = userText;
+    if (fitness.equipmentLabels.isNotEmpty &&
+        !userText.toLowerCase().contains('using')) {
+      prompt =
+          '$userText using ${fitness.equipmentLabels.take(4).join(', ')}';
+    }
+    final workout = tryBuildWorkout(prompt, session: session);
     if (workout == null) return CoachReply(text: text);
     return CoachReply(
       text: '$text\n\nStructured session: ${workout.name}. '
@@ -321,6 +394,7 @@ class CoachVitalEngine {
     required AppSession session,
     required TodayHealthSnapshot? health,
     required List<String> recentWorkoutNames,
+    CoachFitnessContext fitness = const CoachFitnessContext(),
   }) {
     final parts = <String>[];
     if (health?.heartRate.hasValue == true) {
@@ -333,18 +407,21 @@ class CoachVitalEngine {
     if (health?.hrv.hasValue == true) {
       parts.add('HRV ${health!.hrv.value} ms');
     }
-    if (parts.isEmpty) {
-      if (session.operatingMode == OperatingMode.appOnly) {
-        return 'I don’t have wearable vitals yet because no device is paired. '
-            'I can still build workouts from your profile and notes.\n\n$safetyFooter';
-      }
-      return 'I don’t have a recent health summary to judge today. '
-          'Connect your Vytal device or sync it first — I won’t invent scores.\n\n$safetyFooter';
-    }
+    final plan = fitness.todaysPlanTitle == null
+        ? ''
+        : ' Calendar plan today: ${fitness.todaysPlanTitle}.';
     final workouts = recentWorkoutNames.isEmpty
         ? 'No saved workouts in history yet.'
         : 'Recent sessions: ${recentWorkoutNames.take(3).join(', ')}.';
-    return 'Here’s what I actually have: ${parts.join(', ')}. $workouts '
+    if (parts.isEmpty) {
+      if (session.operatingMode == OperatingMode.appOnly) {
+        return 'I don’t have wearable vitals yet because no device is paired. '
+            'I can still build workouts from your profile, calendar, and notes.$plan $workouts\n\n$safetyFooter';
+      }
+      return 'I don’t have a recent health summary to judge today. '
+          'Connect your Vytal device or sync it first — I won’t invent scores.$plan $workouts\n\n$safetyFooter';
+    }
+    return 'Here’s what I actually have: ${parts.join(', ')}.$plan $workouts '
         'This is not a medical assessment.\n\n$safetyFooter';
   }
 

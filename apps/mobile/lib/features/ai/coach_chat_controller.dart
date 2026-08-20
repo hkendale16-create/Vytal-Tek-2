@@ -5,7 +5,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../domain/models/entitlements.dart';
+import '../../domain/models/fitness_hub_models.dart';
 import '../../domain/models/workout_models.dart';
+import '../../fitness/calendar_controller.dart';
+import '../../fitness/gym_discovery_controller.dart';
+import '../../fitness/progress_analytics.dart';
 import '../../notes/notes_controller.dart';
 import '../../state/app_session_controller.dart';
 import '../../workouts/workout_controllers.dart';
@@ -121,6 +125,14 @@ class CoachChatController extends StateNotifier<CoachChatState> {
         .toList();
     final history = _ref.read(workoutHistoryProvider).entries;
     final current = _ref.read(workoutSessionProvider);
+    final calendar = _ref.read(fitnessCalendarProvider);
+    final todays = todaysPlanEvent(calendar);
+    final home = _ref.read(homeGymProvider);
+    final fitness = CoachFitnessContext(
+      todaysPlanTitle: todays?.title,
+      equipmentLabels: home.equipment.map((e) => e.label).toList(),
+      undertrainedMuscles: ProgressAnalytics.undertrainedMuscleLabels(history),
+    );
 
     final composed = _engine.compose(
       userText: trimmed,
@@ -132,6 +144,7 @@ class CoachChatController extends StateNotifier<CoachChatState> {
       currentWorkoutName: current.phases.isEmpty
           ? null
           : (current.routine?.name ?? current.activityKind?.label),
+      fitness: fitness,
     );
 
     final reply = CoachMessage(

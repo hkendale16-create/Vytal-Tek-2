@@ -6,13 +6,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
+import '../analytics/conversion_analytics.dart';
 import '../devices/connection/device_connection_controller.dart';
 import '../domain/devices/device_connection_state.dart';
 import '../domain/models/entitlements.dart';
 import '../domain/models/workout_models.dart';
+import '../fitness/calendar_controller.dart';
 import '../monitoring/monitoring_controller.dart';
 import '../state/app_session_controller.dart';
 import '../timers/clock_controllers.dart';
+import 'active_workout_draft.dart';
 import 'workout_gps.dart';
 import 'workout_metrics.dart';
 import 'workout_prefs.dart';
@@ -335,7 +338,9 @@ final pendingRoutineDraftProvider =
 
 final workoutSessionProvider =
     StateNotifierProvider<WorkoutSessionController, WorkoutSessionState>((ref) {
-  return WorkoutSessionController(ref);
+  final controller = WorkoutSessionController(ref);
+  unawaited(controller.restoreActiveDraft());
+  return controller;
 });
 
 /// Exercise / rest / interval / activity / stopwatch engine.
@@ -348,6 +353,145 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
   StreamSubscription<int>? _liveHrSub;
   StreamSubscription<GpsFix>? _gpsSub;
   final _gps = WorkoutGpsTracker();
+  var _draftRestoreAttempted = false;
+
+  /// Cold-start resume for in-progress sessions that survived process death.
+  Future<bool> restoreActiveDraft() async {
+    if (_draftRestoreAttempted) return false;
+    _draftRestoreAttempted = true;
+    if (!mounted) return false;
+    if (state.running || state.hasProgress || state.summaryPending) {
+      return false;
+    }
+    final draft = await ActiveWorkoutDraft.load();
+    // Provider may have been disposed, or a live session started during the await.
+    if (!mounted) return false;
+    if (state.running || state.hasProgress || state.summaryPending) {
+      return false;
+    }
+    if (draft == null) return false;
+    // Ignore stale drafts older than 24h.
+    if (DateTime.now().toUtc().difference(draft.savedAt) >
+        const Duration(hours: 24)) {
+      await ActiveWorkoutDraft.clear();
+      return false;
+    }
+
+    final kind = draft.activityKind;
+    if (draft.setLogs.isNotEmpty || kind.usesStrengthSets) {
+      _restoreStrengthDraft(draft);
+    } else {
+      _restoreActivityDraft(draft);
+    }
+    return mounted && (state.hasProgress || state.routine != null);
+  }
+
+  void _restoreStrengthDraft(ActiveWorkoutDraft draft) {
+    if (!mounted) return;
+    final uuid = const Uuid();
+    final byExercise = <String, List<WorkoutSetLog>>{};
+    for (final log in draft.setLogs) {
+      byExercise.putIfAbsent(log.exerciseName, () => []).add(log);
+    }
+    final exercises = <WorkoutExercise>[];
+    for (final entry in byExercise.entries) {
+      final logs = [...entry.value]
+        ..sort((a, b) => a.setNumber.compareTo(b.setNumber));
+      final last = logs.last;
+      exercises.add(
+        WorkoutExercise(
+          id: uuid.v4(),
+          name: entry.key,
+          sets: logs.map((l) => l.setNumber).fold<int>(0, (m, n) => n > m ? n : m)
+              .clamp(1, 20),
+          reps: last.reps,
+          weightKg: last.weightKg,
+          durationSeconds: last.durationSeconds,
+          restSeconds: 60,
+        ),
+      );
+    }
+    final routine = WorkoutRoutine(
+      id: draft.routineId ?? 'restored-${draft.activityKind.name}',
+      name: draft.routineName ?? draft.activityKind.label,
+      exercises: exercises,
+      activityKind: draft.activityKind,
+      source: 'restored',
+    );
+    final phases = List<TimerPhase>.from(buildPhases(routine));
+    for (var i = 0; i < phases.length; i++) {
+      final phase = phases[i];
+      if (phase.kind != WorkoutTimerKind.exercise) continue;
+      WorkoutSetLog? match;
+      for (final log in draft.setLogs) {
+        if (log.exerciseName == phase.exerciseName &&
+            log.setNumber == phase.setNumber &&
+            log.completed) {
+          match = log;
+          break;
+        }
+      }
+      if (match == null) continue;
+      phases[i] = phase.copyWith(
+        completed: true,
+        reps: match.reps,
+        weightKg: match.weightKg,
+        setType: match.setType,
+      );
+    }
+    var index = phases.indexWhere(
+      (p) => p.kind == WorkoutTimerKind.exercise && !p.completed,
+    );
+    if (index < 0) index = 0;
+    if (!mounted) return;
+    _resetSensors();
+    state = WorkoutSessionState(
+      routine: routine,
+      phases: phases,
+      phaseIndex: index.clamp(0, phases.isEmpty ? 0 : phases.length - 1),
+      remainingSeconds: phases.isEmpty ? 0 : phases[index.clamp(0, phases.length - 1)].seconds,
+      running: false,
+      completed: false,
+      playMode: WorkoutPlayMode.routine,
+      activityKind: draft.activityKind,
+      elapsedAtResumeSeconds: draft.elapsedSeconds,
+      notes: draft.notes,
+      distanceMeters: draft.distanceMeters,
+    );
+  }
+
+  void _restoreActivityDraft(ActiveWorkoutDraft draft) {
+    if (!mounted) return;
+    final kind = draft.activityKind;
+    final label = draft.routineName ?? kind.label;
+    _resetSensors();
+    if (!mounted) return;
+    state = WorkoutSessionState(
+      routine: WorkoutRoutine(
+        id: draft.routineId ?? 'activity-${kind.name}',
+        name: label,
+        exercises: const [],
+        activityKind: kind,
+        source: 'restored',
+      ),
+      phases: [
+        TimerPhase(
+          kind: WorkoutTimerKind.activity,
+          label: label,
+          seconds: 0,
+        ),
+      ],
+      phaseIndex: 0,
+      remainingSeconds: 0,
+      running: false,
+      completed: false,
+      playMode: WorkoutPlayMode.activity,
+      activityKind: kind,
+      elapsedAtResumeSeconds: draft.elapsedSeconds,
+      notes: draft.notes,
+      distanceMeters: draft.distanceMeters,
+    );
+  }
 
   void startRoutine(WorkoutRoutine routine) {
     _resetSensors();
@@ -731,6 +875,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
       phases: phases,
       remainingSeconds: nextRemaining,
     );
+    unawaited(_persistActiveDraft());
   }
 
   /// Expand a routine into ordered exercise / rest phases (min 5s work).
@@ -808,6 +953,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
       running: false,
       clearRunningSince: true,
     );
+    unawaited(_persistActiveDraft());
   }
 
   void resume() {
@@ -838,6 +984,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
     final phases = [...state.phases];
     phases[i] = phase.copyWith(completed: true);
     state = _copy(phases: phases);
+    unawaited(_persistActiveDraft());
     if (i + 1 >= state.phases.length) {
       return;
     }
@@ -916,6 +1063,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
       stopwatchElapsed: state.elapsedSeconds(),
       clearRunningSince: true,
     );
+    unawaited(_persistActiveDraft());
   }
 
   void setNotes(String notes) {
@@ -959,7 +1107,43 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
       setLogs: state.setLogs.where((log) => log.completed).toList(),
     );
     await _ref.read(workoutHistoryProvider.notifier).add(entry);
+    // Auto-mirror completed sessions into the fitness calendar (no double log).
+    try {
+      await _ref
+          .read(fitnessCalendarProvider.notifier)
+          .onWorkoutCompleted(entry);
+    } catch (_) {
+      // Calendar is additive — never block saving history.
+    }
+    unawaited(
+      _ref.read(conversionAnalyticsProvider).track(
+            ConversionEvents.workoutCompleted,
+            properties: {
+              'activity': entry.activityKind.name,
+              'duration_seconds': entry.durationSeconds,
+              'sets': entry.setLogs.where((s) => s.completed).length,
+            },
+          ),
+    );
+    await ActiveWorkoutDraft.clear();
     stop();
+  }
+
+  Future<void> _persistActiveDraft() async {
+    if (!state.running && !state.summaryPending && !state.hasProgress) return;
+    final kind = state.activityKind ?? WorkoutActivityKind.custom;
+    await ActiveWorkoutDraft.persist(
+      ActiveWorkoutDraft(
+        savedAt: DateTime.now().toUtc(),
+        activityKind: kind,
+        elapsedSeconds: state.elapsedSeconds(),
+        setLogs: state.setLogs.where((log) => log.completed).toList(),
+        routineId: state.routine?.id,
+        routineName: state.routine?.name,
+        notes: state.notes,
+        distanceMeters: state.distanceMeters,
+      ),
+    );
   }
 
   double _trainingVolumeKg() {
@@ -975,7 +1159,10 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
     return total;
   }
 
-  void discard() => stop();
+  void discard() {
+    unawaited(ActiveWorkoutDraft.clear());
+    stop();
+  }
 
   void stop() {
     _tick?.cancel();
@@ -985,8 +1172,12 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
     _gpsSub = null;
     _gps.reset();
     unawaited(_setDeviceWorkoutMonitoring(false));
-    _ref.read(monitoringControllerProvider.notifier).setWorkoutActive(false);
-    state = WorkoutSessionState.idle;
+    // Intentional stop ends crash-recovery draft; process death leaves it.
+    unawaited(ActiveWorkoutDraft.clear());
+    if (mounted) {
+      _ref.read(monitoringControllerProvider.notifier).setWorkoutActive(false);
+      state = WorkoutSessionState.idle;
+    }
   }
 
   void _arm() {
@@ -1130,6 +1321,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
         stopwatchElapsed: elapsed,
         elapsedAtResumeSeconds: elapsed,
       );
+      _maybeAutosaveDraft(elapsed);
       return;
     }
     if (phase.kind == WorkoutTimerKind.stopwatch ||
@@ -1140,6 +1332,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
         stopwatchElapsed: elapsed,
         elapsedAtResumeSeconds: elapsed,
       );
+      _maybeAutosaveDraft(elapsed);
       return;
     }
     if (phase.kind == WorkoutTimerKind.rest && _autoRestEnabled) {
@@ -1154,6 +1347,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
         elapsedAtResumeSeconds: elapsed,
         stopwatchElapsed: elapsed,
       );
+      _maybeAutosaveDraft(elapsed);
       return;
     }
     final remaining = state.remainingSeconds - 1;
@@ -1167,6 +1361,12 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
       elapsedAtResumeSeconds: elapsed,
       stopwatchElapsed: elapsed,
     );
+    _maybeAutosaveDraft(elapsed);
+  }
+
+  void _maybeAutosaveDraft(int elapsedSeconds) {
+    if (elapsedSeconds <= 0 || elapsedSeconds % 15 != 0) return;
+    unawaited(_persistActiveDraft());
   }
 
   WorkoutSessionState _copy({
