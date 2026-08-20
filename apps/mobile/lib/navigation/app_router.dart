@@ -24,6 +24,7 @@ import '../features/timers/timers_screens.dart';
 import '../features/today/today_screen.dart';
 import '../features/vitals/vitals_screen.dart';
 import '../domain/models/workout_models.dart';
+import '../features/workouts/active_workout_screen.dart';
 import '../features/workouts/muscle_group_screen.dart';
 import '../features/workouts/workouts_screen.dart';
 import '../state/app_session_controller.dart';

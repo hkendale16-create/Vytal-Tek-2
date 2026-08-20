@@ -269,6 +269,39 @@ class WorkoutSessionState {
   TimerPhase? get nextPhase =>
       phaseIndex + 1 < phases.length ? phases[phaseIndex + 1] : null;
 
+  bool get isResting => currentPhase?.kind == WorkoutTimerKind.rest;
+
+  bool get usesSetLogger {
+    final kind = activityKind;
+    if (kind == WorkoutActivityKind.hiit) return false;
+    if (kind?.usesStrengthSets ?? false) return true;
+    return kind == WorkoutActivityKind.custom &&
+        (routine?.exercises.isNotEmpty ?? false);
+  }
+
+  List<WorkoutSetLog> get setLogs => [
+        for (final phase in phases)
+          if (phase.kind == WorkoutTimerKind.exercise &&
+              phase.exerciseName != null)
+            WorkoutSetLog(
+              exerciseName: phase.exerciseName!,
+              setNumber: phase.setNumber ?? 0,
+              setType: phase.setType,
+              completed: phase.completed,
+              reps: phase.reps,
+              weightKg: phase.weightKg,
+              durationSeconds: phase.isTimedHold ? phase.seconds : null,
+            ),
+      ];
+
+  List<TimerPhase> exerciseSets(String exerciseId) => phases
+      .where(
+        (phase) =>
+            phase.kind == WorkoutTimerKind.exercise &&
+            phase.exerciseId == exerciseId,
+      )
+      .toList(growable: false);
+
   int elapsedSeconds([DateTime? now]) {
     return elapsedAtResumeSeconds < 0 ? 0 : elapsedAtResumeSeconds;
   }
@@ -489,8 +522,29 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
     final routine = current.copyWith(
       exercises: [...current.exercises, exercise],
     );
-    final phases = buildPhases(routine);
-    final wasEmpty = state.phases.isEmpty;
+    final previous = state.phases;
+    final phases = List<TimerPhase>.from(buildPhases(routine));
+    for (var i = 0; i < phases.length; i++) {
+      final next = phases[i];
+      TimerPhase? match;
+      for (final old in previous) {
+        if (old.kind == next.kind &&
+            old.exerciseId == next.exerciseId &&
+            old.setNumber == next.setNumber) {
+          match = old;
+          break;
+        }
+      }
+      if (match == null) continue;
+      phases[i] = next.copyWith(
+        completed: match.completed,
+        setType: match.setType,
+        reps: match.reps,
+        weightKg: match.weightKg,
+        seconds: match.isTimedHold ? match.seconds : next.seconds,
+      );
+    }
+    final wasEmpty = previous.isEmpty;
     final nextIndex = wasEmpty
         ? 0
         : state.phaseIndex.clamp(0, phases.isEmpty ? 0 : phases.length - 1);
@@ -506,20 +560,32 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
     _arm();
   }
 
-  void addSetToCurrentExercise() {
+  void addSetToCurrentExercise({WorkoutSetType type = WorkoutSetType.working}) {
+    final id = state.currentPhase?.exerciseId ??
+        (state.routine == null || state.routine!.exercises.isEmpty
+            ? null
+            : state.routine!.exercises.last.id);
+    if (id == null) return;
+    addSetToExercise(id, type: type);
+  }
+
+  void addSetToExercise(
+    String exerciseId, {
+    WorkoutSetType type = WorkoutSetType.working,
+  }) {
     final routine = state.routine;
-    final phase = state.currentPhase;
-    if (routine == null || phase?.exerciseId == null) return;
-    final id = phase!.exerciseId!;
+    if (routine == null) return;
     final exercises = [
       for (final ex in routine.exercises)
-        if (ex.id == id) ex.copyWith(sets: ex.sets + 1) else ex,
+        if (ex.id == exerciseId) ex.copyWith(sets: ex.sets + 1) else ex,
     ];
-    final updatedEx = exercises.firstWhere((e) => e.id == id);
-    final newSet = updatedEx.sets;
+    final updatedEx = exercises.where((e) => e.id == exerciseId);
+    if (updatedEx.isEmpty) return;
+    final exercise = updatedEx.first;
+    final newSet = exercise.sets;
     final phases = [
       for (final p in state.phases)
-        if (p.exerciseId == id)
+        if (p.exerciseId == exerciseId)
           p.copyWith(
             setsTotal: newSet,
             label: p.kind == WorkoutTimerKind.exercise && p.setNumber != null
@@ -529,45 +595,50 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
         else
           p,
     ];
-    var lastIndex = phases.lastIndexWhere((p) => p.exerciseId == id);
+    var lastIndex = phases.lastIndexWhere((p) => p.exerciseId == exerciseId);
     if (lastIndex < 0) lastIndex = phases.length - 1;
     final workSeconds =
-        updatedEx.durationSeconds ?? ((updatedEx.reps ?? 10) * 3);
+        exercise.durationSeconds ?? ((exercise.reps ?? 10) * 3);
     final insert = <TimerPhase>[
       TimerPhase(
         kind: WorkoutTimerKind.exercise,
-        label: '${updatedEx.name} · set $newSet/$newSet',
+        label: '${exercise.name} · set $newSet/$newSet',
         seconds: workSeconds.clamp(5, 600),
-        exerciseId: id,
-        exerciseName: updatedEx.name,
+        exerciseId: exerciseId,
+        exerciseName: exercise.name,
         setNumber: newSet,
         setsTotal: newSet,
-        reps: updatedEx.reps,
-        weightKg: updatedEx.weightKg,
-        muscleGroup: updatedEx.muscleGroup,
-        equipment: updatedEx.equipment,
+        reps: exercise.reps,
+        weightKg: exercise.weightKg,
+        muscleGroup: exercise.muscleGroup,
+        equipment: exercise.equipment,
+        setType: type,
       ),
     ];
-    if (updatedEx.restSeconds > 0) {
+    if (exercise.restSeconds > 0) {
       insert.add(
         TimerPhase(
           kind: WorkoutTimerKind.rest,
           label: 'Rest',
-          seconds: updatedEx.restSeconds,
-          exerciseId: id,
-          exerciseName: updatedEx.name,
+          seconds: exercise.restSeconds,
+          exerciseId: exerciseId,
+          exerciseName: exercise.name,
           setNumber: newSet,
           setsTotal: newSet,
-          muscleGroup: updatedEx.muscleGroup,
-          equipment: updatedEx.equipment,
+          muscleGroup: exercise.muscleGroup,
+          equipment: exercise.equipment,
         ),
       );
     }
-    phases.insertAll(lastIndex + 1, insert);
+    if (lastIndex < 0) {
+      phases.addAll(insert);
+    } else {
+      phases.insertAll(lastIndex + 1, insert);
+    }
     state = _copy(
       routine: routine.copyWith(exercises: exercises),
       phases: phases,
-      phaseIndex: state.phaseIndex.clamp(0, phases.length - 1),
+      phaseIndex: state.phaseIndex.clamp(0, phases.isEmpty ? 0 : phases.length - 1),
     );
   }
 
@@ -576,26 +647,53 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
     double? weightKg,
     int? restSeconds,
     int? durationSeconds,
+    WorkoutSetType? setType,
   }) {
     if (state.phases.isEmpty) return;
-    final i = state.phaseIndex.clamp(0, state.phases.length - 1);
-    final phase = state.phases[i];
+    updateSetAt(
+      state.phaseIndex.clamp(0, state.phases.length - 1),
+      reps: reps,
+      weightKg: weightKg,
+      restSeconds: restSeconds,
+      durationSeconds: durationSeconds,
+      setType: setType,
+    );
+  }
+
+  void cycleSetType(int index) {
+    if (index < 0 || index >= state.phases.length) return;
+    final phase = state.phases[index];
+    if (phase.kind != WorkoutTimerKind.exercise) return;
+    updateSetAt(index, setType: phase.setType.next);
+  }
+
+  void updateSetAt(
+    int index, {
+    int? reps,
+    double? weightKg,
+    int? restSeconds,
+    int? durationSeconds,
+    WorkoutSetType? setType,
+  }) {
+    if (index < 0 || index >= state.phases.length) return;
+    final phase = state.phases[index];
     final phases = [...state.phases];
     var nextRemaining = state.remainingSeconds;
-    phases[i] = phase.copyWith(
+    phases[index] = phase.copyWith(
       reps: reps,
       weightKg: weightKg,
       clearReps: reps != null && reps <= 0,
       clearWeight: weightKg != null && weightKg <= 0,
-      seconds: durationSeconds,
+      seconds: durationSeconds?.clamp(5, 600),
+      setType: setType,
     );
     if (durationSeconds != null &&
-        i == state.phaseIndex &&
+        index == state.phaseIndex &&
         phase.kind == WorkoutTimerKind.exercise) {
       nextRemaining = durationSeconds.clamp(5, 600);
     }
     if (restSeconds != null) {
-      for (var j = i + 1; j < phases.length; j++) {
+      for (var j = index + 1; j < phases.length; j++) {
         if (phases[j].kind == WorkoutTimerKind.rest &&
             phases[j].exerciseId == phase.exerciseId) {
           phases[j] = phases[j].copyWith(seconds: restSeconds);
@@ -604,7 +702,9 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
       }
     }
     var routine = state.routine;
-    if (routine != null && phase.exerciseId != null) {
+    if (index == state.phaseIndex &&
+        routine != null &&
+        phase.exerciseId != null) {
       routine = routine.copyWith(
         exercises: [
           for (final ex in routine.exercises)
@@ -725,7 +825,24 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
   void completeSet() {
     if (state.playMode != WorkoutPlayMode.routine) return;
     if (state.completed || state.phases.isEmpty) return;
-    _goToPhase(state.phaseIndex + 1);
+    final i = state.phaseIndex;
+    final phase = state.phases[i];
+    if (phase.kind == WorkoutTimerKind.rest) {
+      skip();
+      return;
+    }
+    final phases = [...state.phases];
+    phases[i] = phase.copyWith(completed: true);
+    state = _copy(phases: phases);
+    if (i + 1 >= state.phases.length) {
+      return;
+    }
+    _goToPhase(i + 1);
+  }
+
+  void skipRest() {
+    if (state.currentPhase?.kind != WorkoutTimerKind.rest) return;
+    skip();
   }
 
   void skip() {
@@ -820,20 +937,21 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
       playMode: state.playMode,
       trainingVolumeKg: volume == 0 ? null : volume,
       distanceMeters: state.distanceMeters <= 0 ? null : state.distanceMeters,
+      setLogs: state.setLogs.where((log) => log.completed).toList(),
     );
     await _ref.read(workoutHistoryProvider.notifier).add(entry);
     stop();
   }
 
   double _trainingVolumeKg() {
-    final routine = state.routine;
-    if (routine == null) return 0;
     var total = 0.0;
-    for (final ex in routine.exercises) {
-      final kg = ex.weightKg ?? 0;
-      final reps = ex.reps ?? 0;
+    for (final phase in state.phases) {
+      if (phase.kind != WorkoutTimerKind.exercise || !phase.completed) continue;
+      if (!phase.setType.countsForVolume) continue;
+      final kg = phase.weightKg ?? 0;
+      final reps = phase.reps ?? 0;
       if (kg <= 0 || reps <= 0) continue;
-      total += kg * reps * ex.sets;
+      total += kg * reps;
     }
     return total;
   }
@@ -983,7 +1101,8 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
       return;
     }
     if (phase.kind == WorkoutTimerKind.stopwatch ||
-        phase.kind == WorkoutTimerKind.activity) {
+        phase.kind == WorkoutTimerKind.activity ||
+        (phase.kind == WorkoutTimerKind.exercise && state.usesSetLogger)) {
       final elapsed = state.elapsedAtResumeSeconds + 1;
       state = _copy(
         stopwatchElapsed: elapsed,
