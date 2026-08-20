@@ -60,8 +60,9 @@ import java.util.concurrent.atomic.AtomicReference
  * Lifecycle mirrors the vendor sample: Application init → scan → connect →
  * notify ready → confirmDevicePwd → syncPersonInfo → health queries.
  *
- * Method/Event channel names stay `com.vytaltek.qring/*` so the existing Flutter
- * bridge keeps working while Android uses HBand underneath.
+ * Method/Event channel names stay `com.vytaltek.qring/methods` and
+ * `com.vytaltek.qring/events` so the existing Flutter bridge keeps working
+ * while Android uses HBand underneath.
  */
 object HBandSdkHost : MethodChannel.MethodCallHandler, EventChannel.StreamHandler {
     private const val TAG = "VytalHBand"

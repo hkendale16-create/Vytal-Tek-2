@@ -20,3 +20,8 @@ Thumbs.db
 **/GoogleService-Info.plist
 **/*service-account*.json
 **/Secrets.xcconfig
+**/android/key.properties
+**/android/keystore/
+**/*.jks
+**/*.keystore
+apps/mobile/android/local.properties
