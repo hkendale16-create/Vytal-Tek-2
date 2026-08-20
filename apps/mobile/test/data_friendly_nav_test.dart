@@ -148,6 +148,26 @@ void main() {
     },
   );
 
+  testWidgets('Timers hub uses tab selector for countdown and rest', (
+    tester,
+  ) async {
+    await enterAppOnly(tester);
+
+    await tapNav(tester, 'Workouts');
+    await tester.tap(find.byTooltip('Timers'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Countdown'), findsOneWidget);
+    expect(find.text('Stopwatch'), findsOneWidget);
+    expect(find.text('Interval'), findsOneWidget);
+    expect(find.text('Rest'), findsOneWidget);
+
+    await tester.tap(find.text('Rest'));
+    await tester.pumpAndSettle();
+    expect(find.text('Auto-start rest after each set'), findsOneWidget);
+    expect(find.text('Start rest'), findsOneWidget);
+  });
+
   testWidgets('Coach tab is Ask Vytal with suggested questions', (
     tester,
   ) async {

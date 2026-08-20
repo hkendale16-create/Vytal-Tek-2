@@ -875,7 +875,7 @@ class _RingsPainter extends CustomPainter {
 
     final outer = size.width / 2 - stroke;
     ring(outer, move, VytalColors.teal);
-    ring(outer - stroke * 1.7, exercise, VytalColors.green);
+    ring(outer - stroke * 1.7, exercise, VytalColors.cyan);
     ring(outer - stroke * 3.4, stand, VytalColors.cyan);
   }
 

@@ -23,6 +23,7 @@ import '../shared/ui_primitives.dart';
 import '../shared/vytal_controls.dart';
 import '../subscription/soft_paywall.dart';
 import '../today/today_health_provider.dart';
+import 'workout_history_ui.dart';
 
 class WorkoutsScreen extends ConsumerStatefulWidget {
   const WorkoutsScreen({super.key});
@@ -43,7 +44,6 @@ class _WorkoutsScreenState extends ConsumerState<WorkoutsScreen> {
         .watch(appSessionProvider)
         .entitlements
         .canUse(EntitlementKeys.workoutsCustom);
-    final theme = Theme.of(context);
 
     return SectionScaffold(
       title: 'Workouts',
@@ -108,10 +108,20 @@ class _WorkoutsScreenState extends ConsumerState<WorkoutsScreen> {
           ),
           if (history.entries.isNotEmpty) ...[
             const SizedBox(height: 16),
-            Text(
-              '${history.entries.length} saved session${history.entries.length == 1 ? '' : 's'}',
-              style: theme.textTheme.bodySmall,
+            const VytalSectionHeader(
+              title: 'Recent',
+              subtitle: 'Tap a session for set logs and details.',
             ),
+            for (final entry in history.entries.take(3))
+              WorkoutHistoryTile(
+                entry: entry,
+                onTap: () => showWorkoutHistoryDetail(context, entry),
+              ),
+            if (history.entries.length > 3)
+              TextButton(
+                onPressed: () => context.push('/workouts/history'),
+                child: Text('View all ${history.entries.length} sessions'),
+              ),
           ],
         ],
       ),
@@ -963,29 +973,9 @@ class WorkoutHistoryScreen extends ConsumerWidget {
           : Column(
               children: [
                 for (final entry in history)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: GlassPanel(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(entry.name,
-                              style: Theme.of(context).textTheme.titleMedium),
-                          Text(
-                            '${entry.activityKind.label} · ${formatClock(entry.durationSeconds)}'
-                            '${entry.distanceMeters != null ? ' · ${formatDistanceKm(entry.distanceMeters!)}' : ''}'
-                            '${entry.setLogs.isNotEmpty ? ' · ${entry.setLogs.length} sets' : ''}',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                          if (entry.trainingVolumeKg != null)
-                            Text(
-                              'Volume ${entry.trainingVolumeKg!.round()} kg',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          if (entry.notes != null) Text(entry.notes!),
-                        ],
-                      ),
-                    ),
+                  WorkoutHistoryTile(
+                    entry: entry,
+                    onTap: () => showWorkoutHistoryDetail(context, entry),
                   ),
               ],
             ),

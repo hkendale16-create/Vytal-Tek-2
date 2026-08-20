@@ -11,8 +11,10 @@ import '../domain/models/entitlements.dart';
 import '../domain/models/workout_models.dart';
 import '../monitoring/monitoring_controller.dart';
 import '../state/app_session_controller.dart';
+import '../timers/clock_controllers.dart';
 import 'workout_gps.dart';
 import 'workout_metrics.dart';
+import 'workout_prefs.dart';
 
 const _routinesKey = 'vytal.workouts.routines.v1';
 const _historyKey = 'vytal.workouts.history.v1';
@@ -842,7 +844,20 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
 
   void skipRest() {
     if (state.currentPhase?.kind != WorkoutTimerKind.rest) return;
+    _stopSharedRestTimer();
     skip();
+  }
+
+  bool get _autoRestEnabled => _ref.read(workoutPrefsProvider).autoRestEnabled;
+
+  void _startSharedRestTimer(int seconds) {
+    if (!_autoRestEnabled || seconds <= 0) return;
+    _ref.read(countdownProvider.notifier).startForTotalSeconds(seconds);
+  }
+
+  void _stopSharedRestTimer() {
+    if (!_autoRestEnabled) return;
+    _ref.read(countdownProvider.notifier).pauseWorkoutRest();
   }
 
   void skip() {
@@ -886,6 +901,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
   void finish() {
     _tick?.cancel();
     _hrPoll?.cancel();
+    _stopSharedRestTimer();
     unawaited(_setDeviceWorkoutMonitoring(false));
     _ref.read(monitoringControllerProvider.notifier).setWorkoutActive(false);
     state = _copy(
@@ -961,6 +977,7 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
   void stop() {
     _tick?.cancel();
     _hrPoll?.cancel();
+    _stopSharedRestTimer();
     unawaited(_gpsSub?.cancel());
     _gpsSub = null;
     _gps.reset();
@@ -1074,14 +1091,21 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
 
   void _goToPhase(int index) {
     if (index >= state.phases.length) {
+      _stopSharedRestTimer();
       finish();
       return;
     }
     if (index < 0) return;
+    final phase = state.phases[index];
+    if (phase.kind == WorkoutTimerKind.rest) {
+      _startSharedRestTimer(phase.seconds);
+    } else {
+      _stopSharedRestTimer();
+    }
     final elapsed = state.elapsedSeconds();
     state = _copy(
       phaseIndex: index,
-      remainingSeconds: state.phases[index].seconds,
+      remainingSeconds: phase.seconds,
       running: true,
       completed: false,
       elapsedAtResumeSeconds: elapsed,
@@ -1107,6 +1131,20 @@ class WorkoutSessionController extends StateNotifier<WorkoutSessionState> {
       state = _copy(
         stopwatchElapsed: elapsed,
         elapsedAtResumeSeconds: elapsed,
+      );
+      return;
+    }
+    if (phase.kind == WorkoutTimerKind.rest && _autoRestEnabled) {
+      final countdown = _ref.read(countdownProvider);
+      final elapsed = state.elapsedAtResumeSeconds + 1;
+      if (countdown.completed) {
+        _goToPhase(state.phaseIndex + 1);
+        return;
+      }
+      state = _copy(
+        remainingSeconds: countdown.remainingSeconds(),
+        elapsedAtResumeSeconds: elapsed,
+        stopwatchElapsed: elapsed,
       );
       return;
     }

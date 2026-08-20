@@ -13,7 +13,9 @@ import '../../domain/models/health_metric.dart';
 import '../../domain/models/monitoring_mode.dart';
 import '../../domain/models/operating_mode.dart';
 import '../../monitoring/monitoring_controller.dart';
+import '../../domain/models/workout_models.dart';
 import '../../state/app_session_controller.dart';
+import '../../workouts/workout_controllers.dart';
 import '../shared/health_ui.dart';
 import '../shared/ui_primitives.dart';
 import 'live_device_stage.dart';
@@ -27,6 +29,7 @@ class TodayScreen extends ConsumerWidget {
     final session = ref.watch(appSessionProvider);
     final connection = ref.watch(deviceConnectionProvider);
     final monitoring = ref.watch(monitoringControllerProvider);
+    final workout = ref.watch(workoutSessionProvider);
     final healthAsync = ref.watch(todayHealthProvider);
     final name = session.profile.displayName?.trim();
     final greeting = (name == null || name.isEmpty)
@@ -43,7 +46,7 @@ class TodayScreen extends ConsumerWidget {
       },
       child: Stack(
         children: [
-          const AnimatedAmbientBackground(intensity: 0.28),
+          const AnimatedAmbientBackground(intensity: 0.12),
           CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
@@ -102,6 +105,25 @@ class TodayScreen extends ConsumerWidget {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          if (workout.running ||
+                              workout.summaryPending ||
+                              workout.completed) ...[
+                            HudStrip(
+                              icon: Icons.fitness_center_outlined,
+                              title: workout.summaryPending
+                                  ? 'View workout summary'
+                                  : 'Resume active workout',
+                              subtitle: workout.routine?.name ??
+                                  workout.activityKind?.label ??
+                                  'In progress',
+                              onTap: () => context.push(
+                                workout.summaryPending
+                                    ? '/workouts/summary'
+                                    : '/workouts/active',
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
                           Text(
                             'How am I doing today?',
                             style: theme.textTheme.titleMedium?.copyWith(
