@@ -20,6 +20,8 @@ import 'live_device_stage.dart';
 import 'today_health_provider.dart';
 import 'today_hero.dart';
 import 'training_guidance.dart';
+import 'weekly_scorecard_card.dart';
+import '../workouts/first_session_panel.dart';
 
 class TodayScreen extends ConsumerWidget {
   const TodayScreen({super.key});
@@ -37,7 +39,8 @@ class TodayScreen extends ConsumerWidget {
     final device = connection.activeDevice ?? session.pairedDevice;
     final theme = Theme.of(context);
     final extras = context.vytalExtras;
-    final weekDays = TrainingGuidance.trainingDaysThisWeek(history.entries);
+    final scorecard = TrainingGuidance.weekScorecard(history.entries);
+    final isNewUser = history.entries.isEmpty;
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -104,8 +107,14 @@ class TodayScreen extends ConsumerWidget {
                           ? 'View summary'
                           : hasActiveWorkout
                               ? 'Resume workout'
-                              : 'Start workout';
+                              : isNewUser
+                                  ? 'Start first session'
+                                  : 'Start workout';
                       void onPrimary() {
+                        if (!hasActiveWorkout && !workout.summaryPending && isNewUser) {
+                          context.push('/workouts');
+                          return;
+                        }
                         context.push(
                           workout.summaryPending
                               ? '/workouts/summary'
@@ -131,50 +140,12 @@ class TodayScreen extends ConsumerWidget {
                             secondaryKey: const Key('today-view-analytics'),
                             onSecondary: () => context.push('/analytics'),
                           ),
+                          if (isNewUser && !hasActiveWorkout) ...[
+                            const SizedBox(height: 12),
+                            const FirstSessionPanel(),
+                          ],
                           const SizedBox(height: 12),
-                          GlassPanel(
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.local_fire_department_outlined,
-                                  color: weekDays > 0
-                                      ? VytalColors.teal
-                                      : extras.textMuted,
-                                  size: 22,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'This week',
-                                        style: theme.textTheme.labelSmall
-                                            ?.copyWith(
-                                          color: extras.textMuted,
-                                          letterSpacing: 1.2,
-                                        ),
-                                      ),
-                                      Text(
-                                        TrainingGuidance.weekSummary(weekDays),
-                                        style: theme.textTheme.titleMedium
-                                            ?.copyWith(
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                if (weekDays > 0)
-                                  TextButton(
-                                    onPressed: () =>
-                                        context.push('/workouts/history'),
-                                    child: const Text('History'),
-                                  ),
-                              ],
-                            ),
-                          ),
+                          WeeklyScorecardCard(scorecard: scorecard),
                           const SizedBox(height: 12),
                           TodayMetricRow(
                             children: [
