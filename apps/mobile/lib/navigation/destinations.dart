@@ -41,7 +41,7 @@ abstract final class NavDestinations {
 
   static const coach = NavDestination(
     path: '/ask',
-    label: 'Coach',
+    label: 'Plans',
     icon: Icons.auto_awesome_outlined,
     selectedIcon: Icons.auto_awesome,
   );
