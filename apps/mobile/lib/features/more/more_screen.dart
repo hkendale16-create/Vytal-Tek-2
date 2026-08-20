@@ -52,6 +52,21 @@ class MoreScreen extends StatelessWidget {
             onTap: () => context.push('/body'),
           ),
           const SizedBox(height: 18),
+          _SectionLabel('Fitness'),
+          HudStrip(
+            icon: Icons.storefront_outlined,
+            title: 'Marketplace',
+            subtitle: 'Trainer programs · interest · checkout',
+            onTap: () => context.push('/fitness/marketplace'),
+          ),
+          const SizedBox(height: 8),
+          HudStrip(
+            icon: Icons.fitness_center_outlined,
+            title: 'Workouts',
+            subtitle: 'Plans, gyms, exercises, progress',
+            onTap: () => context.push('/workouts'),
+          ),
+          const SizedBox(height: 18),
           _SectionLabel('Notes & Reminders'),
           HudStrip(
             icon: Icons.note_alt_outlined,

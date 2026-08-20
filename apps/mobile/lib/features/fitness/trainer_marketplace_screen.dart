@@ -26,8 +26,8 @@ class TrainerMarketplaceScreen extends ConsumerWidget {
     final programs = TrainerMarketplaceCatalog.featured;
 
     return SectionScaffold(
-      title: 'Trainer Programs',
-      subtitle: 'Checkout settles platform fees on the server.',
+      title: 'Marketplace',
+      subtitle: 'Trainer programs · interest · checkout',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

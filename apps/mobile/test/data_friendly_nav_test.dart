@@ -138,6 +138,7 @@ void main() {
     expect(find.text('Quick Start'), findsWidgets);
     expect(find.text('Calendar'), findsWidgets);
     expect(find.text('AI Workout Builder'), findsOneWidget);
+    expect(find.text('Marketplace'), findsOneWidget);
     expect(find.text('Exercises'), findsOneWidget);
     expect(find.text('Gyms Near Me'), findsOneWidget);
     expect(find.text('Progress'), findsWidgets);
