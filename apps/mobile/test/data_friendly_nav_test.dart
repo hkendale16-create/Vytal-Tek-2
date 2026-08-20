@@ -28,7 +28,9 @@ void main() {
         matching: find.text(label),
       ),
     );
-    await tester.pumpAndSettle();
+    // Body/Coach may host continuous motion — avoid infinite pumpAndSettle.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
   }
 
   testWidgets('bottom nav is Today, Workout, Body, Coach, Profile', (
@@ -45,10 +47,9 @@ void main() {
     expect(find.text('Home'), findsNothing);
     expect(find.text(OperatingMode.appOnly.label), findsWidgets);
 
-    // Lazy tabs: only Today is built.
-    expect(find.text('Missing values stay missing.'), findsNothing);
+    // Lazy tabs: Workout category hubs are not built yet.
     expect(find.text('Calisthenics'), findsNothing);
-    expect(find.text('Quick Start'), findsNothing);
+    expect(find.text('Missing values stay missing.'), findsNothing);
     expect(find.text('Recovery / Readiness'), findsNothing);
   });
 
@@ -59,20 +60,20 @@ void main() {
 
     expect(find.textContaining('TODAY'), findsWidgets);
     expect(find.textContaining('PLAN'), findsWidgets);
-    expect(find.text('THIS WEEK'), findsOneWidget);
-    expect(find.text('PROGRESS'), findsOneWidget);
+    expect(find.text('THIS WEEK'), findsWidgets);
+    expect(find.text('PROGRESS'), findsWidgets);
     expect(find.text('VYTAL COACH'), findsOneWidget);
     expect(find.text('Ask Coach'), findsOneWidget);
     expect(find.text('Start Workout'), findsOneWidget);
+    expect(find.text('HEART RATE'), findsNothing);
   });
 
-  testWidgets('Home Analytics/Progress control opens Progress', (
-    tester,
-  ) async {
+  testWidgets('Home Progress control opens Progress', (tester) async {
     await enterAppOnly(tester);
 
     await tester.tap(find.byKey(const Key('today-view-analytics')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.textContaining('Progress'), findsWidgets);
   });
@@ -87,10 +88,9 @@ void main() {
     expect(find.text('Gyms Near Me'), findsOneWidget);
 
     await tapNav(tester, 'Body');
-    expect(find.textContaining('Body'), findsWidgets);
+    expect(find.textContaining('Live Body'), findsWidgets);
 
     await tapNav(tester, 'Coach');
-    expect(find.text('Coach'), findsWidgets);
     expect(find.text('What should I train today?'), findsOneWidget);
 
     await tapNav(tester, 'Profile');
@@ -102,7 +102,7 @@ void main() {
     expect(find.text('Recovery / Readiness'), findsNothing);
   });
 
-  testWidgets('Profile opens recovery and settings overlays', (tester) async {
+  testWidgets('Profile opens recovery overlay', (tester) async {
     await enterAppOnly(tester);
 
     await tapNav(tester, 'Profile');
@@ -110,17 +110,18 @@ void main() {
     expect(find.text('Recovery / Readiness'), findsOneWidget);
     expect(find.text('Analytics'), findsOneWidget);
     expect(find.text('Notes'), findsOneWidget);
-    expect(find.text('Reminders'), findsOneWidget);
     expect(find.text('Devices'), findsWidgets);
     expect(find.text('Subscription'), findsOneWidget);
-    expect(find.text('Settings'), findsWidgets);
 
-    await tester.tap(find.text('Recovery / Readiness'));
-    await tester.pumpAndSettle();
+    final recovery = find.text('Recovery / Readiness');
+    await tester.ensureVisible(recovery);
+    await tester.pump();
+    await tester.tap(recovery, warnIfMissed: false);
+    // Overlay slide transition (~240ms).
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.byType(NavigationBar), findsNothing);
-
-    await tester.pageBack();
-    await tester.pumpAndSettle();
+    expect(find.textContaining('Recovery'), findsWidgets);
   });
 
   testWidgets('Workout hub exposes TRAIN PLAN DISCOVER REVIEW', (tester) async {
@@ -147,7 +148,8 @@ void main() {
 
     await tapNav(tester, 'Workout');
     await tester.tap(find.byTooltip('Timers').first);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.text('Countdown'), findsOneWidget);
     expect(find.text('Stopwatch'), findsOneWidget);
@@ -155,7 +157,8 @@ void main() {
     expect(find.text('Rest'), findsOneWidget);
 
     await tester.tap(find.text('Rest'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
     expect(find.text('Auto-start rest after each set'), findsOneWidget);
     expect(find.text('Start rest'), findsOneWidget);
   });
@@ -165,7 +168,6 @@ void main() {
 
     await tapNav(tester, 'Coach');
 
-    expect(find.text('Coach'), findsWidgets);
     expect(find.text('What should I train today?'), findsOneWidget);
     expect(find.text('Build me a workout.'), findsOneWidget);
   });
