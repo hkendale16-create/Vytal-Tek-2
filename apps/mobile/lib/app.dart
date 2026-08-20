@@ -8,6 +8,7 @@ import 'core/theme/theme_mode_controller.dart';
 import 'core/theme/vytal_theme.dart';
 import 'battery/battery_intelligence.dart';
 import 'battery/battery_providers.dart';
+import 'devices/connection/device_lifecycle.dart';
 import 'health/daily_summary_store.dart';
 import 'monitoring/monitoring_controller.dart';
 import 'subscription/subscription_controller.dart';
@@ -36,6 +37,7 @@ class _VytalAppState extends ConsumerState<VytalApp> {
     // Keep the monitoring engine alive for lifecycle + auto-switching.
     ref.watch(monitoringControllerProvider);
     ref.watch(dailySummaryCaptureProvider);
+    ref.watch(deviceLifecycleProvider);
     ref.listen<BatteryInsight>(batteryIntelligenceProvider, (previous, next) {
       final dedup = ref.read(batteryAlertDedupProvider);
       if (!dedup.shouldNotify(next.alertLevel, next.wearablePercent)) return;

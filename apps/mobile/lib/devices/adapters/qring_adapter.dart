@@ -35,6 +35,8 @@ class QRingWearableAdapter implements WearableDevice {
   QRingHealthSnapshot _lastSnapshot = const QRingHealthSnapshot();
   bool _sleepAvailable = false;
   bool _stepsAvailable = false;
+  int? _liveHeartRateBpm;
+  StreamSubscription<int>? _liveHrSub;
 
   QRingDeviceSupportFlags get supportFlags => _supportFlags;
 
@@ -278,7 +280,42 @@ class QRingWearableAdapter implements WearableDevice {
   }
 
   @override
+  Stream<int> watchLiveHeartRate() {
+    final api = _native;
+    if (api is MethodChannelQRingNativeApi) {
+      return api.liveHeartRateUpdates;
+    }
+    return const Stream.empty();
+  }
+
+  Stream<void> get unexpectedDisconnects {
+    final api = _native;
+    if (api is MethodChannelQRingNativeApi) {
+      return api.unexpectedDisconnects;
+    }
+    return const Stream.empty();
+  }
+
+  void _bindLiveHeartRate() {
+    unawaited(_liveHrSub?.cancel());
+    _liveHrSub = watchLiveHeartRate().listen((bpm) {
+      if (bpm > 0) _liveHeartRateBpm = bpm;
+    });
+  }
+
+  @override
   Future<HealthMetricReading<int>> getHeartRate() async {
+    if (_liveHeartRateBpm != null && _liveHeartRateBpm! > 0) {
+      return HealthMetricReading<int>(
+        key: HealthMetricKeys.heartRate,
+        displayName: 'Heart Rate',
+        value: _liveHeartRateBpm,
+        unit: 'BPM',
+        provenance: DataProvenance.wearable,
+        freshness: ReadingFreshness.live,
+        capturedAt: DateTime.now().toUtc(),
+      );
+    }
     return _gated(
       supported: capabilities.supportsHeartRate,
       key: HealthMetricKeys.heartRate,
@@ -344,6 +381,7 @@ class QRingWearableAdapter implements WearableDevice {
     }
     try {
       await _native.startWorkoutMonitoring();
+      _bindLiveHeartRate();
     } catch (error) {
       throw _mapPlatform(error);
     }
@@ -351,12 +389,16 @@ class QRingWearableAdapter implements WearableDevice {
 
   @override
   Future<void> stopWorkoutMonitoring() async {
+    await _liveHrSub?.cancel();
+    _liveHrSub = null;
+    _liveHeartRateBpm = null;
     try {
       await _native.stopWorkoutMonitoring();
     } catch (_) {}
   }
 
   void dispose() {
+    unawaited(_liveHrSub?.cancel());
     _connection.close();
     _info.close();
     final api = _native;

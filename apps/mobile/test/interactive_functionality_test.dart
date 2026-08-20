@@ -5,7 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vytal_tek/core/permissions/permission_catalog.dart';
 import 'package:vytal_tek/devices/connection/bluetooth_readiness.dart';
+import 'package:vytal_tek/devices/connection/ble_signal.dart';
 import 'package:vytal_tek/devices/connection/device_connection_exception.dart';
+import 'package:vytal_tek/domain/devices/device_connection_state.dart';
 import 'package:vytal_tek/devices/connection/pairing_platform.dart';
 import 'package:vytal_tek/domain/models/notes_models.dart';
 import 'package:vytal_tek/domain/models/workout_models.dart';
@@ -307,6 +309,21 @@ void main() {
         advanced: false,
       );
       expect(reply.toLowerCase(), contains('won’t invent'));
+    });
+  });
+
+  group('BLE prep', () {
+    test('RSSI maps to human signal labels', () {
+      expect(BleSignal.label(-48), 'Strong');
+      expect(BleSignal.label(-65), 'Good');
+      expect(BleSignal.label(-80), 'Medium');
+      expect(BleSignal.label(null), 'Unknown');
+    });
+
+    test('ready state is a linked connection', () {
+      expect(DeviceConnectionState.ready.isLinked, isTrue);
+      expect(DeviceConnectionState.ready.label, 'Ready');
+      expect(DeviceConnectionState.scanning.label, 'Searching');
     });
   });
 }
