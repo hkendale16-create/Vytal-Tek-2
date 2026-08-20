@@ -1,9 +1,13 @@
 package com.vtk21.myapp.hband
 
+import android.Manifest
 import android.app.Application
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import androidx.core.content.ContextCompat
 import com.inuker.bluetooth.library.Code
 import com.inuker.bluetooth.library.Constants
 import com.inuker.bluetooth.library.search.SearchResult
@@ -52,17 +56,17 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Host for the official HBand / Veepoo Android SDK (`VPOperateManager`).
  *
- * Lifecycle mirrors the vendor sample: Application init → scan → connect →
- * notify ready → confirmDevicePwd → syncPersonInfo → health queries.
- *
- * Method/Event channel names stay `com.vytaltek.qring/methods` and
- * `com.vytaltek.qring/events` so the existing Flutter bridge keeps working
- * while Android uses HBand underneath.
+ * Crash guards (critical on connect):
+ * - Flutter [MethodChannel.Result] is answered **once**, on the **main thread**
+ * - Stale BLE callbacks from a previous connect attempt are ignored via [connectGeneration]
+ * - BLE [SecurityException] is converted to channel errors instead of crashing
  */
 object HBandSdkHost : MethodChannel.MethodCallHandler, EventChannel.StreamHandler {
     private const val TAG = "VytalHBand"
@@ -91,7 +95,15 @@ object HBandSdkHost : MethodChannel.MethodCallHandler, EventChannel.StreamHandle
     @Volatile
     private var pendingConnectResult: MethodChannel.Result? = null
 
+    /** Ensures MethodChannel.Result is only answered once per connect attempt. */
+    private val connectReplySent = AtomicBoolean(false)
+
+    /** Bumps on every new connect/disconnect so stale BLE callbacks cannot reply. */
+    private val connectGeneration = AtomicInteger(0)
+
     private var connectTimeoutRunnable: Runnable? = null
+    private var handshakeFallbackRunnable: Runnable? = null
+    private var personInfoFallbackRunnable: Runnable? = null
 
     @Volatile
     private var workoutMonitoringActive = false
@@ -103,10 +115,14 @@ object HBandSdkHost : MethodChannel.MethodCallHandler, EventChannel.StreamHandle
 
     fun init(application: Application) {
         app = application
-        VPOperateManager.getMangerInstance(application.applicationContext)
-        VPOperateManager.getInstance().init(application.applicationContext)
-        VPOperateManager.getInstance().setDeviceShowConfirm(false)
-        Log.i(TAG, "HBand / Veepoo SDK host initialized")
+        try {
+            VPOperateManager.getMangerInstance(application.applicationContext)
+            VPOperateManager.getInstance().init(application.applicationContext)
+            VPOperateManager.getInstance().setDeviceShowConfirm(false)
+            Log.i(TAG, "HBand / Veepoo SDK host initialized")
+        } catch (e: Exception) {
+            Log.e(TAG, "SDK init failed: ${e.message}", e)
+        }
     }
 
     fun attachChannels(methods: MethodChannel, events: EventChannel) {
@@ -123,83 +139,146 @@ object HBandSdkHost : MethodChannel.MethodCallHandler, EventChannel.StreamHandle
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
-        when (call.method) {
-            "isAvailable" -> result.success(true)
-            "initialize" -> result.success(null)
-            "startScan" -> {
-                val timeoutMs = call.argument<Int>("timeoutMs") ?: 12_000
-                startScan(timeoutMs)
-                result.success(null)
-            }
-            "stopScan" -> {
-                stopScan()
-                result.success(null)
-            }
-            "connect" -> {
-                val deviceId = call.argument<String>("deviceId")
-                val name = call.argument<String>("name")
-                if (deviceId.isNullOrBlank()) {
-                    result.error("missing_device_id", "Device id required", null)
-                } else {
-                    connect(deviceId, name, result)
+        try {
+            when (call.method) {
+                "isAvailable" -> result.success(true)
+                "initialize" -> result.success(null)
+                "startScan" -> {
+                    val timeoutMs = call.argument<Int>("timeoutMs") ?: 12_000
+                    startScan(timeoutMs, result)
                 }
-            }
-            "disconnect" -> {
-                // `unbind` is accepted for Flutter API compatibility; HBand
-                // disconnects via disconnectWatch either way.
-                disconnect()
-                result.success(null)
-            }
-            "isConnected" -> result.success(VPOperateManager.getInstance().isCurrentDeviceConnected)
-            "getCapabilities" -> result.success(HashMap(capabilities))
-            "readBattery" -> readBattery(result)
-            "syncHealth" -> syncHealth(result)
-            "startWorkoutMonitoring" -> {
-                if (!VPOperateManager.getInstance().isCurrentDeviceConnected) {
-                    result.error("not_connected", "Wearable is not connected.", null)
-                    return
+                "stopScan" -> {
+                    stopScan()
+                    result.success(null)
                 }
-                startWorkoutMonitoring()
-                result.success(null)
+                "connect" -> {
+                    val deviceId = call.argument<String>("deviceId")
+                    val name = call.argument<String>("name")
+                    if (deviceId.isNullOrBlank()) {
+                        result.error("missing_device_id", "Device id required", null)
+                    } else {
+                        connect(deviceId, name, result)
+                    }
+                }
+                "disconnect" -> {
+                    disconnect()
+                    result.success(null)
+                }
+                "isConnected" -> result.success(
+                    runCatching { VPOperateManager.getInstance().isCurrentDeviceConnected }
+                        .getOrDefault(false),
+                )
+                "getCapabilities" -> result.success(HashMap(capabilities))
+                "readBattery" -> readBattery(result)
+                "syncHealth" -> syncHealth(result)
+                "startWorkoutMonitoring" -> {
+                    if (!isSdkConnected()) {
+                        result.error("not_connected", "Wearable is not connected.", null)
+                        return
+                    }
+                    startWorkoutMonitoring()
+                    result.success(null)
+                }
+                "stopWorkoutMonitoring" -> {
+                    stopWorkoutMonitoring()
+                    result.success(null)
+                }
+                else -> result.notImplemented()
             }
-            "stopWorkoutMonitoring" -> {
-                stopWorkoutMonitoring()
-                result.success(null)
-            }
-            else -> result.notImplemented()
+        } catch (e: SecurityException) {
+            Log.e(TAG, "SecurityException on ${call.method}: ${e.message}", e)
+            result.error(
+                "bluetooth_permission",
+                "Bluetooth permission is required. Allow Bluetooth and try again.",
+                null,
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Unhandled on ${call.method}: ${e.message}", e)
+            result.error("native_error", e.message ?: "Unexpected Bluetooth error", null)
         }
     }
 
-    private fun startScan(timeoutMs: Int) {
+    private fun isSdkConnected(): Boolean =
+        runCatching { VPOperateManager.getInstance().isCurrentDeviceConnected }.getOrDefault(false)
+
+    private fun hasBlePermissions(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            val fine = ContextCompat.checkSelfPermission(
+                app,
+                Manifest.permission.ACCESS_FINE_LOCATION,
+            ) == PackageManager.PERMISSION_GRANTED
+            val coarse = ContextCompat.checkSelfPermission(
+                app,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+            ) == PackageManager.PERMISSION_GRANTED
+            return fine || coarse
+        }
+        val scan = ContextCompat.checkSelfPermission(
+            app,
+            Manifest.permission.BLUETOOTH_SCAN,
+        ) == PackageManager.PERMISSION_GRANTED
+        val connect = ContextCompat.checkSelfPermission(
+            app,
+            Manifest.permission.BLUETOOTH_CONNECT,
+        ) == PackageManager.PERMISSION_GRANTED
+        return scan && connect
+    }
+
+    private fun startScan(timeoutMs: Int, result: MethodChannel.Result) {
+        if (!hasBlePermissions()) {
+            result.error(
+                "bluetooth_permission",
+                "Bluetooth permission is required. Allow Bluetooth and try again.",
+                null,
+            )
+            return
+        }
         stopScan()
         val timeoutSec = (timeoutMs / 1000).coerceAtLeast(5)
-        VPOperateManager.getInstance().startScanDevice(
-            timeoutSec,
-            object : SearchResponse {
-                override fun onSearchStarted() {}
+        try {
+            VPOperateManager.getInstance().startScanDevice(
+                timeoutSec,
+                object : SearchResponse {
+                    override fun onSearchStarted() {}
 
-                override fun onDeviceFounded(device: SearchResult?) {
-                    if (device == null) return
-                    val name = device.name?.takeIf { it.isNotBlank() } ?: return
-                    emit(
-                        "scanResult",
-                        mapOf(
-                            "deviceId" to device.address,
-                            "name" to name,
-                            "rssi" to device.rssi,
-                        ),
-                    )
-                }
+                    override fun onDeviceFounded(device: SearchResult?) {
+                        if (device == null) return
+                        try {
+                            val name = device.name?.takeIf { it.isNotBlank() } ?: return
+                            val address = device.address ?: return
+                            emit(
+                                "scanResult",
+                                mapOf(
+                                    "deviceId" to address,
+                                    "name" to name,
+                                    "rssi" to device.rssi,
+                                ),
+                            )
+                        } catch (e: SecurityException) {
+                            Log.w(TAG, "scan result blocked: ${e.message}")
+                        }
+                    }
 
-                override fun onSearchStopped() {
-                    emit("scanStopped", emptyMap<String, Any>())
-                }
+                    override fun onSearchStopped() {
+                        emit("scanStopped", emptyMap<String, Any>())
+                    }
 
-                override fun onSearchCanceled() {
-                    emit("scanStopped", emptyMap<String, Any>())
-                }
-            },
-        )
+                    override fun onSearchCanceled() {
+                        emit("scanStopped", emptyMap<String, Any>())
+                    }
+                },
+            )
+            result.success(null)
+        } catch (e: SecurityException) {
+            result.error(
+                "bluetooth_permission",
+                "Bluetooth permission is required. Allow Bluetooth and try again.",
+                null,
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "startScan failed: ${e.message}", e)
+            result.error("scan_failed", e.message ?: "Scan failed", null)
+        }
         mainHandler.postDelayed({ stopScan() }, timeoutMs.toLong())
     }
 
@@ -212,12 +291,51 @@ object HBandSdkHost : MethodChannel.MethodCallHandler, EventChannel.StreamHandle
     }
 
     private fun connect(deviceId: String, name: String?, result: MethodChannel.Result) {
-        stopScan()
-        pendingConnectResult?.error("cancelled", "Superseded by a new connect", null)
+        if (!hasBlePermissions()) {
+            result.error(
+                "bluetooth_permission",
+                "Bluetooth permission is required. Allow Bluetooth and try again.",
+                null,
+            )
+            return
+        }
+
+        // Finish any in-flight connect safely before accepting a new Result.
+        // Bump generation first so stale BLE callbacks cannot touch the new Result.
+        cancelConnectTimers()
+        val generation = connectGeneration.incrementAndGet()
+        if (connectReplySent.compareAndSet(false, true)) {
+            val previous = pendingConnectResult
+            pendingConnectResult = null
+            mainHandler.post {
+                try {
+                    previous?.error("cancelled", "Superseded by a new connect", null)
+                } catch (_: Exception) {
+                }
+            }
+        } else {
+            pendingConnectResult = null
+        }
+
+        connectReplySent.set(false)
         pendingConnectResult = result
-        connectTimeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+        handshakeFinishing = false
+        capabilities = defaultCapabilities()
+        firmwareVersion = null
+        connectedName = name?.takeIf { it.isNotBlank() } ?: "Vytal"
+
+        stopScan()
+
+        // Unregister using the previous MAC before overwriting.
+        unregisterConnectListener()
+        connectedMac = deviceId
+
         val timeout = Runnable {
-            failConnect("connect_timeout", "Connecting timed out. Keep the device nearby and try again.")
+            failConnect(
+                generation,
+                "connect_timeout",
+                "Connecting timed out. Keep the device nearby and try again.",
+            )
             try {
                 VPOperateManager.getInstance().disconnectWatch(noopWrite)
             } catch (_: Exception) {
@@ -226,15 +344,9 @@ object HBandSdkHost : MethodChannel.MethodCallHandler, EventChannel.StreamHandle
         connectTimeoutRunnable = timeout
         mainHandler.postDelayed(timeout, CONNECT_TIMEOUT_MS)
 
-        connectedMac = deviceId
-        connectedName = name?.takeIf { it.isNotBlank() } ?: "Vytal"
-        capabilities = defaultCapabilities()
-        firmwareVersion = null
-        handshakeFinishing = false
-
-        unregisterConnectListener()
         val listener = object : IABleConnectStatusListener() {
             override fun onConnectStatusChanged(mac: String?, status: Int) {
+                if (generation != connectGeneration.get()) return
                 if (status == Constants.STATUS_DISCONNECTED) {
                     emit(
                         "connection",
@@ -247,102 +359,153 @@ object HBandSdkHost : MethodChannel.MethodCallHandler, EventChannel.StreamHandle
             }
         }
         connectStatusListener = listener
-        VPOperateManager.getInstance().registerConnectStatusListener(deviceId, listener)
 
-        VPOperateManager.getInstance().connectDevice(
-            deviceId,
-            connectedName,
-            IConnectResponse { code, _, isOadModel ->
-                if (code == Code.REQUEST_SUCCESS) {
-                    Log.i(TAG, "GATT connected (oad=$isOadModel)")
-                } else {
-                    failConnect("connect_failed", "Bluetooth connection failed ($code).")
-                }
-            },
-            INotifyResponse { state ->
-                if (state == Code.REQUEST_SUCCESS) {
-                    runHandshake()
-                } else {
-                    failConnect("notify_failed", "Device notifications failed to open ($state).")
-                }
-            },
-        )
+        try {
+            VPOperateManager.getInstance().registerConnectStatusListener(deviceId, listener)
+            VPOperateManager.getInstance().connectDevice(
+                deviceId,
+                connectedName,
+                IConnectResponse { code, _, isOadModel ->
+                    if (generation != connectGeneration.get()) return@IConnectResponse
+                    if (code == Code.REQUEST_SUCCESS) {
+                        Log.i(TAG, "GATT connected (oad=$isOadModel) gen=$generation")
+                    } else {
+                        failConnect(
+                            generation,
+                            "connect_failed",
+                            "Bluetooth connection failed ($code).",
+                        )
+                    }
+                },
+                INotifyResponse { state ->
+                    if (generation != connectGeneration.get()) return@INotifyResponse
+                    if (state == Code.REQUEST_SUCCESS) {
+                        runHandshake(generation)
+                    } else {
+                        failConnect(
+                            generation,
+                            "notify_failed",
+                            "Device notifications failed to open ($state).",
+                        )
+                    }
+                },
+            )
+        } catch (e: SecurityException) {
+            failConnect(
+                generation,
+                "bluetooth_permission",
+                "Bluetooth permission is required. Allow Bluetooth and try again.",
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "connectDevice failed: ${e.message}", e)
+            failConnect(generation, "connect_failed", e.message ?: "Bluetooth connection failed.")
+        }
     }
 
-    private fun runHandshake() {
-        VPOperateManager.getInstance().confirmDevicePwd(
-            noopWrite,
-            object : IPwdDataListener {
-                override fun onPwdDataChange(pwdData: PwdData?) {
-                    if (pwdData == null) return
-                    firmwareVersion = pwdData.deviceVersion
-                    when (pwdData.getmStatus()) {
-                        EPwdStatus.CHECK_FAIL ->
-                            failConnect("password_failed", "Device password check failed.")
-                        EPwdStatus.CHECK_SUCCESS,
-                        EPwdStatus.CHECK_AND_TIME_SUCCESS,
-                        -> {
-                            // Fallback if custom-setting callback is delayed/missing.
-                            mainHandler.postDelayed({
-                                if (!handshakeFinishing && pendingConnectResult != null) {
-                                    syncPersonInfoThenComplete()
+    private fun runHandshake(generation: Int) {
+        if (generation != connectGeneration.get()) return
+        try {
+            VPOperateManager.getInstance().confirmDevicePwd(
+                noopWrite,
+                object : IPwdDataListener {
+                    override fun onPwdDataChange(pwdData: PwdData?) {
+                        if (generation != connectGeneration.get() || pwdData == null) return
+                        firmwareVersion = pwdData.deviceVersion
+                        when (pwdData.getmStatus()) {
+                            EPwdStatus.CHECK_FAIL ->
+                                failConnect(
+                                    generation,
+                                    "password_failed",
+                                    "Device password check failed.",
+                                )
+                            EPwdStatus.CHECK_SUCCESS,
+                            EPwdStatus.CHECK_AND_TIME_SUCCESS,
+                            -> {
+                                handshakeFallbackRunnable?.let { mainHandler.removeCallbacks(it) }
+                                val fallback = Runnable {
+                                    if (generation != connectGeneration.get()) return@Runnable
+                                    if (!handshakeFinishing && !connectReplySent.get()) {
+                                        syncPersonInfoThenComplete(generation)
+                                    }
                                 }
-                            }, 2_500)
+                                handshakeFallbackRunnable = fallback
+                                mainHandler.postDelayed(fallback, 2_500)
+                            }
+                            else -> Unit
                         }
-                        else -> Unit
                     }
-                }
 
-                override fun onConnectionConfirmTimeout() {
-                    failConnect("password_timeout", "Device password confirmation timed out.")
-                }
-            },
-            object : IDeviceFuctionDataListener {
-                override fun onFunctionSupportDataChange(functionSupport: FunctionDeviceSupportData?) {
-                    if (functionSupport != null) {
-                        mergeCapabilities(functionSupport)
+                    override fun onConnectionConfirmTimeout() {
+                        failConnect(
+                            generation,
+                            "password_timeout",
+                            "Device password confirmation timed out.",
+                        )
                     }
-                }
+                },
+                object : IDeviceFuctionDataListener {
+                    override fun onFunctionSupportDataChange(functionSupport: FunctionDeviceSupportData?) {
+                        if (generation != connectGeneration.get()) return
+                        if (functionSupport != null) {
+                            mergeCapabilities(functionSupport)
+                        }
+                    }
 
-                override fun onDeviceFunctionPackage1Report(p: DeviceFunctionPackage1?) {}
-                override fun onDeviceFunctionPackage2Report(p: DeviceFunctionPackage2?) {}
-                override fun onDeviceFunctionPackage3Report(p: DeviceFunctionPackage3?) {}
-                override fun onDeviceFunctionPackage4Report(p: DeviceFunctionPackage4?) {}
-                override fun onDeviceFunctionPackage5Report(p: DeviceFunctionPackage5?) {}
-            },
-            object : ISocialMsgDataListener {
-                override fun onSocialMsgSupportDataChange(data: FunctionSocailMsgData?) {}
-                override fun onSocialMsgSupportDataChange2(data: FunctionSocailMsgData?) {}
-            },
-            object : ICustomSettingDataListener {
-                override fun OnSettingDataChange(customSettingData: CustomSettingData?) {
-                    syncPersonInfoThenComplete()
-                }
-            },
-            DEFAULT_PWD,
-            true,
-        )
+                    override fun onDeviceFunctionPackage1Report(p: DeviceFunctionPackage1?) {}
+                    override fun onDeviceFunctionPackage2Report(p: DeviceFunctionPackage2?) {}
+                    override fun onDeviceFunctionPackage3Report(p: DeviceFunctionPackage3?) {}
+                    override fun onDeviceFunctionPackage4Report(p: DeviceFunctionPackage4?) {}
+                    override fun onDeviceFunctionPackage5Report(p: DeviceFunctionPackage5?) {}
+                },
+                object : ISocialMsgDataListener {
+                    override fun onSocialMsgSupportDataChange(data: FunctionSocailMsgData?) {}
+                    override fun onSocialMsgSupportDataChange2(data: FunctionSocailMsgData?) {}
+                },
+                object : ICustomSettingDataListener {
+                    override fun OnSettingDataChange(customSettingData: CustomSettingData?) {
+                        if (generation != connectGeneration.get()) return
+                        syncPersonInfoThenComplete(generation)
+                    }
+                },
+                DEFAULT_PWD,
+                true,
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "confirmDevicePwd failed: ${e.message}", e)
+            failConnect(generation, "handshake_failed", e.message ?: "Device handshake failed.")
+        }
     }
 
-    private fun syncPersonInfoThenComplete() {
+    private fun syncPersonInfoThenComplete(generation: Int) {
+        if (generation != connectGeneration.get()) return
         if (handshakeFinishing) return
         handshakeFinishing = true
-        VPOperateManager.getInstance().syncPersonInfo(
-            noopWrite,
-            object : IPersonInfoDataListener {
-                override fun OnPersoninfoDataChange(status: EOprateStauts?) {
-                    completeConnectSuccess()
-                }
-            },
-            // Placeholder profile until profile sync is wired from Flutter.
-            PersonInfoData(ESex.MAN, 170, 65, 30, 8000),
-        )
-        // If person-info ack never arrives, still mark connected after pwd success.
-        mainHandler.postDelayed({
-            if (pendingConnectResult != null) {
-                completeConnectSuccess()
+        try {
+            VPOperateManager.getInstance().syncPersonInfo(
+                noopWrite,
+                object : IPersonInfoDataListener {
+                    override fun OnPersoninfoDataChange(status: EOprateStauts?) {
+                        if (generation != connectGeneration.get()) return
+                        completeConnectSuccess(generation)
+                    }
+                },
+                PersonInfoData(ESex.MAN, 170, 65, 30, 8000),
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "syncPersonInfo failed: ${e.message}", e)
+            // Password already succeeded — still treat as connected.
+            completeConnectSuccess(generation)
+            return
+        }
+        personInfoFallbackRunnable?.let { mainHandler.removeCallbacks(it) }
+        val fallback = Runnable {
+            if (generation != connectGeneration.get()) return@Runnable
+            if (!connectReplySent.get()) {
+                completeConnectSuccess(generation)
             }
-        }, 4_000)
+        }
+        personInfoFallbackRunnable = fallback
+        mainHandler.postDelayed(fallback, 4_000)
     }
 
     private fun mergeCapabilities(support: FunctionDeviceSupportData) {
@@ -374,9 +537,10 @@ object HBandSdkHost : MethodChannel.MethodCallHandler, EventChannel.StreamHandle
         capabilities = map
     }
 
-    private fun completeConnectSuccess() {
-        connectTimeoutRunnable?.let { mainHandler.removeCallbacks(it) }
-        connectTimeoutRunnable = null
+    private fun completeConnectSuccess(generation: Int) {
+        if (generation != connectGeneration.get()) return
+        if (!connectReplySent.compareAndSet(false, true)) return
+        cancelConnectTimers()
         val payload = hashMapOf<String, Any?>(
             "deviceId" to (connectedMac ?: ""),
             "name" to connectedName,
@@ -384,24 +548,78 @@ object HBandSdkHost : MethodChannel.MethodCallHandler, EventChannel.StreamHandle
             "capabilities" to HashMap(capabilities),
             "state" to "connected",
         )
-        emit("connection", payload)
-        pendingConnectResult?.success(payload)
+        val result = pendingConnectResult
         pendingConnectResult = null
+        // Flutter MethodChannel.Result must be used on the platform (main) thread.
+        mainHandler.post {
+            try {
+                emit("connection", payload)
+                result?.success(payload)
+            } catch (e: Exception) {
+                Log.e(TAG, "connect success reply failed: ${e.message}", e)
+            }
+        }
     }
 
-    private fun failConnect(code: String, message: String) {
+    private fun failConnect(generation: Int, code: String, message: String) {
+        if (generation != connectGeneration.get()) return
+        invalidatePendingConnect(code, message, emitEvent = true)
+    }
+
+    /**
+     * Answers the pending connect [MethodChannel.Result] at most once, on the main thread.
+     * Also bumps [connectGeneration] when [bumpGeneration] is true so stale BLE callbacks stop.
+     */
+    private fun invalidatePendingConnect(
+        code: String,
+        message: String,
+        emitEvent: Boolean,
+        bumpGeneration: Boolean = false,
+    ) {
+        if (bumpGeneration) {
+            connectGeneration.incrementAndGet()
+        }
+        if (!connectReplySent.compareAndSet(false, true)) {
+            pendingConnectResult = null
+            return
+        }
+        cancelConnectTimers()
+        val result = pendingConnectResult
+        pendingConnectResult = null
+        mainHandler.post {
+            try {
+                if (emitEvent) {
+                    emit(
+                        "connection",
+                        mapOf("state" to "error", "code" to code, "message" to message),
+                    )
+                }
+                result?.error(code, message, null)
+            } catch (e: Exception) {
+                Log.e(TAG, "connect error reply failed: ${e.message}", e)
+            }
+        }
+    }
+
+    private fun cancelConnectTimers() {
         connectTimeoutRunnable?.let { mainHandler.removeCallbacks(it) }
         connectTimeoutRunnable = null
-        emit(
-            "connection",
-            mapOf("state" to "error", "code" to code, "message" to message),
-        )
-        pendingConnectResult?.error(code, message, null)
-        pendingConnectResult = null
+        handshakeFallbackRunnable?.let { mainHandler.removeCallbacks(it) }
+        handshakeFallbackRunnable = null
+        personInfoFallbackRunnable?.let { mainHandler.removeCallbacks(it) }
+        personInfoFallbackRunnable = null
     }
 
     private fun disconnect() {
         stopWorkoutMonitoring()
+        cancelConnectTimers()
+        invalidatePendingConnect(
+            "disconnected",
+            "Disconnected",
+            emitEvent = false,
+            bumpGeneration = true,
+        )
+        handshakeFinishing = false
         unregisterConnectListener()
         try {
             VPOperateManager.getInstance().disconnectWatch(noopWrite)
@@ -424,40 +642,49 @@ object HBandSdkHost : MethodChannel.MethodCallHandler, EventChannel.StreamHandle
     }
 
     private fun readBattery(result: MethodChannel.Result) {
-        if (!VPOperateManager.getInstance().isCurrentDeviceConnected) {
+        if (!isSdkConnected()) {
             result.success(null)
             return
         }
-        VPOperateManager.getInstance().readBattery(
-            noopWrite,
-            object : IBatteryDataListener {
-                override fun onDataChange(data: BatteryData?) {
-                    mainHandler.post {
-                        if (data == null) {
-                            result.success(null)
-                            return@post
-                        }
-                        val percent =
-                            if (data.isPercent) data.batteryPercent
-                            else when (data.batteryLevel) {
-                                in 0..4 -> (data.batteryLevel + 1) * 20
-                                else -> data.batteryPercent
+        try {
+            VPOperateManager.getInstance().readBattery(
+                noopWrite,
+                object : IBatteryDataListener {
+                    override fun onDataChange(data: BatteryData?) {
+                        mainHandler.post {
+                            try {
+                                if (data == null) {
+                                    result.success(null)
+                                    return@post
+                                }
+                                val percent =
+                                    if (data.isPercent) data.batteryPercent
+                                    else when (data.batteryLevel) {
+                                        in 0..4 -> (data.batteryLevel + 1) * 20
+                                        else -> data.batteryPercent
+                                    }
+                                result.success(
+                                    mapOf(
+                                        "percent" to percent.coerceIn(0, 100),
+                                        "charging" to (data.state == 1),
+                                        "rawLevel" to data.batteryLevel,
+                                    ),
+                                )
+                            } catch (e: Exception) {
+                                Log.e(TAG, "readBattery reply: ${e.message}", e)
                             }
-                        result.success(
-                            mapOf(
-                                "percent" to percent.coerceIn(0, 100),
-                                "charging" to (data.state == 1),
-                                "rawLevel" to data.batteryLevel,
-                            ),
-                        )
+                        }
                     }
-                }
-            },
-        )
+                },
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "readBattery: ${e.message}", e)
+            result.success(null)
+        }
     }
 
     private fun syncHealth(result: MethodChannel.Result) {
-        if (!VPOperateManager.getInstance().isCurrentDeviceConnected) {
+        if (!isSdkConnected()) {
             result.error("not_connected", "Wearable is not connected.", null)
             return
         }
@@ -466,7 +693,6 @@ object HBandSdkHost : MethodChannel.MethodCallHandler, EventChannel.StreamHandle
             out["sleepAvailable"] = true
             out["stepsAvailable"] = true
 
-            // Battery
             runCatching {
                 val latch = CountDownLatch(1)
                 val ref = AtomicReference<BatteryData?>()
@@ -498,7 +724,6 @@ object HBandSdkHost : MethodChannel.MethodCallHandler, EventChannel.StreamHandle
                 }
             }
 
-            // Steps / calories / distance
             runCatching {
                 val latch = CountDownLatch(1)
                 val ref = AtomicReference<SportData?>()
@@ -520,7 +745,6 @@ object HBandSdkHost : MethodChannel.MethodCallHandler, EventChannel.StreamHandle
                 }
             }
 
-            // Sleep (today = day index 1 in vendor samples)
             runCatching {
                 val latch = CountDownLatch(1)
                 val ref = AtomicReference<SleepData?>()
@@ -547,7 +771,6 @@ object HBandSdkHost : MethodChannel.MethodCallHandler, EventChannel.StreamHandle
                 }
             }
 
-            // HRV — last positive sample for day 1
             if (capabilities["supportHrv"] == true) {
                 runCatching {
                     val latch = CountDownLatch(1)
@@ -582,7 +805,6 @@ object HBandSdkHost : MethodChannel.MethodCallHandler, EventChannel.StreamHandle
                 }
             }
 
-            // SpO2
             if (capabilities["supportBloodOxygen"] == true) {
                 runCatching {
                     val latch = CountDownLatch(1)
@@ -616,7 +838,6 @@ object HBandSdkHost : MethodChannel.MethodCallHandler, EventChannel.StreamHandle
                 }
             }
 
-            // Temperature
             if (capabilities["supportTemperature"] == true) {
                 runCatching {
                     val latch = CountDownLatch(1)
@@ -657,24 +878,35 @@ object HBandSdkHost : MethodChannel.MethodCallHandler, EventChannel.StreamHandle
                 }
             }
 
-            mainHandler.post { result.success(out) }
+            mainHandler.post {
+                try {
+                    result.success(out)
+                } catch (e: Exception) {
+                    Log.e(TAG, "syncHealth reply: ${e.message}", e)
+                }
+            }
         }.start()
     }
 
     private fun startWorkoutMonitoring() {
         workoutMonitoringActive = true
-        VPOperateManager.getInstance().startDetectHeart(
-            noopWrite,
-            object : IHeartDataListener {
-                override fun onDataChange(heart: HeartData?) {
-                    if (!workoutMonitoringActive) return
-                    val bpm = heart?.data ?: 0
-                    if (bpm > 0) {
-                        emit("heartRateUpdate", mapOf("bpm" to bpm))
+        try {
+            VPOperateManager.getInstance().startDetectHeart(
+                noopWrite,
+                object : IHeartDataListener {
+                    override fun onDataChange(heart: HeartData?) {
+                        if (!workoutMonitoringActive) return
+                        val bpm = heart?.data ?: 0
+                        if (bpm > 0) {
+                            emit("heartRateUpdate", mapOf("bpm" to bpm))
+                        }
                     }
-                }
-            },
-        )
+                },
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "startDetectHeart: ${e.message}", e)
+            workoutMonitoringActive = false
+        }
     }
 
     private fun stopWorkoutMonitoring() {
@@ -688,7 +920,11 @@ object HBandSdkHost : MethodChannel.MethodCallHandler, EventChannel.StreamHandle
 
     private fun emit(type: String, payload: Map<String, Any?>) {
         mainHandler.post {
-            eventSink?.success(mapOf("type" to type, "payload" to payload))
+            try {
+                eventSink?.success(mapOf("type" to type, "payload" to payload))
+            } catch (e: Exception) {
+                Log.w(TAG, "emit($type) failed: ${e.message}")
+            }
         }
     }
 

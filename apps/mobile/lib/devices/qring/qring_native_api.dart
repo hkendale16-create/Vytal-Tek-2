@@ -240,14 +240,20 @@ class MethodChannelQRingNativeApi implements QRingNativeApi {
       case 'connection':
         if (payload is Map) {
           final state = payload['state'] as String?;
-          if (state == 'connected' && _connectCompleter != null) {
-            _connectCompleter!.complete(
+          final completer = _connectCompleter;
+          if (state == 'connected' &&
+              completer != null &&
+              !completer.isCompleted) {
+            completer.complete(
               QRingNativeConnectionResult.fromMap(payload),
             );
-            _connectCompleter = null;
+            if (identical(_connectCompleter, completer)) {
+              _connectCompleter = null;
+            }
           } else if ((state == 'error' || state == 'disconnected') &&
-              _connectCompleter != null) {
-            _connectCompleter!.completeError(
+              completer != null &&
+              !completer.isCompleted) {
+            completer.completeError(
               PlatformException(
                 code: payload['code'] as String? ??
                     (state == 'disconnected' ? 'disconnected' : 'connect_failed'),
@@ -255,7 +261,9 @@ class MethodChannelQRingNativeApi implements QRingNativeApi {
                     'Could not connect to the wearable.',
               ),
             );
-            _connectCompleter = null;
+            if (identical(_connectCompleter, completer)) {
+              _connectCompleter = null;
+            }
           } else if (state == 'disconnected') {
             _disconnectController.add(null);
           }
@@ -323,14 +331,32 @@ class MethodChannelQRingNativeApi implements QRingNativeApi {
         completer.complete(QRingNativeConnectionResult.fromMap(immediate));
         _connectCompleter = null;
       }
-    } on PlatformException {
-      _connectCompleter = null;
+    } on PlatformException catch (error) {
+      // Event channel may have already completed this connect successfully.
+      if (completer.isCompleted) {
+        return completer.future;
+      }
+      if (identical(_connectCompleter, completer)) {
+        _connectCompleter = null;
+      }
+      // Ignore benign cancel from a superseded native connect attempt.
+      if (error.code == 'cancelled' && completer.isCompleted) {
+        return completer.future;
+      }
+      if (error.code == 'cancelled') {
+        throw PlatformException(
+          code: 'connect_failed',
+          message: error.message ?? 'Could not connect to the wearable.',
+        );
+      }
       rethrow;
     }
     return completer.future.timeout(
       const Duration(seconds: 60),
       onTimeout: () {
-        _connectCompleter = null;
+        if (identical(_connectCompleter, completer)) {
+          _connectCompleter = null;
+        }
         throw PlatformException(
           code: 'connect_timeout',
           message:
